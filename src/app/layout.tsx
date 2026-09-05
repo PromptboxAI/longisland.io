@@ -45,10 +45,12 @@ export const metadata: Metadata = {
     title: `${site.name} — ${site.tagline}`,
     description: site.description,
   },
+  // No blanket `index, follow`: crawlers index by default, and asserting it
+  // here put a contradictory directive on every not-found render alongside the
+  // `noindex` Next injects. Pages that must not be indexed (/search, the
+  // not-found metadata) opt out explicitly instead.
   robots: {
-    index: true,
-    follow: true,
-    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+    googleBot: { "max-image-preview": "large" },
   },
 };
 
