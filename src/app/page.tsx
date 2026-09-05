@@ -8,6 +8,7 @@ import { AdvertiseCTA } from "@/components/cta/AdvertiseCTA";
 import { NewsletterSignup } from "@/components/cta/NewsletterSignup";
 import { NominationCTA } from "@/components/cta/NominationCTA";
 import { SearchBar } from "@/components/site/SearchBar";
+import { EmptyRail } from "@/components/ui/EmptyRail";
 import { RuleHeading } from "@/components/ui/RuleHeading";
 import {
   listBadgedBusinesses,
@@ -127,26 +128,61 @@ export default async function HomePage() {
 
       {/* ------------------------------------- Magazine row: rails + lead story */}
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        {/*
+          The three-column magazine row always renders, so the page keeps its
+          shape before any ranking is published. Each rail falls back to a short
+          note and the centre slot carries the explanation — all three are fed
+          by the same table, so they fill together the moment a list ships.
+        */}
         <div className="grid gap-8 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)_minmax(0,260px)]">
           <aside aria-labelledby="the-latest" className="order-2 lg:order-1">
             <RuleHeading id="the-latest" title="The Latest" size="sm" />
             <div className="mt-4 space-y-4">
-              {latest.map((ranking) => (
-                <RankingCard key={ranking.id} ranking={ranking} variant="text" />
-              ))}
+              {latest.length > 0 ? (
+                latest.map((ranking) => (
+                  <RankingCard key={ranking.id} ranking={ranking} variant="text" />
+                ))
+              ) : (
+                <p className="text-sm leading-relaxed text-ink-500">
+                  New rankings and guides will appear here as they publish.
+                </p>
+              )}
             </div>
           </aside>
 
           <div className="order-1 lg:order-2">
-            {lead ? <RankingCard ranking={lead} variant="feature" priority /> : null}
+            {lead ? (
+              <RankingCard ranking={lead} variant="feature" priority />
+            ) : (
+              <EmptyRail
+                title="The first rankings are being researched"
+                actions={[
+                  { label: "Nominate a business", href: "/nominate", primary: true },
+                  { label: "Browse categories", href: "/categories" },
+                ]}
+              >
+                We publish a list once we have actually done the work — visited
+                the places, compared them against a consistent standard, and
+                written down why each one earned its position. Nothing goes up
+                before then.
+              </EmptyRail>
+            )}
           </div>
 
           <aside aria-labelledby="top-rankings" className="order-3">
             <RuleHeading id="top-rankings" title="Top Rankings" size="sm" />
             <div className="mt-4">
-              {rankings.slice(0, 5).map((ranking) => (
-                <RankingCard key={ranking.id} ranking={ranking} variant="compact" />
-              ))}
+              {rankings.length > 0 ? (
+                rankings
+                  .slice(0, 5)
+                  .map((ranking) => (
+                    <RankingCard key={ranking.id} ranking={ranking} variant="compact" />
+                  ))
+              ) : (
+                <p className="text-sm leading-relaxed text-ink-500">
+                  Our most-read lists will be collected here.
+                </p>
+              )}
               <Link
                 href="/best"
                 className="mt-3 inline-block text-sm font-semibold text-brand-600 hover:underline"
@@ -159,27 +195,29 @@ export default async function HomePage() {
       </div>
 
       {/* ---------------------------------------------------------- Top picks */}
-      {topPicks.length > 0 ? (
-        <section
-          aria-labelledby="top-picks"
-          className="border-y border-line bg-sand-50"
-        >
-          <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <RuleHeading
-              id="top-picks"
-              title="Our Top Picks"
-              description="The lists our editors send people to first, updated as places change."
-              href="/best"
-              linkLabel="All rankings"
-            />
+      <section aria-labelledby="top-picks" className="border-y border-line bg-sand-50">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <RuleHeading
+            id="top-picks"
+            title="Our Top Picks"
+            description="The lists our editors send people to first, updated as places change."
+            href="/best"
+            linkLabel="All rankings"
+          />
+          {topPicks.length > 0 ? (
             <div className="mt-7 grid gap-7 sm:grid-cols-2 lg:grid-cols-4">
               {topPicks.map((ranking) => (
                 <RankingCard key={ranking.id} ranking={ranking} />
               ))}
             </div>
-          </div>
-        </section>
-      ) : null}
+          ) : (
+            <p className="mt-6 text-sm leading-relaxed text-ink-500">
+              Our editors&rsquo; first picks will be collected here once the
+              opening rankings publish.
+            </p>
+          )}
+        </div>
+      </section>
 
       {/* ------------------------------------------------------- Search band */}
       <section className="bg-navy-900">
@@ -198,20 +236,28 @@ export default async function HomePage() {
       </section>
 
       {/* --------------------------------------------------------- Trending */}
-      {trending.length > 0 ? (
-        <section aria-labelledby="trending" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-          <RuleHeading
-            id="trending"
-            title="What's Trending Now"
-            description="The rankings Long Islanders are reading this week."
-          />
+      <section
+        aria-labelledby="trending"
+        className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
+      >
+        <RuleHeading
+          id="trending"
+          title="What's Trending Now"
+          description="The rankings Long Islanders are reading this week."
+        />
+        {trending.length > 0 ? (
           <div className="mt-7 grid gap-8 md:grid-cols-3">
             {trending.map((ranking) => (
               <RankingCard key={ranking.id} ranking={ranking} />
             ))}
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <p className="mt-6 text-sm leading-relaxed text-ink-500">
+            Nothing is trending yet — this fills in from real readership once
+            rankings are live.
+          </p>
+        )}
+      </section>
 
       {/* ------------------------------------------------------- Newsletter */}
       <section className="bg-navy-950">
@@ -322,24 +368,40 @@ export default async function HomePage() {
       </section>
 
       {/* ------------------------------------------------------ Hidden gems */}
-      {hiddenGems.length > 0 ? (
-        <section
-          aria-labelledby="hidden-gems"
-          className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
-        >
-          <RuleHeading
-            id="hidden-gems"
-            title="Hidden Gems"
-            description="The places that do not advertise, do not need to, and are worth the detour anyway."
-            uppercase
-          />
+      {/*
+       * Fed by businesses an editor badged "Hidden Gem" on a published
+       * ranking, so it fills in as soon as the first list ships. The rail keeps
+       * its place in the page rather than disappearing while that is pending.
+       */}
+      <section
+        aria-labelledby="hidden-gems"
+        className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
+      >
+        <RuleHeading
+          id="hidden-gems"
+          title="Hidden Gems"
+          description="The places that do not advertise, do not need to, and are worth the detour anyway."
+          uppercase
+        />
+        {hiddenGems.length > 0 ? (
           <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {hiddenGems.map((business) => (
               <BusinessCard key={business.id} business={business} />
             ))}
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <div className="mt-7">
+            <EmptyRail
+              title="No gems flagged yet"
+              actions={[{ label: "Nominate a hidden gem", href: "/nominate" }]}
+            >
+              An editor marks a place a hidden gem while building a ranking, so
+              this fills in with the first published list. Know somewhere that
+              belongs here? Tell us.
+            </EmptyRail>
+          </div>
+        )}
+      </section>
 
       <NominationCTA />
       <AdvertiseCTA />

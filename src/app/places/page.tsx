@@ -19,6 +19,9 @@ export const metadata: Metadata = {
 export default async function PlacesPage() {
   const places = await listPlaces();
 
+  // The island itself is the root of the place tree. Without this it is the one
+  // published place with a page but no link to it from anywhere on the site.
+  const island = places.find((p) => p.type === "island") ?? null;
   const counties = places.filter((p) => p.type === "county");
   const regions = places.filter((p) => p.type === "region");
   const towns = places.filter((p) => p.type === "town");
@@ -49,6 +52,20 @@ export default async function PlacesPage() {
       </div>
 
       <div className="mx-auto max-w-7xl space-y-12 px-4 py-10 sm:px-6 lg:px-8">
+        {island ? (
+          <section aria-labelledby="the-island">
+            <RuleHeading
+              id="the-island"
+              title="The Whole Island"
+              description={island.description ?? undefined}
+              uppercase
+            />
+            <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <PlaceCard place={island} />
+            </div>
+          </section>
+        ) : null}
+
         <section aria-labelledby="counties">
           <RuleHeading id="counties" title="Counties" uppercase />
           <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
