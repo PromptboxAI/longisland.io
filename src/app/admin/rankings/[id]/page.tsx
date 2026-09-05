@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { setRankingStatus } from "@/app/admin/rankings/actions";
 import { RankingDetailsForm } from "@/components/admin/RankingDetailsForm";
 import { RankingEntryEditor } from "@/components/admin/RankingEntryEditor";
+import { RecommendedProductsEditor } from "@/components/admin/RecommendedProductsEditor";
 import { StatusPill } from "@/components/admin/StatusPill";
 import {
   getAdminRanking,
@@ -156,6 +157,10 @@ export default async function RankingEditorPage({ params }: PageParams) {
           )}
         </section>
       </div>
+
+      {/* Products recommended alongside this list. Self-contained: it fetches
+          its own data and binds its own actions. */}
+      <RecommendedProductsEditor contentType="ranking" contentId={ranking.id} />
     </div>
   );
 }

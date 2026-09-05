@@ -289,6 +289,7 @@ export const footerNav: NavColumn[] = [
       { label: "All rankings", href: "/best" },
       { label: "Categories", href: "/categories" },
       { label: "Places", href: "/places" },
+      { label: "Product reviews", href: "/products" },
       { label: "Search", href: "/search" },
     ],
   },
@@ -315,6 +316,7 @@ export const footerNav: NavColumn[] = [
     items: [
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
+      { label: "Affiliate disclosure", href: "/affiliate-disclosure" },
       { label: "Nominate a business", href: "/nominate" },
     ],
   },

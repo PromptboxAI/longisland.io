@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { listProductGuides } from "@/lib/data/product-queries";
 import {
   listBusinessSlugs,
   listCategories,
@@ -16,7 +17,9 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: "daily" 
   { path: "/places", priority: 0.8, changeFrequency: "weekly" },
   { path: "/methodology", priority: 0.6, changeFrequency: "monthly" },
   { path: "/about", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/products", priority: 0.8, changeFrequency: "daily" },
   { path: "/nominate", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/affiliate-disclosure", priority: 0.3, changeFrequency: "yearly" },
   { path: "/advertise", priority: 0.5, changeFrequency: "monthly" },
   { path: "/contact", priority: 0.4, changeFrequency: "yearly" },
   { path: "/privacy", priority: 0.2, changeFrequency: "yearly" },
@@ -24,12 +27,14 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: "daily" 
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [rankings, categories, places, businessSlugs] = await Promise.all([
-    listRankings({}),
-    listCategories(),
-    listPlaces(),
-    listBusinessSlugs(),
-  ]);
+  const [rankings, categories, places, businessSlugs, productGuides] =
+    await Promise.all([
+      listRankings({}),
+      listCategories(),
+      listPlaces(),
+      listBusinessSlugs(),
+      listProductGuides({}),
+    ]);
 
   const now = new Date();
 
@@ -47,6 +52,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(ranking.updated_at),
       changeFrequency: "weekly" as const,
       priority: 0.9,
+    })),
+
+    // Buying guides carry commercial search value and are updated as prices and
+    // availability move, so they rank alongside local rankings rather than below.
+    ...productGuides.map((guide) => ({
+      url: `${site.url}/products/${guide.slug}`,
+      lastModified: new Date(guide.updated_at),
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
     })),
 
     ...categories.map((category) => ({

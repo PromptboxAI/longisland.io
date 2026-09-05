@@ -6,6 +6,7 @@ import { RankingCard } from "@/components/cards/RankingCard";
 import { NominationCTA } from "@/components/cta/NominationCTA";
 import { EditorialDisclosure } from "@/components/editorial/EditorialDisclosure";
 import { MethodologyNotice } from "@/components/editorial/MethodologyNotice";
+import { RecommendedProductsModule } from "@/components/products/RecommendedProductsModule";
 import { RankingEntry } from "@/components/rankings/RankingEntry";
 import { RankingQuickList } from "@/components/rankings/RankingQuickList";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
@@ -163,6 +164,16 @@ export default async function RankingPage({ params }: PageParams) {
             This ranking does not have any published entries yet.
           </p>
         ) : null}
+
+        {/* Editor-curated products for this list. Renders nothing when none are
+            attached, and discloses affiliate links itself. */}
+        <div className="mt-10">
+          <RecommendedProductsModule
+            contentType="ranking"
+            contentId={ranking.id}
+            localCategoryId={ranking.category?.id}
+          />
+        </div>
 
         <div className="mt-12">
           <MethodologyNotice methodology={ranking.methodology} variant="section" />
