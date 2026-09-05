@@ -31,10 +31,27 @@ export type SocialLink = {
  * to publish one.
  */
 export const socialLinks: SocialLink[] = [
-  { platform: "facebook", label: "Facebook", href: "" },
-  { platform: "instagram", label: "Instagram", href: "" },
-  { platform: "youtube", label: "YouTube", href: "" },
-  { platform: "tiktok", label: "TikTok", href: "" },
+  {
+    platform: "facebook",
+    label: "Facebook",
+    href: "https://www.facebook.com/longisland.io",
+  },
+  {
+    platform: "instagram",
+    label: "Instagram",
+    href: "https://www.instagram.com/longisland_io/",
+  },
+  {
+    platform: "youtube",
+    label: "YouTube",
+    href: "https://www.youtube.com/@longisland_io",
+  },
+  {
+    platform: "tiktok",
+    label: "TikTok",
+    href: "https://www.tiktok.com/@longisland.io",
+  },
+  // No Pinterest account yet; the footer hides entries without a URL.
   { platform: "pinterest", label: "Pinterest", href: "" },
 ];
 

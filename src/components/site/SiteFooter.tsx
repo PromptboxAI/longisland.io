@@ -86,7 +86,7 @@ export function SiteFooter() {
             <p>
               &copy; {year} {site.name}. All rights reserved.
             </p>
-            <p>Made on Long Island, New York.</p>
+            <p className="text-white">Made on Long Island, New York.</p>
           </div>
         </div>
       </div>
