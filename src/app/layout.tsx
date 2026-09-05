@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Montserrat } from "next/font/google";
+import { Montserrat } from "next/font/google";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -7,18 +7,10 @@ import { site } from "@/lib/site";
 
 import "./globals.css";
 
-// Fraunces carries editorial headlines only — feature and card titles. It is a
-// variable face, so the whole weight range costs one file and headings can use
-// real weight utilities rather than inheriting a single cut.
-const display = Fraunces({
-  variable: "--font-display",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-// Montserrat carries everything structural: navigation, section headings,
-// metadata, body copy and controls. Geometric and wide in its heavy weights,
-// which is what lets a caps section header carry a band on its own.
+// Montserrat is the whole type system — headlines, navigation, section
+// headings, metadata, body copy and controls. One variable face, so the full
+// weight range costs a single file and hierarchy comes from weight and size
+// rather than from a second family.
 const sans = Montserrat({
   variable: "--font-sans",
   subsets: ["latin"],
@@ -58,7 +50,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} h-full`}>
+    <html lang="en" className={`${sans.variable} h-full`}>
       <body className="flex min-h-full flex-col antialiased">
         <a
           href="#main"
