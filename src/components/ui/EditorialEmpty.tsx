@@ -6,14 +6,30 @@ export interface EditorialEmptyProps {
    *           three-column composition before the first ranking is published
    * rail    — a sidebar column, one quiet line
    * band    — a full-width section body
+   * card    — one cell of a card grid, so a row keeps its rhythm
    */
-  variant?: "feature" | "rail" | "band";
+  variant?: "feature" | "rail" | "band" | "card";
   eyebrow?: string;
-  title: string;
+  /** Optional for the card variant, which carries no copy of its own. */
+  title?: string;
   description?: string;
   href?: string;
   linkLabel?: string;
+  /** card only: the rank shown in the tile, and the gradient seed. */
+  index?: number;
 }
+
+/**
+ * Grounds for the card tiles. Cycled by index so a row of placeholders has the
+ * same variety a row of real cards would, rather than reading as one flat block.
+ */
+const CARD_GRADIENTS = [
+  "from-navy-900 via-navy-800 to-navy-700",
+  "from-navy-800 via-navy-700 to-brand-800",
+  "from-brand-800 via-navy-800 to-navy-900",
+  "from-navy-900 via-brand-900 to-navy-700",
+  "from-navy-700 via-navy-800 to-navy-950",
+] as const;
 
 /**
  * Placeholder for editorial slots that have no published content yet.
@@ -30,7 +46,31 @@ export function EditorialEmpty({
   description,
   href,
   linkLabel,
+  index,
 }: EditorialEmptyProps) {
+  /*
+   * Carries no headline on purpose. A placeholder title in a card slot reads
+   * as a real pick to anyone scanning the row, so the tile stays wordless and
+   * the section's own copy does the explaining.
+   */
+  if (variant === "card") {
+    const gradient = CARD_GRADIENTS[((index ?? 1) - 1) % CARD_GRADIENTS.length];
+
+    return (
+      <div
+        aria-hidden="true"
+        className={`relative aspect-[16/10] overflow-hidden rounded-card border border-line bg-gradient-to-br ${gradient}`}
+      >
+        <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:14px_14px]" />
+        {index ? (
+          <span className="headline absolute bottom-2 left-4 text-4xl text-white/25">
+            {index}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
   if (variant === "rail") {
     return (
       <div className="border-t border-line pt-4">
