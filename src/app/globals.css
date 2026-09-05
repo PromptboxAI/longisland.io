@@ -14,7 +14,7 @@
      #D40C1A  red       — destructive and error states only
 
    Type — five roles, deliberately distinct:
-     .headline   Fraunces — long editorial headlines (the feature well)
+     .headline   Fraunces — opt-in, editorial headlines only
      .section-heading  Montserrat 600 caps — 30px bands, 22px rails
      body        Montserrat 400 — running copy
      .meta       Montserrat caps 11px — datelines, counts, kickers
@@ -117,17 +117,21 @@
   }
 
   /*
-   * Headings default to the serif at a real editorial weight. Fraunces is
-   * variable, so font-weight utilities are live here — unlike the single-cut
-   * face this replaced. Section furniture opts back out via .section-heading.
+   * Headings default to the SANS. The serif is opt-in via .headline, and only
+   * for genuine editorial headlines — a ranking title or the feature well.
+   *
+   * The default used to be the serif, which meant promotional furniture that
+   * never asked for it (the newsletter band, the CTAs, the search band) picked
+   * it up by falling through, and the page carried two heading faces with no
+   * rule separating them.
    */
   h1,
   h2,
   h3,
   h4 {
-    font-family: var(--font-display);
+    font-family: var(--font-sans);
     font-weight: 600;
-    letter-spacing: -0.015em;
+    letter-spacing: normal;
     color: var(--color-navy-900);
     text-wrap: balance;
   }

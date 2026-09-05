@@ -164,7 +164,7 @@ export default async function HomePage() {
                 href={`/best/${ranking.slug}`}
                 imageUrl={ranking.hero_image_url}
                 imageSeed={ranking.slug}
-                ctaLabel="See the picks"
+                ctaLabel="Check Price"
               />
             ))}
           </div>
