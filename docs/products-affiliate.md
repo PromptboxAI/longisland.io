@@ -85,6 +85,21 @@ tagged or not, so an untagged offer that later gains a tag needs no change.
 time). The visible text repeats down a page, so the accessible name carries the
 product and merchant.
 
+**Buy buttons wear the merchant's colours.** An Amazon button is Amazon
+yellow, a TikTok Shop button is TikTok red, so a reader can tell where a link
+goes before clicking it. The palette lives on the merchant row
+(`brand_color`, `brand_text_color`, `brand_hover_color`), not in a map in a
+component — adding a merchant with its own colours is a row, and
+`/admin/affiliate-offers` has the editor with a live preview. A merchant with no
+colour set falls back to the house navy.
+
+Two guardrails: the hex is validated by a check constraint *and* re-validated in
+`merchantButtonTheme()` before it reaches an inline style, because a colour that
+reaches a `style` attribute must never be able to carry arbitrary CSS. And
+buttons render the merchant **name**, never its logo or wordmark — artwork
+carries brand-guideline and licensing obligations per network that a colour and
+a name do not.
+
 **Prices have a shelf life.** A price is a factual claim, and we have no price
 feed — the number is only as good as the last time an editor looked. Saving an
 offer stamps `last_checked_at`, and after `PRICE_FRESHNESS_DAYS` (14) the price
@@ -129,7 +144,7 @@ metadata like every other content type.
 | `/admin/products/[id]` | Product details + merchant offers |
 | `/admin/product-rankings` | Buying guide list, create |
 | `/admin/product-rankings/[id]` | Guide details, picks, ordering |
-| `/admin/affiliate-offers` | Every offer: what is untagged, what is stale |
+| `/admin/affiliate-offers` | Every offer: what is untagged, what is stale; merchant list and button branding |
 
 Mutations are Server Actions in `app/admin/products/actions.ts`,
 `app/admin/product-rankings/actions.ts` and

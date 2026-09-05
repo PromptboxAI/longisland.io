@@ -70,6 +70,56 @@ export function merchantName(offer: OfferWithMerchant): string {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Merchant button branding                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Hex guard.
+ *
+ * The colour reaches an inline `style`, so it is re-validated here even though
+ * the column has a check constraint. A value that ever arrived from anywhere
+ * but that column must not be able to smuggle arbitrary CSS into the attribute.
+ */
+const HEX = /^#[0-9a-f]{6}$/i;
+
+function hexOrNull(value: string | null | undefined): string | null {
+  return value && HEX.test(value) ? value : null;
+}
+
+export interface MerchantButtonTheme {
+  background: string;
+  text: string;
+  hover: string;
+}
+
+/**
+ * The merchant's own colours for a buy button, or null for the house style.
+ *
+ * A reader should be able to tell where a link goes before clicking it, so an
+ * Amazon button is Amazon yellow and a TikTok Shop button is TikTok red. The
+ * palette lives on the merchant row, not in a map here, so adding a merchant
+ * with its own colours is a row rather than a deploy.
+ *
+ * Buttons carry the merchant NAME on the merchant's colour and never its logo
+ * or wordmark artwork — those carry separate brand-guideline obligations per
+ * network, and a coloured button with a name is what the programmes actually
+ * permit without asset licensing.
+ */
+export function merchantButtonTheme(
+  offer: OfferWithMerchant,
+): MerchantButtonTheme | null {
+  const record = offer.merchantRecord;
+  const background = hexOrNull(record?.brand_color);
+  if (!background) return null;
+
+  return {
+    background,
+    text: hexOrNull(record?.brand_text_color) ?? "#ffffff",
+    hover: hexOrNull(record?.brand_hover_color) ?? background,
+  };
+}
+
+/* -------------------------------------------------------------------------- */
 /* Links                                                                       */
 /* -------------------------------------------------------------------------- */
 

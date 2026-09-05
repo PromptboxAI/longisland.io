@@ -70,6 +70,10 @@ export interface AffiliateMerchant {
   homepage_url: string | null;
   cta_label: string | null;
   disclosure_note: string | null;
+  /** Hex, or null for the neutral house button. Drives merchant-branded CTAs. */
+  brand_color: string | null;
+  brand_text_color: string | null;
+  brand_hover_color: string | null;
   status: PublishStatus;
   created_at: string;
   updated_at: string;

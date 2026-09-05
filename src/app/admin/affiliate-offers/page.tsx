@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 
+import { MerchantEditor } from "@/components/admin/MerchantEditor";
 import { StatusPill } from "@/components/admin/StatusPill";
 import {
   canDisplayPrice,
@@ -36,6 +37,10 @@ export default async function AdminAffiliateOffersPage({ searchParams }: PagePro
   const untagged = offers.filter((offer) => !offer.affiliate_url).length;
   const stale = offers.filter(
     (offer) => offer.price != null && !isPriceFresh(offer.last_checked_at),
+  ).length;
+
+  const unbranded = merchants.filter(
+    (merchant) => merchant.status === "published" && !merchant.brand_color,
   ).length;
 
   return (
@@ -186,6 +191,25 @@ export default async function AdminAffiliateOffersPage({ searchParams }: PagePro
           </table>
         </div>
       )}
+
+      <section aria-labelledby="merchants" className="border-t border-line pt-8">
+        <h2
+          id="merchants"
+          className="text-sm font-bold uppercase tracking-wider text-navy-900"
+        >
+          Merchants ({merchants.length})
+        </h2>
+        <p className="mb-4 mt-1 text-xs text-ink-500">
+          Merchants are data, not code. Add one here and it becomes available on
+          every product&rsquo;s offer form; set its colours and every buy button
+          for that merchant repaints across the site.
+          {unbranded > 0
+            ? ` ${unbranded} published ${unbranded === 1 ? "merchant has" : "merchants have"} no button colour and fall back to the house navy.`
+            : ""}
+        </p>
+
+        <MerchantEditor merchants={merchants} />
+      </section>
     </div>
   );
 }
