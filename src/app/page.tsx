@@ -10,6 +10,7 @@ import { NominationCTA } from "@/components/cta/NominationCTA";
 import { SearchBar } from "@/components/site/SearchBar";
 import { EmptyRail } from "@/components/ui/EmptyRail";
 import { RuleHeading } from "@/components/ui/RuleHeading";
+import { EditorialImage } from "@/components/ui/EditorialImage";
 import {
   listBadgedBusinesses,
   listCategories,
@@ -69,7 +70,7 @@ export default async function HomePage() {
 
   const [lead, ...rest] = rankings;
   const latest = rest.slice(0, 4);
-  const topPicks = rankings.slice(0, 4);
+  const topPicks = rankings.slice(0, 5);
   const trending = rankings.slice(0, 3);
 
   const regions = REGION_SLUGS.map((slug) =>
@@ -130,12 +131,16 @@ export default async function HomePage() {
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         {/*
           The three-column magazine row always renders, so the page keeps its
-          shape before any ranking is published. Each rail falls back to a short
-          note and the centre slot carries the explanation — all three are fed
-          by the same table, so they fill together the moment a list ships.
+          shape before any ranking is published: The Latest on the left, the
+          feature in the centre, Top Rankings on the right. All three are fed by
+          the same table, so they fill together the moment a list ships.
+
+          Columns engage at `md` (768px) rather than `lg` — at the old
+          breakpoint a 1000px window still stacked, dropping Top Rankings
+          underneath The Latest instead of beside the feature.
         */}
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)_minmax(0,260px)]">
-          <aside aria-labelledby="the-latest" className="order-2 lg:order-1">
+        <div className="grid gap-6 md:grid-cols-[minmax(0,170px)_minmax(0,1fr)_minmax(0,190px)] lg:gap-8 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)_minmax(0,260px)]">
+          <aside aria-labelledby="the-latest" className="order-2 md:order-1">
             <RuleHeading id="the-latest" title="The Latest" size="sm" />
             <div className="mt-4 space-y-4">
               {latest.length > 0 ? (
@@ -150,22 +155,52 @@ export default async function HomePage() {
             </div>
           </aside>
 
-          <div className="order-1 lg:order-2">
+          <div className="order-1 md:order-2">
             {lead ? (
               <RankingCard ranking={lead} variant="feature" priority />
             ) : (
-              <EmptyRail
-                title="The first rankings are being researched"
-                actions={[
-                  { label: "Nominate a business", href: "/nominate", primary: true },
-                  { label: "Browse categories", href: "/categories" },
-                ]}
-              >
-                We publish a list once we have actually done the work — visited
-                the places, compared them against a consistent standard, and
-                written down why each one earned its position. Nothing goes up
-                before then.
-              </EmptyRail>
+              /*
+               * The lead slot is the page's main visual push, so it keeps a
+               * full-bleed image even before the first ranking exists. Swaps
+               * for the real feature card the moment one publishes.
+               */
+              <article className="relative overflow-hidden rounded-card border border-line">
+                <div className="relative aspect-[16/9]">
+                  <EditorialImage
+                    src={null}
+                    alt=""
+                    seed="longisland-feature"
+                    priority
+                    sizes="(max-width: 768px) 100vw, 60vw"
+                  />
+                  <span className="absolute inset-0 bg-gradient-to-t from-navy-950/90 via-navy-950/55 to-navy-950/20" />
+                  <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+                    <p className="eyebrow text-gold-400">Coming soon</p>
+                    <h2 className="mt-2 text-2xl leading-tight text-white sm:text-3xl">
+                      The first rankings are being researched
+                    </h2>
+                    <p className="mt-2 max-w-xl text-sm leading-relaxed text-navy-100">
+                      We publish a list once we have done the work — visited the
+                      places, compared them against a consistent standard, and
+                      written down why each one earned its position.
+                    </p>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <Link
+                        href="/nominate"
+                        className="rounded-full bg-gold-400 px-6 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-300"
+                      >
+                        Nominate a business
+                      </Link>
+                      <Link
+                        href="/categories"
+                        className="rounded-full border border-white/40 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                      >
+                        Browse categories
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </article>
             )}
           </div>
 
@@ -195,17 +230,15 @@ export default async function HomePage() {
       </div>
 
       {/* ---------------------------------------------------------- Top picks */}
-      <section aria-labelledby="top-picks" className="border-y border-line bg-sand-50">
+      <section aria-labelledby="top-picks" className="border-y border-line bg-white">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <RuleHeading
             id="top-picks"
             title="Our Top Picks"
             description="The lists our editors send people to first, updated as places change."
-            href="/best"
-            linkLabel="All rankings"
           />
           {topPicks.length > 0 ? (
-            <div className="mt-7 grid gap-7 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
               {topPicks.map((ranking) => (
                 <RankingCard key={ranking.id} ranking={ranking} />
               ))}

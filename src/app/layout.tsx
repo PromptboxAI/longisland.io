@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Archivo_Black, Hind } from "next/font/google";
+import { Montserrat } from "next/font/google";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -7,18 +7,16 @@ import { site } from "@/lib/site";
 
 import "./globals.css";
 
-// Archivo Black ships one weight and carries all headings and eyebrow labels.
-const display = Archivo_Black({
-  variable: "--font-display",
-  weight: "400",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-// Hind carries body copy and every UI control.
-const sans = Hind({
+/**
+ * One family across the site, headings and body alike.
+ *
+ * Note: this replaces the Archivo Black + Hind pairing from the brand guide.
+ * If the brand type is reinstated, this file and the two --font-* tokens in
+ * globals.css are the only places to change.
+ */
+const montserrat = Montserrat({
   variable: "--font-sans",
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "600", "700", "800"],
   subsets: ["latin"],
   display: "swap",
 });
@@ -56,7 +54,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} h-full`}>
+    <html lang="en" className={`${montserrat.variable} h-full`}>
       <body className="flex min-h-full flex-col antialiased">
         <a
           href="#main"

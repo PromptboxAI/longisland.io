@@ -14,8 +14,7 @@
      #D40C1A  red       — destructive and error states only
 
    Type:
-     Archivo Black — all headings and eyebrow labels
-     Hind 400/500/600/700 — body and UI
+     Montserrat 300/400/600/700/800 — headings, body and UI
    ========================================================================== */
 
 @theme {
@@ -74,7 +73,7 @@
   --color-red-600: #d40c1a;
   --color-red-700: #ad0a15;
 
-  --font-display: var(--font-display), "Arial Black", sans-serif;
+  --font-display: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
 
@@ -113,17 +112,13 @@
     text-rendering: optimizeLegibility;
   }
 
-  /*
-   * Archivo Black ships a single weight, so headings carry their weight from
-   * the face itself. Weight utilities on a heading are visually inert — that is
-   * expected, not a bug.
-   */
+  /* Headings sit at 800; body copy runs 400 with 600/700 for emphasis. */
   h1,
   h2,
   h3,
   h4 {
     font-family: var(--font-display);
-    font-weight: 400;
+    font-weight: 800;
     letter-spacing: -0.015em;
     color: var(--color-navy-900);
     text-wrap: balance;
@@ -142,10 +137,10 @@
 }
 
 @layer components {
-  /* Eyebrow label — Archivo Black, small caps-ish, used above headings. */
+  /* Eyebrow label, used above section headings. */
   .eyebrow {
     font-family: var(--font-display);
-    font-weight: 400;
+    font-weight: 700;
     font-size: 0.6875rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
