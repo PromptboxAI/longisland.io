@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { BusinessCard } from "@/components/cards/BusinessCard";
+import { PickCard } from "@/components/cards/PickCard";
 import { PlaceCard } from "@/components/cards/PlaceCard";
 import { RankingCard } from "@/components/cards/RankingCard";
 import { AdvertiseCTA } from "@/components/cta/AdvertiseCTA";
@@ -154,9 +155,17 @@ export default async function HomePage() {
           description="The lists our editors send people to first, updated as places change."
         />
         {topPicks.length > 0 ? (
-          <div className="mt-6 grid gap-7 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-7 lg:grid-cols-5">
             {topPicks.map((ranking) => (
-              <RankingCard key={ranking.id} ranking={ranking} />
+              <PickCard
+                key={ranking.id}
+                title={ranking.title}
+                subtitle={ranking.geography}
+                href={`/best/${ranking.slug}`}
+                imageUrl={ranking.hero_image_url}
+                imageSeed={ranking.slug}
+                ctaLabel="See the picks"
+              />
             ))}
           </div>
         ) : (
@@ -239,7 +248,7 @@ export default async function HomePage() {
             <p className="eyebrow mt-1 text-navy-300">Weekly</p>
           </div>
 
-          <p className="max-w-md text-sm leading-relaxed text-navy-200 lg:flex-1">
+          <p className="max-w-md text-sm leading-relaxed text-white lg:flex-1">
             New rankings, seasonal guides and the local places we found that
             week, delivered to your inbox every Thursday.
           </p>

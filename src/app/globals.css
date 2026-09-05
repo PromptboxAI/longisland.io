@@ -14,11 +14,11 @@
      #D40C1A  red       — destructive and error states only
 
    Type — five roles, deliberately distinct:
-     .headline   Fraunces  — editorial headlines (feature, card titles)
-     .section-heading  Libre Franklin caps — section furniture
-     body        Libre Franklin 400 — running copy
-     .meta       Libre Franklin caps 11px — datelines, counts, kickers
-     buttons     Libre Franklin 600 — controls
+     .headline   Fraunces — long editorial headlines (the feature well)
+     .section-heading  Montserrat 800 caps — loud section headers
+     body        Montserrat 400 — running copy
+     .meta       Montserrat caps 11px — datelines, counts, kickers
+     buttons     Montserrat 600 — controls
    ========================================================================== */
 
 @theme {
@@ -164,9 +164,11 @@
   .section-heading {
     font-family: var(--font-sans);
     font-weight: 800;
-    letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--color-navy-900);
+    /* Caps in a geometric face need no extra kerning help at display sizes. */
+    font-kerning: none;
+    line-height: 1.1;
   }
 
   /* Datelines, counts, category kickers. */

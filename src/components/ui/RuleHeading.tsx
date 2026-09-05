@@ -6,7 +6,10 @@ export interface RuleHeadingProps {
   href?: string;
   linkLabel?: string;
   id?: string;
-  /** Section titles are set in caps; sidebar rails are not. */
+  /**
+   * @deprecated No longer read. Every section heading is set in caps by
+   * .section-heading; the prop stays so existing callsites keep compiling.
+   */
   uppercase?: boolean;
   size?: "sm" | "md" | "lg";
 }
@@ -26,13 +29,16 @@ export function RuleHeading({
   href,
   linkLabel = "View all",
   id,
-  uppercase = false,
   size = "md",
 }: RuleHeadingProps) {
+  /*
+   * Caps need looser tracking at rail sizes and none at display sizes, so the
+   * pairing travels with the size rather than sitting on .section-heading.
+   */
   const sizes = {
-    sm: "text-[13px]",
-    md: "text-base sm:text-lg",
-    lg: "text-lg sm:text-xl",
+    sm: "text-[13px] tracking-[0.08em]",
+    md: "text-2xl tracking-[0.01em] sm:text-3xl",
+    lg: "text-3xl tracking-[0.01em] sm:text-4xl",
   } as const;
 
   return (
@@ -40,9 +46,7 @@ export function RuleHeading({
       <div className="max-w-3xl">
         <h2
           id={id}
-          className={`section-heading leading-tight ${sizes[size]} ${
-            uppercase ? "tracking-wide" : ""
-          }`}
+          className={`section-heading ${sizes[size]}`}
         >
           {title}
         </h2>

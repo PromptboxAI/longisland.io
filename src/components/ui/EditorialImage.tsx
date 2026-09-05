@@ -40,6 +40,11 @@ export interface EditorialImageProps {
   priority?: boolean;
   /** Short label rendered over the fallback, e.g. a category name. */
   fallbackLabel?: string;
+  /**
+   * "cover" crops to fill, for editorial photography. "contain" fits the whole
+   * subject inside the frame, for product cutouts that must not be cropped.
+   */
+  fit?: "cover" | "contain";
 }
 
 export function EditorialImage({
@@ -50,6 +55,7 @@ export function EditorialImage({
   sizes = "(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw",
   priority = false,
   fallbackLabel,
+  fit = "cover",
 }: EditorialImageProps) {
   if (src) {
     return (
@@ -59,7 +65,7 @@ export function EditorialImage({
         fill
         sizes={sizes}
         priority={priority}
-        className={`object-cover ${className}`}
+        className={`${fit === "contain" ? "object-contain" : "object-cover"} ${className}`}
       />
     );
   }

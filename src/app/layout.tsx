@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Libre_Franklin } from "next/font/google";
+import { Fraunces, Montserrat } from "next/font/google";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -16,10 +16,10 @@ const display = Fraunces({
   display: "swap",
 });
 
-// Libre Franklin carries everything structural: navigation, section headings,
-// metadata, body copy and controls. A Franklin Gothic revival reads as news
-// furniture next to the serif rather than as app chrome.
-const sans = Libre_Franklin({
+// Montserrat carries everything structural: navigation, section headings,
+// metadata, body copy and controls. Geometric and wide in its heavy weights,
+// which is what lets a caps section header carry a band on its own.
+const sans = Montserrat({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",

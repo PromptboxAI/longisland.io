@@ -59,14 +59,22 @@ export function EditorialEmpty({
     return (
       <div
         aria-hidden="true"
-        className={`relative aspect-[16/10] overflow-hidden rounded-card border border-line bg-gradient-to-br ${gradient}`}
+        className="flex flex-col rounded-card border border-line bg-white p-4 text-center"
       >
-        <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:14px_14px]" />
-        {index ? (
-          <span className="headline absolute bottom-2 left-4 text-4xl text-white/25">
-            {index}
-          </span>
-        ) : null}
+        <div
+          className={`relative mx-auto aspect-square w-full max-w-[170px] overflow-hidden rounded bg-gradient-to-br ${gradient}`}
+        >
+          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:14px_14px]" />
+          {index ? (
+            <span className="headline absolute inset-0 grid place-items-center text-4xl text-white/30">
+              {index}
+            </span>
+          ) : null}
+        </div>
+        {/* Muted pill holds the action's footprint without offering one. */}
+        <div className="mt-auto pt-4">
+          <span className="inline-block h-9 w-28 rounded-full bg-sand-200" />
+        </div>
       </div>
     );
   }
