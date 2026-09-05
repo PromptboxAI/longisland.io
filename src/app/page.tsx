@@ -1,4 +1,3 @@
-import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 import { BusinessCard } from "@/components/cards/BusinessCard";
@@ -20,16 +19,6 @@ import {
 import type { Category } from "@/types/database";
 
 export const revalidate = 3600;
-
-const SEARCH_EXAMPLES = [
-  "Pizza",
-  "Bagels",
-  "Date Night",
-  "Roofers",
-  "Beaches",
-  "Huntington",
-  "North Fork",
-];
 
 const REGION_SLUGS = [
   "nassau-county",
@@ -81,51 +70,14 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* ---------------------------------------------------------------- Hero */}
-      <section className="border-b border-line bg-sand-50">
-        <div className="mx-auto max-w-3xl px-4 py-12 text-center sm:px-6 sm:py-16 lg:px-8">
-          <h1 className="text-3xl font-extrabold leading-tight text-navy-900 sm:text-[42px]">
-            Discover the best of Long Island.
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-ink-700">
-            Rankings, reviews, local finds and hidden gems across Nassau, Suffolk
-            and beyond.
-          </p>
-
-          <div className="mx-auto mt-7 max-w-xl">
-            <SearchBar variant="hero" />
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
-            <span className="text-ink-500">Popular:</span>
-            {SEARCH_EXAMPLES.map((example) => (
-              <Link
-                key={example}
-                href={`/search?q=${encodeURIComponent(example)}`}
-                className="rounded-full border border-navy-200 bg-white px-3 py-1 font-medium text-navy-900 transition-colors hover:border-brand-500 hover:text-brand-600"
-              >
-                {example}
-              </Link>
-            ))}
-          </div>
-
-          <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link
-              href="/best"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-navy-900 px-7 py-3 text-sm font-semibold text-white transition-colors hover:bg-navy-800"
-            >
-              Explore Rankings
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Link>
-            <Link
-              href="/nominate"
-              className="inline-flex items-center justify-center rounded-full border border-navy-300 bg-white px-7 py-3 text-sm font-semibold text-navy-900 transition-colors hover:border-navy-500"
-            >
-              Nominate a Business
-            </Link>
-          </div>
-        </div>
-      </section>
+      {/*
+       * The homepage leads with the magazine row rather than a hero band, so
+       * every visible heading is section-level. This carries the document
+       * outline for assistive tech and search without painting a title.
+       */}
+      <h1 className="sr-only">
+        Long Island rankings, reviews and local finds
+      </h1>
 
       {/* ------------------------------------- Magazine row: rails + lead story */}
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -253,17 +205,23 @@ export default async function HomePage() {
       </section>
 
       {/* ------------------------------------------------------- Search band */}
-      <section className="bg-navy-900">
-        <div className="mx-auto max-w-2xl px-4 py-12 text-center sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">
+      <section
+        aria-labelledby="know-before-you-go"
+        className="border-y border-line bg-sand-50"
+      >
+        <div className="mx-auto max-w-3xl px-4 py-12 text-center sm:px-6 lg:px-8">
+          <h2
+            id="know-before-you-go"
+            className="text-2xl leading-tight text-navy-900 sm:text-3xl"
+          >
             Know before you go. Every time.
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-navy-200">
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-ink-700">
             Search hundreds of Long Island businesses, rankings, towns and
             categories.
           </p>
-          <div className="mx-auto mt-6 max-w-lg">
-            <SearchBar variant="hero" placeholder="Search rankings, places, businesses" />
+          <div className="mx-auto mt-6 max-w-xl">
+            <SearchBar variant="band" placeholder="Search rankings, places, businesses" />
           </div>
         </div>
       </section>
@@ -293,17 +251,22 @@ export default async function HomePage() {
       </section>
 
       {/* ------------------------------------------------------- Newsletter */}
-      <section className="bg-navy-950">
-        <div className="mx-auto max-w-2xl px-4 py-12 text-center sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold text-white">
-            Get the best of Long Island every week
-          </h2>
-          <p className="mt-2 text-sm text-navy-300">
-            One email every Thursday. New rankings, seasonal guides and the places
-            we found that week.
+      <section aria-labelledby="newsletter" className="bg-navy-950">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:flex-row lg:items-center lg:gap-10 lg:px-8">
+          <div className="shrink-0">
+            <h2 id="newsletter" className="text-xl leading-tight text-white sm:text-2xl">
+              Sign up for our <span className="text-gold-400">newsletter</span>
+            </h2>
+            <p className="eyebrow mt-1 text-navy-300">Weekly</p>
+          </div>
+
+          <p className="max-w-md text-sm leading-relaxed text-navy-200 lg:flex-1">
+            New rankings, seasonal guides and the local places we found that
+            week, delivered to your inbox every Thursday.
           </p>
-          <div className="mx-auto mt-6 max-w-md text-left">
-            <NewsletterSignup variant="footer" source="homepage" />
+
+          <div className="w-full lg:ml-auto lg:w-auto lg:min-w-88">
+            <NewsletterSignup variant="band" source="homepage" />
           </div>
         </div>
       </section>
