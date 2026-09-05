@@ -45,7 +45,7 @@ export function PickCard({
         />
       </div>
 
-      <h3 className="mt-4 text-sm font-bold leading-snug text-navy-900">
+      <h3 className="mt-4 text-[17px] font-semibold leading-snug text-navy-900">
         {/* Overlay makes the whole tile the target; the pill is the visual cue. */}
         <Link href={href} className="after:absolute after:inset-0">
           {title}
@@ -53,14 +53,14 @@ export function PickCard({
       </h3>
 
       {subtitle ? (
-        <p className="mt-1 text-sm leading-snug text-ink-500">{subtitle}</p>
+        <p className="mt-1 text-sm font-light leading-snug text-ink-700">{subtitle}</p>
       ) : null}
 
       {/* mt-auto pins the pill to the bottom so a row of cards aligns on it. */}
       <div className="mt-auto pt-4">
         <span
           aria-hidden="true"
-          className="inline-flex items-center rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors group-hover:bg-brand-700"
+          className="inline-flex h-10 items-center rounded-full bg-brand-600 px-6 text-base font-medium text-white transition-colors group-hover:bg-brand-700"
         >
           {ctaLabel}
         </span>

@@ -15,7 +15,7 @@
 
    Type — five roles, deliberately distinct:
      .headline   Fraunces — long editorial headlines (the feature well)
-     .section-heading  Montserrat 800 caps — loud section headers
+     .section-heading  Montserrat 600 caps — 30px bands, 22px rails
      body        Montserrat 400 — running copy
      .meta       Montserrat caps 11px — datelines, counts, kickers
      buttons     Montserrat 600 — controls
@@ -163,12 +163,17 @@
    */
   .section-heading {
     font-family: var(--font-sans);
-    font-weight: 800;
+    /*
+     * 600 with normal tracking, measured against the reference publication.
+     * The heavier cuts of a geometric face thicken sharply in caps at display
+     * sizes; 800 read as shouting and 700 was still too dense.
+     */
+    font-weight: 600;
+    letter-spacing: normal;
     text-transform: uppercase;
     color: var(--color-navy-900);
-    /* Caps in a geometric face need no extra kerning help at display sizes. */
     font-kerning: none;
-    line-height: 1.1;
+    line-height: 1.2;
   }
 
   /* Datelines, counts, category kickers. */

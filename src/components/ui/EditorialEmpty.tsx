@@ -73,7 +73,7 @@ export function EditorialEmpty({
         </div>
         {/* Muted pill holds the action's footprint without offering one. */}
         <div className="mt-auto pt-4">
-          <span className="inline-block h-9 w-28 rounded-full bg-sand-200" />
+          <span className="inline-block h-10 w-32 rounded-full bg-sand-200" />
         </div>
       </div>
     );

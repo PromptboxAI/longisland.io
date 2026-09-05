@@ -31,14 +31,11 @@ export function RuleHeading({
   id,
   size = "md",
 }: RuleHeadingProps) {
-  /*
-   * Caps need looser tracking at rail sizes and none at display sizes, so the
-   * pairing travels with the size rather than sitting on .section-heading.
-   */
+  /* Sizes measured against the reference: 22px on rails, 30px on bands. */
   const sizes = {
-    sm: "text-[13px] tracking-[0.08em]",
-    md: "text-2xl tracking-[0.01em] sm:text-3xl",
-    lg: "text-3xl tracking-[0.01em] sm:text-4xl",
+    sm: "text-lg sm:text-[22px]",
+    md: "text-2xl sm:text-3xl",
+    lg: "text-2xl sm:text-3xl",
   } as const;
 
   return (
