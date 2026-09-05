@@ -90,11 +90,16 @@ export default async function HomePage() {
 
       {/* ------------------------------- Primary editorial row: 3 columns */}
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,230px)_minmax(0,1fr)_minmax(0,270px)] lg:gap-10">
+        {/*
+          * Columns engage at md (768px), not lg. At the lg breakpoint a 1000px
+          * window still stacked, dropping Top Rankings underneath The Latest
+          * instead of beside the feature — the composition this row exists for.
+          */}
+        <div className="grid gap-6 md:grid-cols-[minmax(0,170px)_minmax(0,1fr)_minmax(0,190px)] lg:grid-cols-[minmax(0,230px)_minmax(0,1fr)_minmax(0,270px)] lg:gap-10">
           {/* LEFT — narrow news rail */}
           <aside
             aria-labelledby="the-latest"
-            className="order-2 lg:order-1 lg:border-r lg:border-line lg:pr-8"
+            className="order-2 md:order-1 lg:border-r lg:border-line lg:pr-8"
           >
             <RuleHeading id="the-latest" title="The Latest" size="sm" />
             {latest.length > 0 ? (
@@ -116,17 +121,17 @@ export default async function HomePage() {
           </aside>
 
           {/* CENTER — the dominant slot on the page */}
-          <div className="order-1 lg:order-2">
+          <div className="order-1 md:order-2">
             {lead ? (
               <RankingCard ranking={lead} variant="feature" priority />
             ) : (
               <EditorialEmpty
                 variant="feature"
-                eyebrow="LongIsland.io"
+                eyebrow="Featured"
                 title="The best of Long Island, ranked."
-                description="We are reporting our first rankings now — pizza, bagels, beaches and the trades worth calling. Tell us who belongs on them."
-                href="/nominate"
-                linkLabel="Nominate a business"
+                description="Our flagship list runs here — the top ten we send people to first, from pizza and bagels to the trades worth calling."
+                href="/best"
+                linkLabel="Browse all rankings"
               />
             )}
           </div>
