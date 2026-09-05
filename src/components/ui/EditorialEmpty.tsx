@@ -97,35 +97,45 @@ export function EditorialEmpty({
 
   if (variant === "feature") {
     /*
-     * Min-height rather than an aspect box on small screens: the copy is taller
-     * than 16/10 at 375px, and a fixed ratio clipped the kicker and the top of
-     * the headline. The ratio returns once there is room for it.
+     * Mirrors RankingCard's feature variant exactly: 16/9 visual, then kicker,
+     * headline, dek and action stacked beneath it.
+     *
+     * Nothing is set over the image. Text used to sit on the gradient, which
+     * meant the slot changed shape the moment a real ranking replaced it — the
+     * empty state has to rehearse the populated one, not preview a different
+     * card. Keeping the copy below also drops the min-height the overlay needed
+     * to avoid clipping on small screens.
      */
     return (
-      <div className="relative flex min-h-[23rem] flex-col justify-end overflow-hidden rounded-card bg-gradient-to-br from-navy-900 via-navy-800 to-brand-800 p-7 sm:aspect-[16/9] sm:min-h-0 sm:p-10">
-        {/* Same dotted wash the image fallback uses, so empty slots match. */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:14px_14px]"
-        />
-        <div className="relative max-w-xl">
-          {eyebrow ? <p className="eyebrow text-gold-400">{eyebrow}</p> : null}
-          <p className="headline mt-2 text-2xl text-white sm:text-4xl">{title}</p>
+      <article>
+        <div className="relative aspect-[16/9] overflow-hidden rounded-card border border-line bg-gradient-to-br from-navy-900 via-navy-800 to-brand-800">
+          {/* Same dotted wash the image fallback uses, so empty slots match. */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:14px_14px]"
+          />
+        </div>
+
+        <div className="pt-4">
+          {eyebrow ? <p className="meta mb-1.5 text-brand-600">{eyebrow}</p> : null}
+          <p className="headline text-[26px] text-navy-900 sm:text-[40px]">
+            {title}
+          </p>
           {description ? (
-            <p className="mt-3 text-sm leading-relaxed text-navy-100 sm:text-base">
+            <p className="mt-2 max-w-2xl text-base leading-relaxed text-ink-700 sm:text-[17px]">
               {description}
             </p>
           ) : null}
           {href && linkLabel ? (
             <Link
               href={href}
-              className="mt-5 inline-flex items-center rounded-full bg-gold-400 px-6 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-300"
+              className="mt-4 inline-flex items-center rounded-full bg-navy-900 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy-800"
             >
               {linkLabel}
             </Link>
           ) : null}
         </div>
-      </div>
+      </article>
     );
   }
 
