@@ -1,10 +1,17 @@
 import Link from "next/link";
 
 import { NewsletterSignup } from "@/components/cta/NewsletterSignup";
-import { EDITORIAL_INDEPENDENCE_NOTICE, footerNav, site } from "@/lib/site";
+import { SocialIcon } from "@/components/site/SocialIcon";
+import {
+  EDITORIAL_INDEPENDENCE_NOTICE,
+  footerNav,
+  site,
+  socialLinks,
+} from "@/lib/site";
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
+  const socials = socialLinks.filter((link) => link.href);
 
   return (
     <footer className="mt-auto border-t border-navy-100 bg-navy-950 text-navy-100">
@@ -23,6 +30,24 @@ export function SiteFooter() {
             <div className="mt-6 max-w-sm">
               <NewsletterSignup variant="footer" />
             </div>
+
+            {socials.length > 0 ? (
+              <ul className="mt-6 flex items-center gap-3">
+                {socials.map((link) => (
+                  <li key={link.platform}>
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer me"
+                      aria-label={`${site.name} on ${link.label}`}
+                      className="flex size-9 items-center justify-center rounded-full bg-navy-900 text-navy-200 transition-colors hover:bg-gold-400 hover:text-navy-950"
+                    >
+                      <SocialIcon platform={link.platform} className="size-4" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
 
           <nav aria-label="Footer" className="grid grid-cols-2 gap-8 sm:grid-cols-4">

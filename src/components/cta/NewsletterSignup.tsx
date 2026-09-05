@@ -112,7 +112,7 @@ export function NewsletterSignup({
             isBand
               ? "rounded-l-md bg-white px-4 py-2.5 text-ink-900 placeholder:text-ink-400"
               : isFooter
-                ? "rounded-full bg-navy-900 px-4 py-2.5 text-white placeholder:text-navy-400 ring-1 ring-navy-700 focus:ring-brand-500"
+                ? "rounded-full bg-white px-4 py-2.5 text-ink-900 placeholder:text-ink-400 ring-1 ring-navy-200 focus:ring-gold-400"
                 : "rounded-full bg-white px-4 py-2.5 text-ink-900 placeholder:text-ink-400 ring-1 ring-navy-200 focus:ring-brand-500"
           }`}
         />

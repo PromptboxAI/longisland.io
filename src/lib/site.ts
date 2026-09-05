@@ -2,7 +2,7 @@
 
 export const site = {
   name: "LongIsland.io",
-  tagline: "Discover the best of Long Island.",
+  tagline: "The best of Long Island, ranked.",
   positioning: "Rankings, Reviews and Local Finds",
   description:
     "Rankings, reviews, local finds and hidden gems across Nassau, Suffolk and beyond.",
@@ -11,6 +11,32 @@ export const site = {
   ogImage: "/brand/og-default.png",
   contactEmail: "hello@longisland.io",
 } as const;
+
+export type SocialPlatform =
+  | "facebook"
+  | "instagram"
+  | "youtube"
+  | "tiktok"
+  | "pinterest";
+
+export type SocialLink = {
+  platform: SocialPlatform;
+  label: string;
+  href: string;
+};
+
+/**
+ * Footer social row. The footer renders only the entries that carry a URL, so
+ * an account we have not opened yet simply does not appear — fill in the href
+ * to publish one.
+ */
+export const socialLinks: SocialLink[] = [
+  { platform: "facebook", label: "Facebook", href: "" },
+  { platform: "instagram", label: "Instagram", href: "" },
+  { platform: "youtube", label: "YouTube", href: "" },
+  { platform: "tiktok", label: "TikTok", href: "" },
+  { platform: "pinterest", label: "Pinterest", href: "" },
+];
 
 export type NavChild = { label: string; href: string };
 export type NavColumn = { heading: string; items: NavChild[] };
