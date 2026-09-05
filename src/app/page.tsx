@@ -6,10 +6,10 @@ import { RankingCard } from "@/components/cards/RankingCard";
 import { AdvertiseCTA } from "@/components/cta/AdvertiseCTA";
 import { NewsletterSignup } from "@/components/cta/NewsletterSignup";
 import { NominationCTA } from "@/components/cta/NominationCTA";
+import { TopRail, rankingsToRailItems } from "@/components/rankings/TopRail";
 import { SearchBar } from "@/components/site/SearchBar";
-import { EmptyRail } from "@/components/ui/EmptyRail";
+import { EditorialEmpty } from "@/components/ui/EditorialEmpty";
 import { RuleHeading } from "@/components/ui/RuleHeading";
-import { EditorialImage } from "@/components/ui/EditorialImage";
 import {
   listBadgedBusinesses,
   listCategories,
@@ -57,8 +57,16 @@ export default async function HomePage() {
     byParent.set(category.parent_id, list);
   }
 
+  /*
+   * Every slot slices from the front of one ordered feed, so with few rankings
+   * published the lead, the rail and the picks will show overlapping records.
+   * Separating them properly needs an editorial flag on the ranking itself
+   * (featured / trending) rather than a different slice here — that is a schema
+   * change, so the windows stay as they are and the overlap is accepted.
+   */
   const [lead, ...rest] = rankings;
-  const latest = rest.slice(0, 4);
+  const latest = rest.slice(0, 5);
+  const railItems = rankingsToRailItems(rankings.slice(0, 5));
   const topPicks = rankings.slice(0, 5);
   const trending = rankings.slice(0, 3);
 
@@ -79,129 +87,86 @@ export default async function HomePage() {
         Long Island rankings, reviews and local finds
       </h1>
 
-      {/* ------------------------------------- Magazine row: rails + lead story */}
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        {/*
-          The three-column magazine row always renders, so the page keeps its
-          shape before any ranking is published: The Latest on the left, the
-          feature in the centre, Top Rankings on the right. All three are fed by
-          the same table, so they fill together the moment a list ships.
-
-          Columns engage at `md` (768px) rather than `lg` — at the old
-          breakpoint a 1000px window still stacked, dropping Top Rankings
-          underneath The Latest instead of beside the feature.
-        */}
-        <div className="grid gap-6 md:grid-cols-[minmax(0,170px)_minmax(0,1fr)_minmax(0,190px)] lg:gap-8 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)_minmax(0,260px)]">
-          <aside aria-labelledby="the-latest" className="order-2 md:order-1">
+      {/* ------------------------------- Primary editorial row: 3 columns */}
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,230px)_minmax(0,1fr)_minmax(0,270px)] lg:gap-10">
+          {/* LEFT — narrow news rail */}
+          <aside
+            aria-labelledby="the-latest"
+            className="order-2 lg:order-1 lg:border-r lg:border-line lg:pr-8"
+          >
             <RuleHeading id="the-latest" title="The Latest" size="sm" />
-            <div className="mt-4 space-y-4">
-              {latest.length > 0 ? (
-                latest.map((ranking) => (
+            {latest.length > 0 ? (
+              <div className="mt-4 space-y-4">
+                {latest.map((ranking) => (
                   <RankingCard key={ranking.id} ranking={ranking} variant="text" />
-                ))
-              ) : (
-                <p className="text-sm leading-relaxed text-ink-500">
-                  New rankings and guides will appear here as they publish.
-                </p>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4">
+                <EditorialEmpty
+                  variant="rail"
+                  title="New guides and rankings land here as we publish them."
+                  href="/categories"
+                  linkLabel="Browse categories"
+                />
+              </div>
+            )}
           </aside>
 
-          <div className="order-1 md:order-2">
+          {/* CENTER — the dominant slot on the page */}
+          <div className="order-1 lg:order-2">
             {lead ? (
               <RankingCard ranking={lead} variant="feature" priority />
             ) : (
-              /*
-               * The lead slot is the page's main visual push, so it keeps a
-               * full-bleed image even before the first ranking exists. Swaps
-               * for the real feature card the moment one publishes.
-               */
-              <article className="relative overflow-hidden rounded-card border border-line">
-                <div className="relative aspect-[16/9]">
-                  <EditorialImage
-                    src={null}
-                    alt=""
-                    seed="longisland-feature"
-                    priority
-                    sizes="(max-width: 768px) 100vw, 60vw"
-                  />
-                  <span className="absolute inset-0 bg-gradient-to-t from-navy-950/90 via-navy-950/55 to-navy-950/20" />
-                  <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-                    <p className="eyebrow text-gold-400">Coming soon</p>
-                    <h2 className="mt-2 text-2xl leading-tight text-white sm:text-3xl">
-                      The first rankings are being researched
-                    </h2>
-                    <p className="mt-2 max-w-xl text-sm leading-relaxed text-navy-100">
-                      We publish a list once we have done the work — visited the
-                      places, compared them against a consistent standard, and
-                      written down why each one earned its position.
-                    </p>
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <Link
-                        href="/nominate"
-                        className="rounded-full bg-gold-400 px-6 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-300"
-                      >
-                        Nominate a business
-                      </Link>
-                      <Link
-                        href="/categories"
-                        className="rounded-full border border-white/40 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-                      >
-                        Browse categories
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </article>
+              <EditorialEmpty
+                variant="feature"
+                eyebrow="LongIsland.io"
+                title="The best of Long Island, ranked."
+                description="We are reporting our first rankings now — pizza, bagels, beaches and the trades worth calling. Tell us who belongs on them."
+                href="/nominate"
+                linkLabel="Nominate a business"
+              />
             )}
           </div>
 
-          <aside aria-labelledby="top-rankings" className="order-3">
-            <RuleHeading id="top-rankings" title="Top Rankings" size="sm" />
-            <div className="mt-4">
-              {rankings.length > 0 ? (
-                rankings
-                  .slice(0, 5)
-                  .map((ranking) => (
-                    <RankingCard key={ranking.id} ranking={ranking} variant="compact" />
-                  ))
-              ) : (
-                <p className="text-sm leading-relaxed text-ink-500">
-                  Our most-read lists will be collected here.
-                </p>
-              )}
-              <Link
-                href="/best"
-                className="mt-3 inline-block text-sm font-semibold text-brand-600 hover:underline"
-              >
-                View all rankings &rsaquo;
-              </Link>
-            </div>
-          </aside>
+          {/* RIGHT — configurable leaderboard: rankings now, deals later */}
+          <div className="order-3 lg:border-l lg:border-line lg:pl-8">
+            <TopRail id="top-rankings" mode="rankings" items={railItems} />
+          </div>
         </div>
       </div>
 
       {/* ---------------------------------------------------------- Top picks */}
-      <section aria-labelledby="top-picks" className="border-y border-line bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-          <RuleHeading
-            id="top-picks"
-            title="Our Top Picks"
-            description="The lists our editors send people to first, updated as places change."
-          />
-          {topPicks.length > 0 ? (
-            <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-              {topPicks.map((ranking) => (
-                <RankingCard key={ranking.id} ranking={ranking} />
-              ))}
-            </div>
-          ) : (
-            <p className="mt-6 text-sm leading-relaxed text-ink-500">
-              Our editors&rsquo; first picks will be collected here once the
-              opening rankings publish.
-            </p>
-          )}
-        </div>
+      {/*
+        * No band of its own: this shares the white ground of the editorial row
+        * above it so the two read as one continuous front page. Curated
+        * highlights only — deliberately no "all rankings" link, since this is
+        * not a directory block.
+        */}
+      <section
+        aria-labelledby="top-picks"
+        className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8"
+      >
+        <RuleHeading
+          id="top-picks"
+          title="Our Top Picks"
+          description="The lists our editors send people to first, updated as places change."
+        />
+        {topPicks.length > 0 ? (
+          <div className="mt-6 grid gap-7 sm:grid-cols-2 lg:grid-cols-5">
+            {topPicks.map((ranking) => (
+              <RankingCard key={ranking.id} ranking={ranking} />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-6">
+            <EditorialEmpty
+              title="Our editors' picks are being chosen now."
+              description="Five lists we stand behind will sit here — the ones we hand to friends who ask where to go."
+            />
+          </div>
+        )}
       </section>
 
       {/* ------------------------------------------------------- Search band */}
@@ -227,6 +192,7 @@ export default async function HomePage() {
       </section>
 
       {/* --------------------------------------------------------- Trending */}
+      {/* Stays its own rail. Behaviour untouched; only the empty state is new. */}
       <section
         aria-labelledby="trending"
         className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
@@ -237,16 +203,18 @@ export default async function HomePage() {
           description="The rankings Long Islanders are reading this week."
         />
         {trending.length > 0 ? (
-          <div className="mt-7 grid gap-8 md:grid-cols-3">
+          <div className="mt-6 grid gap-8 md:grid-cols-3">
             {trending.map((ranking) => (
               <RankingCard key={ranking.id} ranking={ranking} />
             ))}
           </div>
         ) : (
-          <p className="mt-6 text-sm leading-relaxed text-ink-500">
-            Nothing is trending yet — this fills in from real readership once
-            rankings are live.
-          </p>
+          <div className="mt-6">
+            <EditorialEmpty
+              title="Nothing is trending yet."
+              description="Once readers start moving through our rankings, the week's most-read lists surface here."
+            />
+          </div>
         )}
       </section>
 
@@ -364,40 +332,24 @@ export default async function HomePage() {
       </section>
 
       {/* ------------------------------------------------------ Hidden gems */}
-      {/*
-       * Fed by businesses an editor badged "Hidden Gem" on a published
-       * ranking, so it fills in as soon as the first list ships. The rail keeps
-       * its place in the page rather than disappearing while that is pending.
-       */}
-      <section
-        aria-labelledby="hidden-gems"
-        className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
-      >
-        <RuleHeading
-          id="hidden-gems"
-          title="Hidden Gems"
-          description="The places that do not advertise, do not need to, and are worth the detour anyway."
-          uppercase
-        />
-        {hiddenGems.length > 0 ? (
+      {hiddenGems.length > 0 ? (
+        <section
+          aria-labelledby="hidden-gems"
+          className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
+        >
+          <RuleHeading
+            id="hidden-gems"
+            title="Hidden Gems"
+            description="The places that do not advertise, do not need to, and are worth the detour anyway."
+            uppercase
+          />
           <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {hiddenGems.map((business) => (
               <BusinessCard key={business.id} business={business} />
             ))}
           </div>
-        ) : (
-          <div className="mt-7">
-            <EmptyRail
-              title="No gems flagged yet"
-              actions={[{ label: "Nominate a hidden gem", href: "/nominate" }]}
-            >
-              An editor marks a place a hidden gem while building a ranking, so
-              this fills in with the first published list. Know somewhere that
-              belongs here? Tell us.
-            </EmptyRail>
-          </div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <NominationCTA />
       <AdvertiseCTA />

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Montserrat } from "next/font/google";
+import { Fraunces, Libre_Franklin } from "next/font/google";
 
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -7,16 +7,20 @@ import { site } from "@/lib/site";
 
 import "./globals.css";
 
-/**
- * One family across the site, headings and body alike.
- *
- * Note: this replaces the Archivo Black + Hind pairing from the brand guide.
- * If the brand type is reinstated, this file and the two --font-* tokens in
- * globals.css are the only places to change.
- */
-const montserrat = Montserrat({
+// Fraunces carries editorial headlines only — feature and card titles. It is a
+// variable face, so the whole weight range costs one file and headings can use
+// real weight utilities rather than inheriting a single cut.
+const display = Fraunces({
+  variable: "--font-display",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+// Libre Franklin carries everything structural: navigation, section headings,
+// metadata, body copy and controls. A Franklin Gothic revival reads as news
+// furniture next to the serif rather than as app chrome.
+const sans = Libre_Franklin({
   variable: "--font-sans",
-  weight: ["300", "400", "600", "700", "800"],
   subsets: ["latin"],
   display: "swap",
 });
@@ -54,7 +58,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${montserrat.variable} h-full`}>
+    <html lang="en" className={`${display.variable} ${sans.variable} h-full`}>
       <body className="flex min-h-full flex-col antialiased">
         <a
           href="#main"

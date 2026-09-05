@@ -29,14 +29,14 @@ export function RankingCard({
   if (variant === "text") {
     return (
       <article className="border-b border-line pb-4 last:border-0">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+        <p className="meta mb-1">
           {dateline ? <span>{dateline}</span> : null}
           {dateline && ranking.category ? <span className="mx-1.5">|</span> : null}
           {ranking.category ? (
             <span className="text-brand-600">{ranking.category.name}</span>
           ) : null}
         </p>
-        <h3 className="text-[15px] font-bold leading-snug text-navy-900">
+        <h3 className="headline text-[15px] text-navy-900">
           <Link href={href} className="hover:text-brand-600 hover:underline">
             {ranking.title}
           </Link>
@@ -60,7 +60,7 @@ export function RankingCard({
           />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold leading-snug text-navy-900">
+          <h3 className="headline text-sm text-navy-900">
             <Link href={href} className="hover:text-brand-600 hover:underline">
               {ranking.title}
             </Link>
@@ -98,7 +98,7 @@ export function RankingCard({
       </div>
 
       <div className={isFeature ? "pt-4" : "pt-3"}>
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+        <p className="meta mb-1.5">
           {dateline ? <span>{dateline}</span> : null}
           {dateline && ranking.category ? <span className="mx-1.5">|</span> : null}
           {ranking.category ? (
@@ -107,8 +107,8 @@ export function RankingCard({
         </p>
 
         <h3
-          className={`font-bold leading-tight text-navy-900 ${
-            isFeature ? "text-2xl sm:text-[28px]" : "text-base"
+          className={`headline text-navy-900 ${
+            isFeature ? "text-[26px] sm:text-[40px]" : "text-base"
           }`}
         >
           <Link href={href} className="after:absolute after:inset-0 hover:text-brand-600">
@@ -119,7 +119,7 @@ export function RankingCard({
         {ranking.description ? (
           <p
             className={`mt-2 leading-relaxed text-ink-700 ${
-              isFeature ? "text-[15px]" : "line-clamp-2 text-sm"
+              isFeature ? "max-w-2xl text-base sm:text-[17px]" : "line-clamp-2 text-sm"
             }`}
           >
             {ranking.description}
@@ -132,6 +132,21 @@ export function RankingCard({
           </span>
           {ranking.geography ? ` · ${ranking.geography}` : ""}
         </p>
+
+        {/*
+          * The headline already covers the whole card via its inset overlay, so
+          * this sits above it only to give the lead well an explicit action.
+          */}
+        {isFeature ? (
+          <Link
+            href={href}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="relative z-10 mt-4 inline-flex items-center rounded-full bg-navy-900 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy-800"
+          >
+            Read the ranking
+          </Link>
+        ) : null}
       </div>
     </article>
   );

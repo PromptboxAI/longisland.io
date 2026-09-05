@@ -16,6 +16,9 @@ export interface RuleHeadingProps {
  *
  * This is the site's repeating structural motif — it opens every band on the
  * homepage, every module on a category or place page, and each rail heading.
+ *
+ * Set in the sans, in caps: it labels a section rather than speaking as one,
+ * so it must stay quieter than the serif headlines it sits above.
  */
 export function RuleHeading({
   title,
@@ -27,9 +30,9 @@ export function RuleHeading({
   size = "md",
 }: RuleHeadingProps) {
   const sizes = {
-    sm: "text-base",
-    md: "text-xl sm:text-2xl",
-    lg: "text-2xl sm:text-3xl",
+    sm: "text-[13px]",
+    md: "text-base sm:text-lg",
+    lg: "text-lg sm:text-xl",
   } as const;
 
   return (
@@ -37,8 +40,8 @@ export function RuleHeading({
       <div className="max-w-3xl">
         <h2
           id={id}
-          className={`font-extrabold leading-tight text-navy-900 ${sizes[size]} ${
-            uppercase ? "uppercase tracking-tight" : ""
+          className={`section-heading leading-tight ${sizes[size]} ${
+            uppercase ? "tracking-wide" : ""
           }`}
         >
           {title}
