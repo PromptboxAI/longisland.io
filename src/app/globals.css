@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   LongIsland.io design system
+
+   Brand:
+     #001B4F  navy      — navy bands, footer
+     #002762  brand     — primary buttons and links (the authority colour)
+     #FAB700  gold      — the SINGLE highlight cue: badges, ranking numbers,
+                          eyebrow bars. Never used for body text or links.
+     #081A34  ink       — body text
+     #FFFFFF  surface
+     #D4D7E0  line      — borders
+     #D40C1A  red       — destructive and error states only
+
+   Type:
+     Archivo Black — all headings and eyebrow labels
+     Hind 400/500/600/700 — body and UI
+   ========================================================================== */
+
+@theme {
+  /* Navy — bands, footer, headings */
+  --color-navy-50: #eef1f7;
+  --color-navy-100: #d8dfeb;
+  --color-navy-200: #b0bed6;
+  --color-navy-300: #7b90b6;
+  --color-navy-400: #4a6294;
+  --color-navy-500: #2a4478;
+  --color-navy-600: #123162;
+  --color-navy-700: #002762;
+  --color-navy-800: #001f57;
+  --color-navy-900: #001b4f;
+  --color-navy-950: #001238;
+
+  /* Brand — primary interactive navy (#002762) */
+  --color-brand-50: #eef2f9;
+  --color-brand-100: #d7e0ef;
+  --color-brand-200: #aebfdd;
+  --color-brand-300: #7793c3;
+  --color-brand-400: #4565a3;
+  --color-brand-500: #1d4183;
+  --color-brand-600: #002762;
+  --color-brand-700: #002153;
+  --color-brand-800: #001c48;
+  --color-brand-900: #001536;
+
+  /* Gold — the single highlight cue (#FAB700) */
+  --color-gold-50: #fff8e5;
+  --color-gold-100: #ffefc0;
+  --color-gold-200: #ffe085;
+  --color-gold-300: #fdcf49;
+  --color-gold-400: #fab700;
+  --color-gold-500: #e0a400;
+  --color-gold-600: #b88600;
+  --color-gold-700: #8f6800;
+
+  /* Ink — body text (#081A34) */
+  --color-ink-900: #081a34;
+  --color-ink-700: #2c3c56;
+  --color-ink-500: #5a6779;
+  --color-ink-400: #7d8797;
+
+  /* Warm neutral grounds */
+  --color-sand-50: #fafbfc;
+  --color-sand-100: #f2f4f8;
+  --color-sand-200: #e6e9f0;
+
+  /* Borders */
+  --color-line: #d4d7e0;
+
+  /* Destructive / error */
+  --color-red-50: #fdecee;
+  --color-red-200: #f4bcc1;
+  --color-red-600: #d40c1a;
+  --color-red-700: #ad0a15;
+
+  --font-display: var(--font-display), "Arial Black", sans-serif;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+
+  --radius-card: 0.5rem;
+  --shadow-card: 0 1px 2px rgb(8 26 52 / 0.06);
+  --shadow-lift: 0 4px 16px -4px rgb(8 26 52 / 0.18);
+}
+
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: #ffffff;
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * Archivo Black ships a single weight, so headings carry their weight from
+   * the face itself. Weight utilities on a heading are visually inert — that is
+   * expected, not a bug.
+   */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    color: var(--color-navy-900);
+    text-wrap: balance;
+  }
+
+  /* Anchor targets clear the sticky header + category bar. */
+  [id] {
+    scroll-margin-top: 7.5rem;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+@layer components {
+  /* Eyebrow label — Archivo Black, small caps-ish, used above headings. */
+  .eyebrow {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /*
+   * Section heading with the gold eyebrow bar above it — the repeating
+   * structural motif that opens every band on the site.
+   */
+  .rule-heading {
+    position: relative;
+    padding-top: 0.875rem;
+  }
+  .rule-heading::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2.75rem;
+    height: 4px;
+    background-color: var(--color-gold-400);
+  }
+
+  /* Long-form editorial copy: intros, methodology, legal. */
+  .prose-editorial {
+    color: var(--color-ink-700);
+    line-height: 1.75;
+  }
+  .prose-editorial p + p {
+    margin-top: 1rem;
+  }
+  .prose-editorial a {
+    color: var(--color-brand-600);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .prose-editorial strong {
+    color: var(--color-navy-900);
+    font-weight: 600;
+  }
+  .prose-editorial ul {
+    margin-top: 1rem;
+    list-style: disc;
+    padding-left: 1.25rem;
+  }
+  .prose-editorial li + li {
+    margin-top: 0.375rem;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

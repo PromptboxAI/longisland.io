@@ -146,26 +146,42 @@ async function searchYelp(body: YelpSearchRequest): Promise<YelpBusiness[]> {
 Import types from `schema.ts` / `types.ts` only. `search.ts` is `server-only`
 and will fail the build if a Client Component reaches it.
 
-## Open: two Yelp clients
+## Resolved: one Yelp client
 
-There are currently **two** Yelp callers in `src/lib/yelp/`, written
-concurrently in two sessions:
+There were briefly **two** Yelp callers in `src/lib/yelp/`, written concurrently
+in two sessions. They have been collapsed into one.
 
-| | `client.ts` | `search.ts` |
-| --- | --- | --- |
-| Function | `searchBusinesses()` | `searchYelpBusinesses()` |
-| Returns | `BusinessCandidate` (adds `county` via `inferCounty`, drops `state`/`distance`) | `YelpBusiness` (flat, includes `state`, `displayPhone`, `distance`) |
-| Sorts | `best_match`, `rating`, `review_count` | those plus `distance` |
-| Caching | `next: { revalidate: 300 }` | `cache: "no-store"` |
-| Used by | `/api/admin/candidates` | `/api/yelp/search` |
-| Error class | `YelpError` | `YelpSearchError` |
+**Kept** — `search.ts` + `schema.ts` + `types.ts`, backing `POST /api/yelp/search`:
 
-They should be collapsed into one client before either grows further. Two
-things to carry across into whichever survives:
+- server-only API key handling (`import "server-only"`)
+- zod request validation, including `sort_by: distance`
+- a normalized `YelpBusiness` shape
+- sanitized errors — Yelp's `error.description` is never forwarded
+- `cache: "no-store"` and a 10s timeout
 
-1. `client.ts` builds its error message from the raw Yelp body
-   (`detail.slice(0, 200)`) and `/api/admin/candidates` returns that message to
-   the browser. On a malformed `YELP_API_KEY` that body contains the key — see
-   the note under **Errors**.
-2. `client.ts` caches for 300s. That is reasonable for repeated research
-   queries but means an editor can act on stale ratings.
+**Removed** — `client.ts` and `/api/admin/candidates`:
+
+- It built its client-facing error message from the raw Yelp body
+  (`detail.slice(0, 200)`). Yelp echoes the whole `Authorization` header back in
+  `error.description` when the key is malformed, so that path could have
+  returned the API key to the browser. This was the deciding reason to keep
+  `search.ts` as the base.
+- It cached responses for 300s, which can serve stale candidates into an
+  editorial decision.
+
+**Merged forward** from the removed client:
+
+- `SEARCH_AREAS` / `SEARCH_TOWNS` / `resolveArea` — Long Island area presets,
+  now in `areas.ts`
+- `inferCounty` — Nassau/Suffolk derivation from town, also in `areas.ts` and
+  applied during normalization, so `YelpBusiness.county` maps straight onto
+  `businesses.county`
+
+`/dev/yelp-search`, the throwaway browser harness, was deleted as intended once
+`/admin/generate` began calling the canonical route.
+
+### Where the review floor lives
+
+`/admin/generate` applies "minimum reviews" client-side after the fetch, rather
+than the route doing it. The route stays a thin Yelp proxy with one contract and
+no editorial policy baked in.

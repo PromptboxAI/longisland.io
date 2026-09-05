@@ -1,0 +1,149 @@
+import { Globe, MapPin, Navigation, Phone } from "lucide-react";
+import Link from "next/link";
+
+import { EditorialImage } from "@/components/ui/EditorialImage";
+import type { RankingEntryWithBusiness } from "@/types/database";
+
+export interface RankingEntryProps {
+  entry: RankingEntryWithBusiness;
+  priority?: boolean;
+}
+
+/**
+ * One ranked entry, laid out as a comparison card.
+ *
+ * Structure: badge chip, image on the left, editorial content in the middle,
+ * actions on the right, and a details row beneath with address, phone and
+ * website. The `id` anchors the quick list at the top of the page.
+ */
+export function RankingEntry({ entry, priority = false }: RankingEntryProps) {
+  const { business } = entry;
+  const location = [business.city, business.county].filter(Boolean).join(", ");
+  const directionsQuery = encodeURIComponent(
+    [business.name, business.address, business.city, "NY"].filter(Boolean).join(", "),
+  );
+
+  return (
+    <article
+      id={`entry-${entry.position}`}
+      className="relative rounded-card border border-line bg-white shadow-card"
+    >
+      {entry.badge ? (
+        <div className="absolute -top-3 left-5">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-navy-900 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gold-400">
+            {entry.badge}
+          </span>
+        </div>
+      ) : null}
+
+      <div className="grid gap-5 p-5 pt-7 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-6 lg:grid-cols-[220px_minmax(0,1fr)_190px]">
+        {/* Image */}
+        <div className="relative aspect-[4/3] overflow-hidden rounded border border-line">
+          <EditorialImage
+            src={business.primary_image_url}
+            alt=""
+            seed={business.slug}
+            priority={priority}
+            sizes="(max-width: 640px) 100vw, 220px"
+          />
+          <span className="absolute left-2 top-2 grid size-9 place-items-center rounded-full bg-navy-900 text-sm font-bold text-white">
+            {entry.position}
+          </span>
+        </div>
+
+        {/* Editorial content */}
+        <div className="min-w-0">
+          <h3 className="text-xl font-extrabold leading-tight text-navy-900">
+            <Link href={`/business/${business.slug}`} className="hover:text-brand-600">
+              {business.name}
+            </Link>
+          </h3>
+
+          {location ? (
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-500">
+              <MapPin aria-hidden="true" className="size-3.5 shrink-0" />
+              {location}
+            </p>
+          ) : null}
+
+          {entry.best_for ? (
+            <p className="mt-3 text-sm font-bold text-brand-600">
+              Best for: {entry.best_for}
+            </p>
+          ) : null}
+
+          {entry.editorial_reason ? (
+            <div className="mt-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
+                Why we picked it
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-ink-700">
+                {entry.editorial_reason}
+              </p>
+            </div>
+          ) : null}
+
+          {/* Contact details */}
+          <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 border-t border-line pt-3 text-xs text-ink-500">
+            {business.address ? (
+              <div className="flex items-center gap-1.5">
+                <dt className="sr-only">Address</dt>
+                <MapPin aria-hidden="true" className="size-3.5 shrink-0" />
+                <dd>
+                  {business.address}
+                  {business.city ? `, ${business.city}` : ""}
+                </dd>
+              </div>
+            ) : null}
+            {business.phone ? (
+              <div className="flex items-center gap-1.5">
+                <dt className="sr-only">Phone</dt>
+                <Phone aria-hidden="true" className="size-3.5 shrink-0" />
+                <dd>{business.phone}</dd>
+              </div>
+            ) : null}
+            {business.website ? (
+              <div className="flex items-center gap-1.5">
+                <dt className="sr-only">Website</dt>
+                <Globe aria-hidden="true" className="size-3.5 shrink-0" />
+                <dd>
+                  <a
+                    href={business.website}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="text-brand-600 hover:underline"
+                  >
+                    Visit website
+                  </a>
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </div>
+
+        {/* Actions */}
+        {/*
+          self-start keeps this column from stretching to the row height — the
+          buttons size to their content instead of growing to fill the card.
+        */}
+        <div className="flex flex-row flex-wrap gap-2 self-start sm:col-span-2 lg:col-span-1 lg:flex-col">
+          <Link
+            href={`/business/${business.slug}`}
+            className="rounded-full bg-navy-900 px-4 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-navy-800"
+          >
+            View Profile
+          </Link>
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${directionsQuery}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-full border border-navy-300 px-4 py-2 text-sm font-semibold text-navy-900 transition-colors hover:border-navy-500 hover:bg-navy-50"
+          >
+            <Navigation aria-hidden="true" className="size-3.5" />
+            Directions
+          </a>
+        </div>
+      </div>
+    </article>
+  );
+}

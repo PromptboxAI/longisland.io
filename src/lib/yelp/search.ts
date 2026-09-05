@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getYelpApiKey } from "@/lib/env";
+import { inferCounty } from "@/lib/yelp/areas";
 import type { YelpSearchParams } from "@/lib/yelp/schema";
 import type {
   YelpApiBusiness,
@@ -16,16 +17,11 @@ import type {
  * into a Client Component, which is the guardrail that keeps `YELP_API_KEY` out
  * of the browser bundle — the same pattern as `src/lib/supabase/admin.ts`.
  *
- * NOTE — there are two Yelp callers in this folder, and that is not yet
- * resolved:
- *
- * - `client.ts` (`searchBusinesses`) returns `BusinessCandidate`, adds county
- *   inference, and backs `/api/admin/candidates`.
- * - this module (`searchYelpBusinesses`) returns the flat `YelpBusiness` shape
- *   and backs `/api/yelp/search`.
- *
- * They were written concurrently in two sessions. They should be collapsed into
- * one client before either grows further; see docs/yelp-search.md.
+ * This is the ONE Yelp client. It backs `POST /api/yelp/search`, which is the
+ * only route that talks to Yelp, and `/admin/generate` is its only caller. An
+ * earlier parallel implementation (`client.ts` + `/api/admin/candidates`) was
+ * folded into this one; its area presets and county inference now live in
+ * `./areas.ts`.
  *
  * Callers get either a normalized `YelpSearchResult` or a thrown `YelpError`
  * carrying an HTTP status we are happy to expose. Yelp's own error text is
@@ -116,6 +112,9 @@ export function normalizeYelpBusiness(raw: YelpApiBusiness): YelpBusiness {
       nullIfBlank(raw.location?.address1) ??
       nullIfBlank(raw.location?.display_address?.[0]),
     city: nullIfBlank(raw.location?.city),
+    // Yelp has no county field; derive it so a candidate maps straight onto
+    // `businesses.county`.
+    county: inferCounty(nullIfBlank(raw.location?.city)),
     state: nullIfBlank(raw.location?.state),
     zip: nullIfBlank(raw.location?.zip_code),
     latitude: raw.coordinates?.latitude ?? null,

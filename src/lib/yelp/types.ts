@@ -5,12 +5,12 @@
  *
  * - `YelpApi*` mirrors the raw wire format of
  *   `GET https://api.yelp.com/v3/businesses/search`. Nothing outside
- *   `src/lib/yelp/client.ts` should touch these.
+ *   `src/lib/yelp/search.ts` should touch these.
  * - `YelpBusiness` is the flat, normalized shape the rest of the app consumes.
  *
  * This file deliberately has no `server-only` guard: it is types only, so it is
  * safe for a Client Component to `import type` from it. The client that holds
- * the API key lives in `client.ts`, which IS server-only.
+ * the API key lives in `search.ts`, which IS server-only.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -93,6 +93,11 @@ export interface YelpBusiness {
   categories: string[];
   address: string | null;
   city: string | null;
+  /**
+   * Derived from `city`, not returned by Yelp. Mirrors `businesses.county` so a
+   * candidate can be written straight into our schema.
+   */
+  county: string | null;
   state: string | null;
   zip: string | null;
   latitude: number | null;
