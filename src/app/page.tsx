@@ -66,6 +66,18 @@ export default async function HomePage() {
    * change, so the windows stay as they are and the overlap is accepted.
    */
   const [lead, ...rest] = rankings;
+
+  /*
+   * Related reviews for the lead: the next lists in its own category. Derived
+   * from the rankings already fetched above, so this adds no query and no data
+   * model — a curated relationship belongs on the ranking itself, not here.
+   */
+  const relatedToLead = lead?.category
+    ? rest
+        .filter((r) => r.category?.slug === lead.category?.slug)
+        .slice(0, 2)
+        .map((r) => ({ title: r.title, href: `/best/${r.slug}` }))
+    : [];
   const latest = rest.slice(0, 5);
   const railItems = rankingsToRailItems(rankings.slice(0, 5));
   const topPicks = rankings.slice(0, 5);
@@ -123,15 +135,18 @@ export default async function HomePage() {
           {/* CENTER — the dominant slot on the page */}
           <div className="order-1 md:order-2">
             {lead ? (
-              <RankingCard ranking={lead} variant="feature" priority />
+              <RankingCard
+                ranking={lead}
+                related={relatedToLead}
+                variant="feature"
+                priority
+              />
             ) : (
               <EditorialEmpty
                 variant="feature"
                 eyebrow="Featured"
                 title="The best of Long Island, ranked."
                 description="Our flagship list runs here — the top ten we send people to first, from pizza and bagels to the trades worth calling."
-                href="/best"
-                linkLabel="Browse all rankings"
               />
             )}
           </div>

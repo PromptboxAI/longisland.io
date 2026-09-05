@@ -117,12 +117,16 @@ export function EditorialEmpty({
         </div>
 
         <div className="pt-4">
-          {eyebrow ? <p className="meta mb-1.5 text-brand-600">{eyebrow}</p> : null}
-          <p className="headline text-[26px] text-navy-900 sm:text-[40px]">
+          {eyebrow ? (
+            <p className="mb-1.5 text-xs font-semibold uppercase leading-[25px] text-brand-600">
+              {eyebrow}
+            </p>
+          ) : null}
+          <p className="headline text-2xl leading-[1.27] text-navy-900 sm:text-[30px]">
             {title}
           </p>
           {description ? (
-            <p className="mt-2 max-w-2xl text-base leading-relaxed text-ink-700 sm:text-[17px]">
+            <p className="mt-2 max-w-2xl text-[15px] leading-[25px] text-ink-700">
               {description}
             </p>
           ) : null}

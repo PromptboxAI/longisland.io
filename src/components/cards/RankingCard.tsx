@@ -1,11 +1,17 @@
 import Link from "next/link";
 
-import { formatDate } from "@/components/editorial/EditorialDisclosure";
 import { EditorialImage } from "@/components/ui/EditorialImage";
 import type { RankingSummary } from "@/types/database";
 
+export interface RelatedLink {
+  title: string;
+  href: string;
+}
+
 export interface RankingCardProps {
   ranking: RankingSummary;
+  /** Feature variant only: the "Related Reviews" line beneath the dek. */
+  related?: RelatedLink[];
   /**
    * feature  — large lead card with image above the headline
    * standard — grid card with image
@@ -18,22 +24,39 @@ export interface RankingCardProps {
 
 export function RankingCard({
   ranking,
+  related,
   variant = "standard",
   priority = false,
 }: RankingCardProps) {
   const href = `/best/${ranking.slug}`;
+  /*
+   * Short month on cards. The shared formatDate spells the month out, which is
+   * right in an article dateline and too long in a kicker sat above a headline.
+   */
   const dateline = ranking.published_at
-    ? formatDate(new Date(ranking.published_at))
+    ? new Date(ranking.published_at).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      })
     : null;
 
   if (variant === "text") {
     return (
       <article className="border-b border-line pb-4 last:border-0">
-        <p className="meta mb-1">
-          {dateline ? <span>{dateline}</span> : null}
-          {dateline && ranking.category ? <span className="mx-1.5">|</span> : null}
+        <p className="mb-1 text-xs leading-[25px]">
+          {dateline ? <span className="text-ink-400">{dateline}</span> : null}
+          {dateline && ranking.category ? (
+            <span className="mx-1.5 text-ink-400">|</span>
+          ) : null}
           {ranking.category ? (
-            <span className="text-brand-600">{ranking.category.name}</span>
+            <Link
+              href={`/category/${ranking.category.slug}`}
+              className="relative z-10 font-semibold uppercase text-brand-600 hover:underline"
+            >
+              {ranking.category.name}
+            </Link>
           ) : null}
         </p>
         <h3 className="headline text-[15px] text-navy-900">
@@ -98,17 +121,24 @@ export function RankingCard({
       </div>
 
       <div className={isFeature ? "pt-4" : "pt-3"}>
-        <p className="meta mb-1.5">
-          {dateline ? <span>{dateline}</span> : null}
-          {dateline && ranking.category ? <span className="mx-1.5">|</span> : null}
+        <p className="mb-1.5 text-xs leading-[25px]">
+          {dateline ? <span className="text-ink-400">{dateline}</span> : null}
+          {dateline && ranking.category ? (
+            <span className="mx-1.5 text-ink-400">|</span>
+          ) : null}
           {ranking.category ? (
-            <span className="text-brand-600">{ranking.category.name}</span>
+            <Link
+              href={`/category/${ranking.category.slug}`}
+              className="relative z-10 font-semibold uppercase text-brand-600 hover:underline"
+            >
+              {ranking.category.name}
+            </Link>
           ) : null}
         </p>
 
         <h3
           className={`headline text-navy-900 ${
-            isFeature ? "text-[26px] sm:text-[40px]" : "text-base"
+            isFeature ? "text-2xl leading-[1.27] sm:text-[30px]" : "text-base"
           }`}
         >
           <Link href={href} className="after:absolute after:inset-0 hover:text-brand-600">
@@ -118,8 +148,10 @@ export function RankingCard({
 
         {ranking.description ? (
           <p
-            className={`mt-2 leading-relaxed text-ink-700 ${
-              isFeature ? "max-w-2xl text-base sm:text-[17px]" : "line-clamp-2 text-sm"
+            className={`mt-2 text-ink-700 ${
+              isFeature
+                ? "max-w-2xl text-[15px] leading-[25px]"
+                : "line-clamp-2 text-sm leading-relaxed"
             }`}
           >
             {ranking.description}
@@ -134,18 +166,27 @@ export function RankingCard({
         </p>
 
         {/*
-          * The headline already covers the whole card via its inset overlay, so
-          * this sits above it only to give the lead well an explicit action.
+          * Related reviews rather than a button: the headline already covers the
+          * whole card, so a call to action here would only repeat it, where
+          * these send the reader somewhere the card cannot.
           */}
-        {isFeature ? (
-          <Link
-            href={href}
-            tabIndex={-1}
-            aria-hidden="true"
-            className="relative z-10 mt-4 inline-flex items-center rounded-full bg-navy-900 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy-800"
-          >
-            Read the ranking
-          </Link>
+        {isFeature && related && related.length > 0 ? (
+          <p className="mt-3 text-sm leading-[22px]">
+            <span className="text-base font-bold text-navy-900">Related Reviews: </span>
+            {related.map((item, index) => (
+              <span key={item.href}>
+                <Link
+                  href={item.href}
+                  className="relative z-10 font-bold text-brand-600 hover:underline"
+                >
+                  {item.title}
+                </Link>
+                {index < related.length - 1 ? (
+                  <span className="text-ink-400">, </span>
+                ) : null}
+              </span>
+            ))}
+          </p>
         ) : null}
       </div>
     </article>
