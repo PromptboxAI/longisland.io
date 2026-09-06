@@ -32,31 +32,31 @@ export function ProductComparisonTable({
           <tr>
             <th
               scope="col"
-              className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400"
+              className="meta px-5 py-3"
             >
               Product
             </th>
             <th
               scope="col"
-              className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400"
+              className="meta px-5 py-3"
             >
               Award
             </th>
             <th
               scope="col"
-              className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400"
+              className="meta px-5 py-3"
             >
               Best for
             </th>
             <th
               scope="col"
-              className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400"
+              className="meta px-5 py-3"
             >
               Price
             </th>
             <th
               scope="col"
-              className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400"
+              className="meta px-5 py-3"
             >
               <span className="sr-only">Buying options</span>
             </th>

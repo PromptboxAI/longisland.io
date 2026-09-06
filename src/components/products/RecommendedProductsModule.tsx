@@ -85,7 +85,7 @@ export async function RecommendedProductsModule({
 
       {relatedGuides.length > 0 ? (
         <div className="mt-7 border-t border-line pt-5">
-          <h3 className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
+          <h3 className="meta">
             Full buying guides
           </h3>
           <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-2">

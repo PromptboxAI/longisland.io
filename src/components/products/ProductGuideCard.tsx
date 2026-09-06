@@ -13,9 +13,12 @@ export interface ProductGuideCardProps {
 /**
  * Index card for a buying guide.
  *
- * Shaped after `cards/RankingCard` so the /products index reads as the same
- * publication as /best — same dateline-kicker-headline stack, same stretched
- * link over the whole card.
+ * Deliberately shaped after `cards/RankingCard` — same dateline/kicker line,
+ * same `.headline` face, same stretched link over the whole card — so /products
+ * reads as the same publication as /best rather than as a store bolted on.
+ *
+ * Not `PickCard`: that is a merchandising tile for a single product, framed in a
+ * white field with a price CTA. A guide is an article, and this card says so.
  */
 export function ProductGuideCard({
   guide,
@@ -50,17 +53,24 @@ export function ProductGuideCard({
       </div>
 
       <div className={isFeature ? "pt-4" : "pt-3"}>
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-          {dateline ? <span>{dateline}</span> : null}
-          {dateline && guide.category ? <span className="mx-1.5">|</span> : null}
+        <p className="mb-1.5 text-xs leading-[25px]">
+          {dateline ? <span className="text-ink-400">{dateline}</span> : null}
+          {dateline && guide.category ? (
+            <span className="mx-1.5 text-ink-400">|</span>
+          ) : null}
           {guide.category ? (
-            <span className="text-brand-600">{guide.category.name}</span>
+            <Link
+              href={`/products?category=${guide.category.slug}`}
+              className="relative z-10 font-semibold uppercase text-brand-600 hover:underline"
+            >
+              {guide.category.name}
+            </Link>
           ) : null}
         </p>
 
         <h3
-          className={`font-bold leading-tight text-navy-900 ${
-            isFeature ? "text-2xl sm:text-[28px]" : "text-base"
+          className={`headline text-navy-900 ${
+            isFeature ? "text-2xl leading-[1.27] sm:text-[30px]" : "text-base"
           }`}
         >
           <Link href={href} className="after:absolute after:inset-0 hover:text-brand-600">
@@ -70,8 +80,10 @@ export function ProductGuideCard({
 
         {guide.description ? (
           <p
-            className={`mt-2 leading-relaxed text-ink-700 ${
-              isFeature ? "text-[15px]" : "line-clamp-2 text-sm"
+            className={`mt-2 text-ink-700 ${
+              isFeature
+                ? "max-w-2xl text-[15px] leading-[25px]"
+                : "line-clamp-2 text-sm leading-relaxed"
             }`}
           >
             {guide.description}

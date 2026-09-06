@@ -10,6 +10,7 @@ import {
   SEED_PRODUCT_RANKING_ENTRIES,
   SEED_PRODUCT_RECOMMENDATIONS,
 } from "@/lib/data/seed";
+import { isSeedContentAllowed } from "@/lib/env";
 import { createPublicClient } from "@/lib/supabase/public";
 import { sortOffers } from "@/lib/affiliate";
 import type {
@@ -64,17 +65,59 @@ async function hasProductSchema(
       );
       return false;
     }
+
+    // Any OTHER error means the database is provisioned but this request
+    // failed. That is a runtime fault, not "no database", so the schema is
+    // treated as present and callers fall through to their error handling
+    // rather than to seed content.
+    if (error) {
+      logQueryError("hasProductSchema probe", error);
+    }
     return true;
   })();
 
   return productSchemaReady;
 }
 
-/** Supabase client, or null when we should read from seed content instead. */
+/**
+ * Supabase client, or `null` when reading from seed content is correct.
+ *
+ * `null` means one thing only: there is no usable database — unconfigured, or
+ * configured without the product migrations applied. It NEVER means "a query
+ * failed".
+ */
 async function getDb() {
   const client = createPublicClient();
   if (!client) return null;
   return (await hasProductSchema(client)) ? client : null;
+}
+
+/**
+ * Whether a caller with no database may serve the fictional seed catalogue.
+ *
+ * Same gate as the local content, and it matters more here: the seed products
+ * are invented brands carrying invented affiliate URLs. Publishing them from a
+ * production deploy would put fabricated commerce content on a live site.
+ */
+function seedAllowed(): boolean {
+  if (isSeedContentAllowed) return true;
+  console.error(
+    "[longisland] No usable product schema and seed content is not permitted " +
+      "in production. Serving empty results. Apply the product migrations.",
+  );
+  return false;
+}
+
+/**
+ * Logs a failed Supabase read.
+ *
+ * Only the PostgREST code and message are logged — never the client, the URL
+ * or any key, so a log line cannot leak credentials.
+ */
+function logQueryError(context: string, error: { code?: string; message: string }) {
+  console.error(
+    `[longisland] ${context} failed (${error.code ?? "unknown"}): ${error.message}`,
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -149,15 +192,20 @@ async function loadMerchants(
 
 export async function listProductCategories(): Promise<ProductCategory[]> {
   const supabase = await getDb();
-  if (!supabase) return SEED_PRODUCT_CATEGORIES;
+  if (!supabase) return seedAllowed() ? SEED_PRODUCT_CATEGORIES : [];
 
   const { data, error } = await supabase
     .from("product_categories")
     .select("*")
     .order("name");
 
-  if (error || !data) return SEED_PRODUCT_CATEGORIES;
-  return data as ProductCategory[];
+  // A failed read returns empty, never fixtures: an empty filter row is
+  // honest, an invented category is not.
+  if (error) {
+    logQueryError("listProductCategories", error);
+    return [];
+  }
+  return (data ?? []) as ProductCategory[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -220,7 +268,7 @@ export async function listProductGuides(
   const { categorySlug, query, limit } = options;
   const supabase = await getDb();
 
-  if (!supabase) return seedGuideSummaries(options);
+  if (!supabase) return seedAllowed() ? seedGuideSummaries(options) : [];
 
   let request = supabase
     .from("product_rankings")
@@ -240,8 +288,11 @@ export async function listProductGuides(
   if (limit) request = request.limit(limit);
 
   const { data, error } = await request;
-  // Degrade to seed content rather than rendering an empty index.
-  if (error || !data) return seedGuideSummaries(options);
+  if (error) {
+    logQueryError("listProductGuides", error);
+    return [];
+  }
+  if (!data) return [];
 
   type Row = ProductRanking & {
     category: { name: string; slug: string } | null;
@@ -267,6 +318,8 @@ export async function getProductGuideBySlug(
   const supabase = await getDb();
 
   if (!supabase) {
+    if (!seedAllowed()) return null;
+
     const guide = SEED_PRODUCT_RANKINGS.find((g) => g.slug === slug);
     if (!guide) return null;
 
@@ -323,7 +376,9 @@ export async function getProductGuideBySlug(
 
 export async function listProductGuideSlugs(): Promise<string[]> {
   const supabase = await getDb();
-  if (!supabase) return SEED_PRODUCT_RANKINGS.map((guide) => guide.slug);
+  if (!supabase) {
+    return seedAllowed() ? SEED_PRODUCT_RANKINGS.map((guide) => guide.slug) : [];
+  }
 
   const { data } = await supabase.from("product_rankings").select("slug");
   return (data ?? []).map((row: { slug: string }) => row.slug);
@@ -343,6 +398,8 @@ export async function listProductGuidesForLocalCategory(
   const supabase = await getDb();
 
   if (!supabase) {
+    if (!seedAllowed()) return [];
+
     return SEED_PRODUCT_RANKINGS.filter(
       (guide) => guide.local_category_id === localCategoryId,
     )
@@ -392,6 +449,8 @@ export async function getRecommendedProducts(
   const supabase = await getDb();
 
   if (!supabase) {
+    if (!seedAllowed()) return [];
+
     return SEED_PRODUCT_RECOMMENDATIONS.filter(
       (rec) => rec.content_type === contentType && rec.content_id === contentId,
     )
@@ -436,6 +495,8 @@ export async function listFeaturedProducts(limit = 4): Promise<ProductWithOffers
   const supabase = await getDb();
 
   if (!supabase) {
+    if (!seedAllowed()) return [];
+
     return SEED_PRODUCTS.filter((product) => product.featured)
       .slice(0, limit)
       .map((product) => seedProductWithOffers(product.id))

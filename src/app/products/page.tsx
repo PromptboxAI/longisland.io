@@ -143,7 +143,7 @@ export default async function ProductsIndexPage({ searchParams }: PageProps) {
         ) : (
           <div className="mt-10 space-y-12">
             <section aria-labelledby="latest-guides">
-              <RuleHeading id="latest-guides" title="Latest Guides" uppercase />
+              <RuleHeading id="latest-guides" title="Latest Guides" />
               <div className="mt-7 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
                 {guides.map((guide, index) => (
                   <ProductGuideCard
@@ -161,7 +161,6 @@ export default async function ProductsIndexPage({ searchParams }: PageProps) {
                   id="browse-product-categories"
                   title="Browse by Category"
                   description="What we cover, grouped the way you would actually shop for it."
-                  uppercase
                 />
                 <div className="mt-5 flex flex-wrap gap-2">
                   {topLevel.map((category) => (

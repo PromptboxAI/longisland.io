@@ -26,7 +26,7 @@ export function ProductProsCons({ pros, cons, labelledBy }: ProductProsConsProps
       className="grid gap-4 rounded border border-line bg-sand-50 p-4 sm:grid-cols-2"
     >
       <div>
-        <h4 className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
+        <h4 className="meta">
           Pros
         </h4>
         <ul className="mt-2 space-y-1.5">
@@ -46,7 +46,7 @@ export function ProductProsCons({ pros, cons, labelledBy }: ProductProsConsProps
       </div>
 
       <div>
-        <h4 className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
+        <h4 className="meta">
           Cons
         </h4>
         <ul className="mt-2 space-y-1.5">

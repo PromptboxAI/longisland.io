@@ -37,7 +37,7 @@ export function ProductQuickPick({ entries }: ProductQuickPickProps) {
     <section aria-labelledby="quick-picks">
       <h2
         id="quick-picks"
-        className="text-xs font-bold uppercase tracking-wider text-ink-400"
+        className="meta"
       >
         Our picks at a glance
       </h2>
@@ -49,10 +49,10 @@ export function ProductQuickPick({ entries }: ProductQuickPickProps) {
               href={`#product-${entry.position}`}
               className="group flex h-full flex-col rounded-card border border-line bg-white p-4 transition-colors hover:border-brand-500"
             >
-              <span className="text-[11px] font-bold uppercase tracking-wider text-brand-600">
+              <span className="meta text-brand-600">
                 {entry.badge}
               </span>
-              <span className="mt-1.5 font-extrabold leading-tight text-navy-900 group-hover:text-brand-600">
+              <span className="headline mt-1.5 text-navy-900 group-hover:text-brand-600">
                 {entry.product.name}
               </span>
               {entry.best_for ? (

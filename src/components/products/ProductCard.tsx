@@ -41,6 +41,9 @@ export function ProductCard({ product, badge, note, position }: ProductCardProps
           seed={product.slug}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 300px"
           fallbackLabel={product.brand ?? undefined}
+          // Product shots must not be cropped — main added `contain` for exactly
+          // this, so a wide box or a tall bottle survives the frame intact.
+          fit="contain"
         />
         {position ? (
           <span className="absolute left-2 top-2 grid size-8 place-items-center rounded-full bg-navy-900 text-sm font-bold text-white">
@@ -51,12 +54,12 @@ export function ProductCard({ product, badge, note, position }: ProductCardProps
 
       <div className="flex min-w-0 flex-1 flex-col p-4">
         {product.brand ? (
-          <p className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
+          <p className="meta">
             {product.brand}
           </p>
         ) : null}
 
-        <h3 className="mt-1 text-base font-extrabold leading-tight text-navy-900">
+        <h3 className="headline mt-1 text-base text-navy-900">
           {product.name}
         </h3>
 

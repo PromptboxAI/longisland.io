@@ -228,7 +228,6 @@ export default async function ProductGuidePage({ params }: PageParams) {
               }
               href="/best"
               linkLabel="All rankings"
-              uppercase
             />
             <div className="mt-7 grid gap-7 sm:grid-cols-2 lg:grid-cols-4">
               {localRankings.map((ranking) => (
@@ -247,7 +246,6 @@ export default async function ProductGuidePage({ params }: PageParams) {
               title="More Buying Guides"
               href="/products"
               linkLabel="All guides"
-              uppercase
             />
             <div className="mt-7 grid gap-7 sm:grid-cols-2 lg:grid-cols-4">
               {related.map((other) => (
