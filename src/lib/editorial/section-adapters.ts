@@ -34,15 +34,16 @@ export interface PickProps {
   href: string;
   imageUrl: string | null;
   imageSeed: string;
-  ctaLabel: string;
 }
 
 /**
  * Top Picks cards. Accepts every target type.
  *
- * A product guide gets the commerce CTA; everything else keeps the editorial
- * one, because "Check Price" over a ranking of local restaurants promises
- * something the page does not do.
+ * No target type carries a CTA label, because every destination a section can
+ * hold is editorial — a ranking, a buying guide, a business, a category, a
+ * place, or an external article. A buying guide is an article ABOUT products,
+ * not a product, so it gets no "Check Price" either; commerce CTAs are rendered
+ * per real offer by `products/ProductOfferButton`.
  */
 export function toPickCards(
   section: ResolvedSection | null,
@@ -57,7 +58,6 @@ export function toPickCards(
     href: item.href,
     imageUrl: item.imageUrl,
     imageSeed: item.id,
-    ctaLabel: item.targetType === "product_ranking" ? "Check Price" : "Read the list",
   }));
 }
 

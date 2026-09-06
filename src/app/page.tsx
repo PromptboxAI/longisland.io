@@ -114,9 +114,6 @@ export default async function HomePage() {
     href: `/best/${ranking.slug}`,
     imageUrl: ranking.hero_image_url,
     imageSeed: ranking.slug,
-    // Preserved from the approved UI rather than corrected here — see the note
-    // in the wiring report about PickCard's own guidance on price CTAs.
-    ctaLabel: "Check Price",
   }));
   const topPicks = curatedPicks.length > 0 ? curatedPicks : fallbackPicks;
 
@@ -232,7 +229,6 @@ export default async function HomePage() {
                 href={pick.href}
                 imageUrl={pick.imageUrl}
                 imageSeed={pick.imageSeed}
-                ctaLabel={pick.ctaLabel}
               />
             ))}
           </div>
