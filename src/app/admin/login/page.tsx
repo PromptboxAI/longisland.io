@@ -16,7 +16,7 @@ export default function AdminLoginPage() {
         <div className="text-center">
           <Link
             href="/"
-            className="text-xl font-extrabold uppercase tracking-tight text-navy-900"
+            className="text-xl font-extrabold tracking-tight text-navy-900"
           >
             LongIsland<span className="text-gold-400">.io</span>
           </Link>

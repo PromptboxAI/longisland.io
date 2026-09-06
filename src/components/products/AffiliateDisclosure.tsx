@@ -28,15 +28,26 @@ export function AffiliateDisclosure({
 }: AffiliateDisclosureProps) {
   if (variant === "inline") {
     return (
-      <p className="text-xs leading-relaxed text-ink-500">
-        {AFFILIATE_DISCLOSURE}{" "}
-        <Link
-          href="/affiliate-disclosure"
-          className="text-brand-600 underline underline-offset-2"
-        >
-          How this works
-        </Link>
-      </p>
+      <div className="text-xs leading-relaxed text-ink-500">
+        <p>
+          {AFFILIATE_DISCLOSURE}{" "}
+          <Link
+            href="/affiliate-disclosure"
+            className="text-brand-600 underline underline-offset-2"
+          >
+            How this works
+          </Link>
+        </p>
+        {/*
+          Network-required wording renders in every variant that is given it.
+          This one used to accept merchantNotes and drop them, which meant the
+          Amazon Associates sentence went missing wherever the inline form was
+          used — the one place the network requires it is beside the links.
+        */}
+        {merchantNotes.length > 0 ? (
+          <p className="mt-1">{merchantNotes.join(" ")}</p>
+        ) : null}
+      </div>
     );
   }
 
