@@ -244,6 +244,15 @@ export const primaryNav: NavItem[] = [
       },
     ],
   },
+  /*
+   * Products is a flat link on purpose: the buying guides are few enough that a
+   * mega-menu would be mostly empty, and an empty column reads as a broken menu.
+   * Give it columns when there is something to put in them.
+   */
+  {
+    label: "Products",
+    href: "/products",
+  },
   {
     label: "Places",
     href: "/places",

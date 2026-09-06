@@ -54,6 +54,19 @@ export interface ProductPick {
 
 export type SectionPick = EditorialPick | ProductPick;
 
+export interface PickOptions {
+  /**
+   * Drop every non-product target instead of rendering it as an editorial card.
+   *
+   * Set for `homepage_top_picks`, which is a commerce row: a product card and an
+   * editorial card side by side disagree about image ratio, card height and
+   * whether there is a button at all, and the row stops reading as one shelf.
+   * The schema still accepts any target there — this is a presentation policy,
+   * and the admin editor says plainly that such an item will not render.
+   */
+  productsOnly?: boolean;
+}
+
 /**
  * Top Picks cards. Accepts every target type, and renders by target type.
  *
@@ -67,13 +80,19 @@ export type SectionPick = EditorialPick | ProductPick;
  * A product with no usable offer is dropped rather than rendered without a
  * button; `hasUsableOffer` is the same predicate the admin picker warns with.
  */
-export function toPickCards(section: ResolvedSection | null, max = 5): SectionPick[] {
+export function toPickCards(
+  section: ResolvedSection | null,
+  max = 5,
+  { productsOnly = false }: PickOptions = {},
+): SectionPick[] {
   if (!section) return [];
 
   const picks: SectionPick[] = [];
 
   for (const item of section.items) {
     if (picks.length >= max) break;
+
+    if (productsOnly && item.targetType !== "product") continue;
 
     if (item.targetType === "product") {
       // resolveItem only ever sets commerce on a product target.

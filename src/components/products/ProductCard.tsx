@@ -69,12 +69,17 @@ export function ProductCard({ product, badge, note, position }: ProductCardProps
           </p>
         ) : null}
 
+        {/*
+          mt-auto pins the button to the foot of the card, so a row of cards of
+          different text lengths still lines its CTAs up. Not full-width: the
+          label is two words and a stretched pill reads as an ad unit.
+        */}
         {offer ? (
           <div className="mt-auto pt-4">
             <ProductOfferButton
               offer={offer}
               productName={product.name}
-              className="w-full"
+              size="compact"
             />
           </div>
         ) : null}

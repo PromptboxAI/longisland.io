@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import {
   AFFILIATE_LINK_REL,
   ctaLabel,
+  DEFAULT_CTA_LABEL,
   displayPrice,
   isAffiliateOffer,
   merchantButtonTheme,
@@ -22,6 +23,21 @@ export interface ProductOfferButtonProps {
    * subsequent merchants so one page of offers has a single visual lead.
    */
   variant?: "primary" | "secondary";
+  /**
+   * Whether the merchant is named in the visible text.
+   *
+   * False on a product card, where the button is one of a row and reads as a
+   * consistent "Check Price". True in a list of several offers for the same
+   * product, where the merchant is the only thing telling one row from the next
+   * and colour alone cannot carry that.
+   */
+  showMerchant?: boolean;
+  /**
+   * "compact" is the card size: smaller type and padding, and the label never
+   * wraps. In a five-card row a button that breaks "Check Price" over two lines
+   * on the tiles that also show a price makes the row's feet disagree.
+   */
+  size?: "default" | "compact";
   className?: string;
 }
 
@@ -38,8 +54,11 @@ export interface ProductOfferButtonProps {
  * guideline and licensing obligations per network that a colour and a name do
  * not.
  *
- * The visible label stays merchant-neutral in its verb — "Check Price at
- * Amazon", never "Buy now" or "Best price". Every link is
+ * The visible label stays merchant-neutral — "Check Price", never "Buy now" or
+ * "Best price", and never the retailer's name unless `showMerchant` is set for a
+ * stacked list where the merchant is what distinguishes the rows. The accessible
+ * name always carries product and merchant, so a screen reader still learns the
+ * destination. Every link is
  * `rel="sponsored nofollow noopener noreferrer"` whether or not it carries a tag,
  * so an untagged offer that later gains one needs no change here.
  */
@@ -47,13 +66,22 @@ export function ProductOfferButton({
   offer,
   productName,
   variant = "primary",
+  showMerchant = false,
+  size = "default",
   className = "",
 }: ProductOfferButtonProps) {
   const href = offerUrl(offer);
   if (!href) return null;
 
   const merchant = merchantName(offer);
-  const label = ctaLabel(offer);
+  /*
+   * A card that does not name its merchant uses the house label, so a row of
+   * five reads "Check Price" five times instead of mixing in "Shop Now" for
+   * whichever retailer happens to be behind one tile. Where the merchant IS
+   * named — a stacked list of offers for one product — its own wording is kept,
+   * because there the button is about that retailer specifically.
+   */
+  const label = showMerchant ? ctaLabel(offer) : DEFAULT_CTA_LABEL;
   const price = displayPrice(offer);
   const unavailable =
     offer.availability === "out_of_stock" || offer.availability === "discontinued";
@@ -76,6 +104,11 @@ export function ProductOfferButton({
       ? "bg-navy-900 text-white hover:bg-navy-800"
       : "border border-navy-300 text-navy-900 hover:border-navy-500 hover:bg-navy-50";
 
+  const sizing =
+    size === "compact"
+      ? "gap-1 px-3 py-1.5 text-[13px] whitespace-nowrap"
+      : "gap-1.5 px-4 py-2 text-sm";
+
   return (
     <a
       href={href}
@@ -86,12 +119,18 @@ export function ProductOfferButton({
       // carries the product and merchant that make this one distinct.
       aria-label={`${label} for ${productName} at ${merchant} (opens in a new tab)`}
       aria-disabled={unavailable || undefined}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${styles} ${
+      className={`inline-flex items-center justify-center rounded-full font-semibold transition-colors ${sizing} ${styles} ${
         unavailable ? "opacity-60" : ""
       } ${className}`}
     >
       <span>
-        {label} at <span className="font-bold">{merchant}</span>
+        {label}
+        {showMerchant ? (
+          <>
+            {" at "}
+            <span className="font-bold">{merchant}</span>
+          </>
+        ) : null}
       </span>
       {price ? <span className="font-bold tabular-nums">{price}</span> : null}
       <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
@@ -133,6 +172,7 @@ export function ProductOfferList({
             offer={offer}
             productName={productName}
             variant="primary"
+            showMerchant
             className="w-full"
           />
         </li>

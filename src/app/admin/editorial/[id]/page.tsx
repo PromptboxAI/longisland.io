@@ -41,12 +41,12 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
   const liveCount = section.items.filter((i) => i.status === "published").length;
 
   /*
-   * Top Picks is product-led by editorial convention, not by constraint.
+   * Top Picks is a product-only row in presentation, though not in the schema.
    *
-   * The schema allows any target here on purpose — the rule that matters is
-   * that an article never wears a commerce button, and that is enforced by
-   * rendering on target type. This warns and does not block, because an editor
-   * occasionally has a good reason and should not have to fight the tool.
+   * Any target can be saved here — the constraint lives in the renderer, which
+   * skips non-product items so the five tiles agree on image ratio, height and
+   * button position. Saving is still allowed, but this has to say plainly that
+   * the item will not appear, or an editor will curate into a void.
    */
   const isTopPicks = section.key === "homepage_top_picks";
   const nonProduct = isTopPicks
@@ -72,18 +72,35 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
       </Link>
 
       {nonProduct.length > 0 ? (
-        <div className="flex gap-3 rounded-card border border-gold-300 bg-gold-50 p-4">
-          <AlertTriangle aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-gold-600" />
+        <div className="flex gap-3 rounded-card border border-red-300 bg-red-50 p-4">
+          <AlertTriangle aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-red-600" />
           <div className="text-sm leading-relaxed text-navy-900">
             <p className="font-semibold">
-              {nonProduct.length} of {section.items.length} items in Top Picks
-              {nonProduct.length === 1 ? " is not" : " are not"} a product.
+              {nonProduct.length} of {section.items.length} item
+              {section.items.length === 1 ? "" : "s"} in Top Picks
+              {nonProduct.length === 1 ? " is not" : " are not"} a product and
+              will not render.
             </p>
             <p className="mt-1 text-ink-700">
-              This row is meant to be product-led. Non-product targets still
-              render, as editorial cards with no price button — they will not
-              show a commerce CTA. Saved either way.
+              Top Picks is a product-only row: it is skipped rather than shown as
+              an editorial card, because a mixed row disagrees about image ratio,
+              card height and whether there is a button. Saved anyway — but move
+              these to another section, or swap them for products, if you want
+              them on the page. Non-product targets are fine everywhere else.
             </p>
+            <ul className="mt-2 list-disc pl-5 text-ink-700">
+              {nonProduct.map((item) => (
+                <li key={item.id}>
+                  {item.headline ??
+                    item.ranking?.title ??
+                    item.product_ranking?.title ??
+                    item.business?.name ??
+                    item.category?.name ??
+                    item.place?.name ??
+                    item.external_url}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       ) : null}

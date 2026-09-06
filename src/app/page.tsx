@@ -110,7 +110,13 @@ export default async function HomePage() {
    * Five is the row's rhythm, enforced in the adapter as well as here so a
    * section configured with a larger max cannot break the grid.
    */
-  const curatedPicks = toPickCards(picksSection, 5);
+  /*
+   * Top Picks is a commerce row: curated non-product targets are skipped rather
+   * than rendered as editorial cards, so the five tiles agree on image ratio,
+   * height and where the button sits. Mixed targets remain supported in every
+   * other section.
+   */
+  const curatedPicks = toPickCards(picksSection, 5, { productsOnly: true });
   const fallbackPicks: SectionPick[] = rankings.slice(0, 5).map((ranking) => ({
     kind: "editorial",
     key: ranking.id,

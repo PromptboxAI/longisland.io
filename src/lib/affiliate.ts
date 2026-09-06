@@ -52,9 +52,23 @@ export const CTA_LABELS = ["Check Price", "View Deal", "Shop Now"] as const;
 
 export const DEFAULT_CTA_LABEL = CTA_LABELS[0];
 
+/**
+ * The visible button wording. Short, merchant-neutral, and never the merchant
+ * name.
+ *
+ * The merchant still decides everything that matters about the link — where it
+ * goes, its colours, its disclosure, whether a price may be shown — but the
+ * label stays "Check Price" so a row of cards reads consistently instead of
+ * turning into a list of retailer names.
+ *
+ * A stored label that names its merchant ("Check Price at Amazon") is trimmed
+ * back to the verb rather than rejected: the merchant row is edited by hand, and
+ * the card should not be at the mercy of how someone phrased that field.
+ */
 export function ctaLabel(offer: OfferWithMerchant): string {
-  const label = offer.merchantRecord?.cta_label?.trim();
-  return label && label.length > 0 ? label : DEFAULT_CTA_LABEL;
+  const stored = offer.merchantRecord?.cta_label?.trim() ?? "";
+  const label = stored.split(/\s+at\s+/i)[0]?.trim() ?? "";
+  return label.length > 0 ? label : DEFAULT_CTA_LABEL;
 }
 
 /** Display name for a merchant, falling back to the stored slug. */
