@@ -71,7 +71,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="shrink-0 text-xl font-extrabold uppercase tracking-tight text-navy-900 sm:text-2xl"
+          className="shrink-0 text-xl font-extrabold tracking-tight text-navy-900 sm:text-2xl"
         >
           LongIsland<span className="text-gold-400">.io</span>
         </Link>
@@ -271,7 +271,7 @@ function MobileNav({
         <Link
           href="/"
           onClick={onClose}
-          className="text-xl font-extrabold uppercase tracking-tight text-navy-900"
+          className="text-xl font-extrabold tracking-tight text-navy-900"
         >
           LongIsland<span className="text-gold-400">.io</span>
         </Link>
