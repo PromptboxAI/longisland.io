@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isSeedContentAllowed } from "@/lib/env";
 import { createPublicClient } from "@/lib/supabase/public";
 import {
   SEED_BUSINESSES,
@@ -63,10 +64,18 @@ async function hasSchema(
 
     if (error?.code === "PGRST205") {
       console.warn(
-        "[longisland] Supabase schema not found — serving seed content. " +
-          "Apply supabase/migrations to switch to live data.",
+        "[longisland] Supabase schema not found — the database is not " +
+          "provisioned. Apply supabase/migrations to switch to live data.",
       );
       return false;
+    }
+
+    // Any OTHER error means the database is provisioned but this request
+    // failed. That is a runtime fault, not "no database", so the schema is
+    // treated as present and callers fall through to their error handling
+    // rather than to seed content.
+    if (error) {
+      logQueryError("hasSchema probe", error);
     }
     return true;
   })();
@@ -74,11 +83,44 @@ async function hasSchema(
   return schemaReady;
 }
 
-/** Supabase client, or null when we should read from seed content instead. */
+/**
+ * Supabase client, or `null` when reading from seed content is correct.
+ *
+ * `null` means one thing only: there is no usable database — unconfigured, or
+ * configured but not yet migrated. It NEVER means "a query failed".
+ */
 async function getDb() {
   const client = createPublicClient();
   if (!client) return null;
   return (await hasSchema(client)) ? client : null;
+}
+
+/**
+ * Whether a caller with no database may serve the fictional seed dataset.
+ *
+ * False in production unless explicitly opted in, so a misconfigured
+ * production deploy renders empty rather than publishing invented businesses.
+ */
+function seedAllowed(): boolean {
+  if (isSeedContentAllowed) return true;
+  console.error(
+    "[longisland] No usable Supabase database and seed content is not " +
+      "permitted in production. Serving empty results. Check " +
+      "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+  );
+  return false;
+}
+
+/**
+ * Logs a failed Supabase read.
+ *
+ * Only the PostgREST code and message are logged — never the client, the URL
+ * or any key, so a log line cannot leak credentials.
+ */
+function logQueryError(context: string, error: { code?: string; message: string }) {
+  console.error(
+    `[longisland] ${context} failed (${error.code ?? "unknown"}): ${error.message}`,
+  );
 }
 
 const seedCategoryById = new Map(SEED_CATEGORIES.map((c) => [c.id, c]));
@@ -184,27 +226,40 @@ function placeFamilyIds(rootSlug: string, places: Place[]): Set<string> {
 
 export async function listCategories(): Promise<Category[]> {
   const supabase = await getDb();
-  if (!supabase) return SEED_CATEGORIES;
+  if (!supabase) return seedAllowed() ? SEED_CATEGORIES : [];
 
   const { data, error } = await supabase
     .from("categories")
     .select("*")
     .order("name");
 
-  if (error || !data) return SEED_CATEGORIES;
-  return data as Category[];
+  // A failed read is NOT seed mode. Returning fixtures here would publish
+  // invented content because of a transient database fault.
+  if (error) {
+    logQueryError("listCategories", error);
+    return [];
+  }
+  return (data ?? []) as Category[];
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
   const supabase = await getDb();
-  if (!supabase) return SEED_CATEGORIES.find((c) => c.slug === slug) ?? null;
+  if (!supabase) {
+    return seedAllowed()
+      ? (SEED_CATEGORIES.find((c) => c.slug === slug) ?? null)
+      : null;
+  }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("categories")
     .select("*")
     .eq("slug", slug)
     .maybeSingle();
 
+  if (error) {
+    logQueryError(`getCategoryBySlug(${slug})`, error);
+    return null;
+  }
   return (data as Category | null) ?? null;
 }
 
@@ -219,23 +274,32 @@ export async function getChildCategories(parentId: string): Promise<Category[]> 
 
 export async function listPlaces(): Promise<Place[]> {
   const supabase = await getDb();
-  if (!supabase) return SEED_PLACES;
+  if (!supabase) return seedAllowed() ? SEED_PLACES : [];
 
   const { data, error } = await supabase.from("places").select("*").order("name");
-  if (error || !data) return SEED_PLACES;
-  return data as Place[];
+  if (error) {
+    logQueryError("listPlaces", error);
+    return [];
+  }
+  return (data ?? []) as Place[];
 }
 
 export async function getPlaceBySlug(slug: string): Promise<Place | null> {
   const supabase = await getDb();
-  if (!supabase) return SEED_PLACES.find((p) => p.slug === slug) ?? null;
+  if (!supabase) {
+    return seedAllowed() ? (SEED_PLACES.find((p) => p.slug === slug) ?? null) : null;
+  }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("places")
     .select("*")
     .eq("slug", slug)
     .maybeSingle();
 
+  if (error) {
+    logQueryError(`getPlaceBySlug(${slug})`, error);
+    return null;
+  }
   return (data as Place | null) ?? null;
 }
 
@@ -261,7 +325,7 @@ export async function listRankings(
 
   const supabase = await getDb();
 
-  if (!supabase) return seedRankingSummaries(options);
+  if (!supabase) return seedAllowed() ? seedRankingSummaries(options) : [];
 
   let request = supabase
     .from("rankings")
@@ -289,8 +353,13 @@ export async function listRankings(
   if (limit) request = request.limit(limit);
 
   const { data, error } = await request;
-  // Degrade to seed content rather than rendering an empty rail.
-  if (error || !data) return seedRankingSummaries(options);
+  // A failed read returns empty, never fixtures: an empty rail is honest, a
+  // fabricated ranking is not.
+  if (error) {
+    logQueryError("listRankings", error);
+    return [];
+  }
+  if (!data) return [];
 
   type Row = Ranking & {
     category: { name: string; slug: string } | null;
@@ -339,6 +408,7 @@ export async function getRankingBySlug(
   const supabase = await getDb();
 
   if (!supabase) {
+    if (!seedAllowed()) return null;
     const ranking = SEED_RANKINGS.find((r) => r.slug === slug);
     if (!ranking) return null;
 
@@ -359,7 +429,7 @@ export async function getRankingBySlug(
     };
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("rankings")
     .select(
       "*, category:categories(*), place:places(*), entries:ranking_entries(*, business:businesses(*))",
@@ -367,6 +437,10 @@ export async function getRankingBySlug(
     .eq("slug", slug)
     .maybeSingle();
 
+  if (error) {
+    logQueryError(`getRankingBySlug(${slug})`, error);
+    return null;
+  }
   if (!data) return null;
 
   const ranking = data as unknown as RankingWithEntries;
@@ -380,9 +454,13 @@ export async function getRankingBySlug(
 
 export async function listRankingSlugs(): Promise<string[]> {
   const supabase = await getDb();
-  if (!supabase) return SEED_RANKINGS.map((r) => r.slug);
+  if (!supabase) return seedAllowed() ? SEED_RANKINGS.map((r) => r.slug) : [];
 
-  const { data } = await supabase.from("rankings").select("slug");
+  const { data, error } = await supabase.from("rankings").select("slug");
+  if (error) {
+    logQueryError("listRankingSlugs", error);
+    return [];
+  }
   return (data ?? []).map((r: { slug: string }) => r.slug);
 }
 
@@ -404,7 +482,7 @@ export async function listBusinesses(
   const { categorySlug, placeSlug, query, featuredOnly, limit } = options;
   const supabase = await getDb();
 
-  if (!supabase) return seedBusinesses(options);
+  if (!supabase) return seedAllowed() ? seedBusinesses(options) : [];
 
   let request = supabase.from("businesses").select("*").order("name");
 
@@ -426,9 +504,11 @@ export async function listBusinesses(
   if (limit) request = request.limit(limit);
 
   const { data, error } = await request;
-  // Degrade to seed content rather than rendering an empty grid.
-  if (error || !data) return seedBusinesses(options);
-  return data as Business[];
+  if (error) {
+    logQueryError("listBusinesses", error);
+    return [];
+  }
+  return (data ?? []) as Business[];
 }
 
 /**
@@ -514,14 +594,22 @@ const REGION_TOWNS: Record<string, string[]> = {
 
 export async function getBusinessBySlug(slug: string): Promise<Business | null> {
   const supabase = await getDb();
-  if (!supabase) return SEED_BUSINESSES.find((b) => b.slug === slug) ?? null;
+  if (!supabase) {
+    return seedAllowed()
+      ? (SEED_BUSINESSES.find((b) => b.slug === slug) ?? null)
+      : null;
+  }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("businesses")
     .select("*")
     .eq("slug", slug)
     .maybeSingle();
 
+  if (error) {
+    logQueryError(`getBusinessBySlug(${slug})`, error);
+    return null;
+  }
   return (data as Business | null) ?? null;
 }
 
@@ -532,6 +620,7 @@ export async function getBusinessAppearances(
   const supabase = await getDb();
 
   if (!supabase) {
+    if (!seedAllowed()) return [];
     return SEED_RANKING_ENTRIES.filter((e) => e.business_id === businessId)
       .map((entry) => {
         const ranking = SEED_RANKINGS.find((r) => r.id === entry.ranking_id);
@@ -543,11 +632,16 @@ export async function getBusinessAppearances(
       .sort((a, b) => a.position - b.position);
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("ranking_entries")
     .select("position, badge, ranking:rankings(*)")
     .eq("business_id", businessId)
     .order("position");
+
+  if (error) {
+    logQueryError(`getBusinessAppearances(${businessId})`, error);
+    return [];
+  }
 
   type Row = { position: number; badge: string | null; ranking: Ranking | null };
 
@@ -573,6 +667,7 @@ export async function listBadgedBusinesses(
   const supabase = await getDb();
 
   if (!supabase) {
+    if (!seedAllowed()) return [];
     const seen = new Set<string>();
     const result: Business[] = [];
 
@@ -587,11 +682,16 @@ export async function listBadgedBusinesses(
     return result;
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("ranking_entries")
     .select("business:businesses(*)")
     .eq("badge", badge)
     .limit(limit * 3);
+
+  if (error) {
+    logQueryError(`listBadgedBusinesses(${badge})`, error);
+    return [];
+  }
 
   type Row = { business: Business | null };
 
@@ -608,9 +708,13 @@ export async function listBadgedBusinesses(
 
 export async function listBusinessSlugs(): Promise<string[]> {
   const supabase = await getDb();
-  if (!supabase) return SEED_BUSINESSES.map((b) => b.slug);
+  if (!supabase) return seedAllowed() ? SEED_BUSINESSES.map((b) => b.slug) : [];
 
-  const { data } = await supabase.from("businesses").select("slug");
+  const { data, error } = await supabase.from("businesses").select("slug");
+  if (error) {
+    logQueryError("listBusinessSlugs", error);
+    return [];
+  }
   return (data ?? []).map((b: { slug: string }) => b.slug);
 }
 

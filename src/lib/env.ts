@@ -33,6 +33,26 @@ export const isSupabaseConfigured =
   supabaseUrl.length > 0 && supabasePublishableKey.length > 0;
 
 /**
+ * Whether serving the fictional seed dataset is permitted at all.
+ *
+ * The seed businesses and rankings are invented — see
+ * src/lib/data/seed/businesses.ts. They exist so the app renders before a
+ * database is provisioned. Publishing them from a production deployment would
+ * put fabricated editorial content about businesses on a live site.
+ *
+ * So seed content is allowed outside production, or in production only when an
+ * operator opts in explicitly for a demo build. It is deliberately NOT a
+ * NEXT_PUBLIC_ variable: this decision is made server-side only.
+ *
+ * This gate governs the "no database yet" case. It never licenses falling back
+ * to seed because a configured database returned an error — see
+ * src/lib/data/queries.ts.
+ */
+export const isSeedContentAllowed =
+  process.env.NODE_ENV !== "production" ||
+  process.env.ENABLE_SEED_CONTENT === "true";
+
+/**
  * Server-only. Bypasses RLS — never import from a Client Component, and never
  * prefix this variable with NEXT_PUBLIC_.
  */
