@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -9,6 +9,7 @@ import {
   SectionItemEditor,
 } from "@/components/admin/SectionItemsEditor";
 import { StatusPill } from "@/components/admin/StatusPill";
+import { hasUsableOffer } from "@/lib/affiliate";
 import {
   getEditorialSection,
   listAdminCategories,
@@ -39,6 +40,27 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
 
   const liveCount = section.items.filter((i) => i.status === "published").length;
 
+  /*
+   * Top Picks is product-led by editorial convention, not by constraint.
+   *
+   * The schema allows any target here on purpose — the rule that matters is
+   * that an article never wears a commerce button, and that is enforced by
+   * rendering on target type. This warns and does not block, because an editor
+   * occasionally has a good reason and should not have to fight the tool.
+   */
+  const isTopPicks = section.key === "homepage_top_picks";
+  const nonProduct = isTopPicks
+    ? section.items.filter((item) => !item.product_id)
+    : [];
+
+  /*
+   * A curated product with nothing buyable behind it is skipped by the page.
+   * Surfaced here so the disappearance is explained where it can be fixed.
+   */
+  const unbuyable = section.items.filter(
+    (item) => item.product && !hasUsableOffer(item.product.offers),
+  );
+
   return (
     <div className="space-y-6">
       <Link
@@ -48,6 +70,40 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
         <ArrowLeft aria-hidden="true" className="size-4" />
         All sections
       </Link>
+
+      {nonProduct.length > 0 ? (
+        <div className="flex gap-3 rounded-card border border-gold-300 bg-gold-50 p-4">
+          <AlertTriangle aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-gold-600" />
+          <div className="text-sm leading-relaxed text-navy-900">
+            <p className="font-semibold">
+              {nonProduct.length} of {section.items.length} items in Top Picks
+              {nonProduct.length === 1 ? " is not" : " are not"} a product.
+            </p>
+            <p className="mt-1 text-ink-700">
+              This row is meant to be product-led. Non-product targets still
+              render, as editorial cards with no price button — they will not
+              show a commerce CTA. Saved either way.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {unbuyable.length > 0 ? (
+        <div className="flex gap-3 rounded-card border border-red-300 bg-red-50 p-4">
+          <AlertTriangle aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-red-600" />
+          <div className="text-sm leading-relaxed text-navy-900">
+            <p className="font-semibold">
+              {unbuyable.length} curated product
+              {unbuyable.length === 1 ? "" : "s"} will not render.
+            </p>
+            <p className="mt-1 text-ink-700">
+              {unbuyable.map((item) => item.product?.name).join(", ")} — no offer
+              that is both in stock and has a URL. The page skips the tile rather
+              than showing a card with no way to buy. Add or update an offer.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">

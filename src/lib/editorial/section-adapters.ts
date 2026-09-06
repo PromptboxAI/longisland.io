@@ -1,6 +1,8 @@
 import type { RelatedLink } from "@/components/cards/RankingCard";
 import type { TopRailItem } from "@/components/rankings/TopRail";
+import { hasUsableOffer } from "@/lib/affiliate";
 import type { RankingSummary, ResolvedSection } from "@/types/database";
+import type { ProductWithOffers } from "@/types/products";
 
 /**
  * Maps a curated section onto the props the existing cards already take.
@@ -36,29 +38,82 @@ export interface PickProps {
   imageSeed: string;
 }
 
+/** An editorial pick: a page we publish, linked through image and headline. */
+export interface EditorialPick extends PickProps {
+  kind: "editorial";
+}
+
+/** A commerce pick: an actual product, rendered with a merchant offer button. */
+export interface ProductPick {
+  kind: "product";
+  key: string;
+  product: ProductWithOffers;
+  badge: string | null;
+  note: string | null;
+}
+
+export type SectionPick = EditorialPick | ProductPick;
+
 /**
- * Top Picks cards. Accepts every target type.
+ * Top Picks cards. Accepts every target type, and renders by target type.
  *
- * No target type carries a CTA label, because every destination a section can
- * hold is editorial — a ranking, a buying guide, a business, a category, a
- * place, or an external article. A buying guide is an article ABOUT products,
- * not a product, so it gets no "Check Price" either; commerce CTAs are rendered
- * per real offer by `products/ProductOfferButton`.
+ * A `product` target is the only commerce destination there is, and it is the
+ * thing that enables the commerce treatment — not a label an editor typed, and
+ * not the name of the section. Everything else is a page we publish (a ranking,
+ * a buying guide, a business, a category, a place, an external article) and gets
+ * the editorial card with no CTA. A buying guide is an article ABOUT products,
+ * so it is editorial here even though its subject is commercial.
+ *
+ * A product with no usable offer is dropped rather than rendered without a
+ * button; `hasUsableOffer` is the same predicate the admin picker warns with.
  */
-export function toPickCards(
-  section: ResolvedSection | null,
-  max = 5,
-): PickProps[] {
+export function toPickCards(section: ResolvedSection | null, max = 5): SectionPick[] {
   if (!section) return [];
 
-  return section.items.slice(0, max).map((item) => ({
-    key: item.id,
-    title: item.headline,
-    subtitle: item.kicker,
-    href: item.href,
-    imageUrl: item.imageUrl,
-    imageSeed: item.id,
-  }));
+  const picks: SectionPick[] = [];
+
+  for (const item of section.items) {
+    if (picks.length >= max) break;
+
+    if (item.targetType === "product") {
+      // resolveItem only ever sets commerce on a product target.
+      if (!item.commerce || !hasUsableOffer(item.commerce.offers)) continue;
+
+      picks.push({
+        kind: "product",
+        key: item.id,
+        product: item.commerce,
+        badge: item.badge,
+        note: item.dek,
+      });
+      continue;
+    }
+
+    picks.push({
+      kind: "editorial",
+      key: item.id,
+      title: item.headline,
+      subtitle: item.kicker,
+      href: item.href,
+      imageUrl: item.imageUrl,
+      imageSeed: item.id,
+    });
+  }
+
+  return picks;
+}
+
+/**
+ * The products actually rendered by a set of picks.
+ *
+ * Disclosure is driven by what reaches the page, so a product dropped for having
+ * no usable offer must not trigger one — and the existing `hasAffiliateLinks`
+ * and `merchantDisclosures` take exactly this shape.
+ */
+export function pickedProducts(picks: SectionPick[]): ProductWithOffers[] {
+  return picks
+    .filter((pick): pick is ProductPick => pick.kind === "product")
+    .map((pick) => pick.product);
 }
 
 /** "Related Reviews" and category heading text links — title plus href only. */

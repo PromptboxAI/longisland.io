@@ -11,6 +11,7 @@ import {
   type EditorialActionState,
 } from "@/app/admin/editorial/actions";
 import { FormError } from "@/components/forms/Field";
+import { hasUsableOffer } from "@/lib/affiliate";
 import type { TargetCandidates } from "@/lib/data/admin-queries";
 import type {
   EditorialSectionItemWithTargets,
@@ -26,6 +27,7 @@ const TARGET_TYPES: { value: SectionTargetType; label: string }[] = [
   { value: "category", label: "Category" },
   { value: "place", label: "Place" },
   { value: "product_ranking", label: "Product guide" },
+  { value: "product", label: "Product (commerce)" },
   { value: "external_url", label: "External URL" },
 ];
 
@@ -77,6 +79,19 @@ function inherited(item: EditorialSectionItemWithTargets) {
       headline: item.place.name,
       dek: item.place.description,
       image: item.place.hero_image_url,
+    };
+  }
+  if (item.product) {
+    return {
+      type: "Product" as const,
+      name: item.product.name,
+      // A product has no page of its own; the card links only to the merchant.
+      href: "",
+      status: item.product.status,
+      kicker: item.product.brand,
+      headline: item.product.name,
+      dek: item.product.short_description,
+      image: item.product.image_url,
     };
   }
   if (item.product_ranking) {
@@ -155,6 +170,19 @@ export function AddSectionItem({
       return candidates.productRankings
         .filter((g) => match(g.title))
         .map((g) => ({ id: g.id, label: g.title, note: g.status }));
+    }
+    if (targetType === "product") {
+      return candidates.products
+        .filter((p) => match(`${p.name} ${p.brand ?? ""}`))
+        .map((p) => ({
+          id: p.id,
+          label: p.brand ? `${p.brand} ${p.name}` : p.name,
+          // Says up front what will happen: a product with nothing buyable
+          // behind it can be curated, but the page will skip it.
+          note: hasUsableOffer(p.offers)
+            ? (p.status as string)
+            : `${p.status} · no usable offer — will not render`,
+        }));
     }
     return [];
   }, [targetType, filter, candidates]);

@@ -129,7 +129,7 @@ export function merchantButtonTheme(
  * The affiliate URL when we have one, otherwise the plain merchant URL. Losing a
  * tag should cost us a commission, not cost the reader the buying option.
  */
-export function offerUrl(offer: ProductOffer): string | null {
+export function offerUrl(offer: OfferCore): string | null {
   return offer.affiliate_url ?? offer.direct_url ?? null;
 }
 
@@ -236,9 +236,33 @@ export function displayPrice(offer: OfferWithMerchant): string | null {
 /* Offer selection                                                             */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The fields any offer-usability question needs.
+ *
+ * Narrower than ProductOffer so the admin picker can ask the same question of a
+ * lightweight candidate row. The rule lives here once: an editor's warning and
+ * the renderer's decision to skip a tile must never disagree.
+ */
+export type OfferCore = Pick<
+  ProductOffer,
+  "affiliate_url" | "direct_url" | "availability"
+>;
+
 /** Availability we are willing to send a reader to. */
-function isBuyable(offer: ProductOffer): boolean {
+function isBuyable(offer: OfferCore): boolean {
   return offer.availability !== "out_of_stock" && offer.availability !== "discontinued";
+}
+
+/**
+ * Whether this product has somewhere we can actually send a reader.
+ *
+ * A curated product with no usable offer renders no tile: a commerce card whose
+ * button is missing is a dead end, and pointing the button at an out-of-stock
+ * listing is worse. RLS cannot check this — it can see products.status, not a
+ * merchant's stock — so the renderer skips and the admin picker warns.
+ */
+export function hasUsableOffer(offers: OfferCore[]): boolean {
+  return offers.some((offer) => isBuyable(offer) && offerUrl(offer) !== null);
 }
 
 /**

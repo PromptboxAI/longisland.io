@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { OfferCore } from "@/lib/affiliate";
+
 import { requireAdmin } from "@/lib/auth";
 import type {
   EditorialSection,
@@ -287,7 +289,11 @@ export async function getEditorialSection(
   const { data } = await supabase
     .from("editorial_sections")
     .select(
-      "*, items:editorial_section_items(*, ranking:rankings(*), business:businesses(*), category:categories(*), place:places(*))",
+      "*, items:editorial_section_items(" +
+        "*, ranking:rankings(*), business:businesses(*), category:categories(*), " +
+        "place:places(*), product_ranking:product_rankings(*), " +
+        "product:products(*, offers:product_offers(*))" +
+        ")",
     )
     .eq("id", id)
     .maybeSingle();
@@ -311,12 +317,23 @@ export interface TargetCandidates {
   categories: { id: string; name: string; slug: string; status: string }[];
   places: { id: string; name: string; slug: string; status: string }[];
   productRankings: { id: string; title: string; slug: string; status: string }[];
+  /**
+   * Products carry their offers so the picker can warn about one that has
+   * nothing buyable behind it — that product is curatable but will not render.
+   */
+  products: {
+    id: string;
+    name: string;
+    brand: string | null;
+    status: string;
+    offers: OfferCore[];
+  }[];
 }
 
 export async function listTargetCandidates(): Promise<TargetCandidates> {
   const { supabase } = await requireAdmin();
 
-  const [rankings, businesses, categories, places, productRankings] =
+  const [rankings, businesses, categories, places, productRankings, products] =
     await Promise.all([
       supabase.from("rankings").select("id, title, slug, status").order("title"),
       supabase.from("businesses").select("id, name, city, status").order("name"),
@@ -326,6 +343,12 @@ export async function listTargetCandidates(): Promise<TargetCandidates> {
         .from("product_rankings")
         .select("id, title, slug, status")
         .order("title"),
+      supabase
+        .from("products")
+        .select(
+          "id, name, brand, status, offers:product_offers(affiliate_url, direct_url, availability)",
+        )
+        .order("name"),
     ]);
 
   return {
@@ -334,5 +357,6 @@ export async function listTargetCandidates(): Promise<TargetCandidates> {
     categories: (categories.data ?? []) as TargetCandidates["categories"],
     places: (places.data ?? []) as TargetCandidates["places"],
     productRankings: (productRankings.data ?? []) as TargetCandidates["productRankings"],
+    products: (products.data ?? []) as unknown as TargetCandidates["products"],
   };
 }

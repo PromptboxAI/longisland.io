@@ -1,4 +1,4 @@
-import type { ProductRanking } from "@/types/products";
+import type { ProductRanking, ProductWithOffers } from "@/types/products";
 
 /**
  * Hand-written database types.
@@ -220,7 +220,28 @@ export type SectionTargetType =
   | "category"
   | "place"
   | "product_ranking"
+  | "product"
   | "external_url";
+
+/**
+ * Target types that are pages we publish.
+ *
+ * These render as editorial cards: the image and headline link to the page and
+ * there is no commerce CTA. A `product_ranking` is here deliberately — a buying
+ * guide is an article ABOUT products, not a product.
+ */
+export const EDITORIAL_TARGET_TYPES: SectionTargetType[] = [
+  "ranking",
+  "business",
+  "category",
+  "place",
+  "product_ranking",
+  "external_url",
+];
+
+export function isCommerceTarget(type: SectionTargetType): boolean {
+  return type === "product";
+}
 
 export interface EditorialSection {
   id: string;
@@ -246,6 +267,7 @@ export interface EditorialSectionItem {
   category_id: string | null;
   place_id: string | null;
   product_ranking_id: string | null;
+  product_id: string | null;
   external_url: string | null;
   /** Nullable overrides — null means inherit from the target. */
   kicker: string | null;
@@ -268,6 +290,7 @@ export interface EditorialSectionItemWithTargets extends EditorialSectionItem {
   category: Category | null;
   place: Place | null;
   product_ranking: ProductRanking | null;
+  product: ProductWithOffers | null;
 }
 
 /**
@@ -289,6 +312,16 @@ export interface ResolvedSectionItem {
   imageUrl: string | null;
   badge: string | null;
   isSponsored: boolean;
+  /**
+   * Present only on a `product` target: the product with its offers and their
+   * merchant rows, ready for the commerce card.
+   *
+   * Carrying it here rather than re-fetching in the page keeps one round trip,
+   * and keeps every offer/merchant rule inside the components that already own
+   * them. Null on every editorial target, which is what makes "no CTA on an
+   * article" true by construction rather than by remembering.
+   */
+  commerce: ProductWithOffers | null;
   /** True when the field came from an override rather than the target. */
   overrides: {
     kicker: boolean;

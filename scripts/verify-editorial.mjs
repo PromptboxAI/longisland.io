@@ -288,6 +288,153 @@ if (columnProbe.error) {
   await svc.from("product_rankings").delete().in("id", [pubGuide.id, draftGuide.id]);
 }
 
+/* ----------------------------------------------------- individual product -- */
+console.log("\nProduct target (commerce)");
+
+// Skips cleanly until 20260501000000_editorial_product_item_target.sql is applied.
+const productColumnProbe = await svc
+  .from("editorial_section_items")
+  .select("product_id")
+  .limit(1);
+
+if (productColumnProbe.error) {
+  console.log(
+    "  SKIPPED - product_id not present. Apply " +
+      "supabase/migrations/20260501000000_editorial_product_item_target.sql",
+  );
+} else {
+  const mk = async (name, slug, status) =>
+    (
+      await svc
+        .from("products")
+        .insert({ name, slug, status })
+        .select("id")
+        .single()
+    ).data;
+
+  const pubProduct = await mk("Probe Product Live", "probe-product-live", "published");
+  const draftProduct = await mk("Probe Product Draft", "probe-product-draft", "draft");
+  const noOfferProduct = await mk("Probe Product No Offer", "probe-product-no-offer", "published");
+  const deadOfferProduct = await mk("Probe Product Dead Offer", "probe-product-dead", "published");
+
+  // A usable offer: in stock, has a URL, affiliate-tagged (so it discloses).
+  await svc.from("product_offers").insert({
+    product_id: pubProduct.id,
+    merchant: "amazon",
+    affiliate_url: "https://example.com/buy?tag=probe",
+    availability: "in_stock",
+  });
+  // Unusable: out of stock. Must not be substituted.
+  await svc.from("product_offers").insert({
+    product_id: deadOfferProduct.id,
+    merchant: "amazon",
+    direct_url: "https://example.com/gone",
+    availability: "out_of_stock",
+  });
+
+  const { data: liveProductItem, error: liveProductErr } = await svc
+    .from("editorial_section_items")
+    .insert({
+      section_id: pubSection.id,
+      product_id: pubProduct.id,
+      status: "published",
+      position: 9,
+    })
+    .select("id")
+    .single();
+  check("product accepted as a destination", !liveProductErr, liveProductErr?.message);
+
+  const { data: draftProductItem } = await svc
+    .from("editorial_section_items")
+    .insert({
+      section_id: pubSection.id,
+      product_id: draftProduct.id,
+      status: "published",
+      position: 10,
+    })
+    .select("id")
+    .single();
+
+  const { data: anonProd } = await anon.from("editorial_section_items").select("id");
+  const visibleProd = new Set((anonProd ?? []).map((i) => i.id));
+  check("published product target -> visible", visibleProd.has(liveProductItem?.id));
+  check("draft product target -> hidden", !visibleProd.has(draftProductItem?.id));
+
+  const bothProduct = await svc.from("editorial_section_items").insert({
+    section_id: pubSection.id,
+    product_id: pubProduct.id,
+    category_id: pubCat.id,
+  });
+  check(
+    "product + another destination rejected",
+    Boolean(bothProduct.error),
+    bothProduct.error?.code,
+  );
+
+  const productAndGuide = await svc.from("editorial_section_items").insert({
+    section_id: pubSection.id,
+    product_id: pubProduct.id,
+    product_ranking_id: null,
+    external_url: "https://example.com/x",
+    headline: "both",
+  });
+  check(
+    "product + external URL rejected",
+    Boolean(productAndGuide.error),
+    productAndGuide.error?.code,
+  );
+
+  /*
+   * Offer usability is a RENDER-time rule, not an RLS one: the row stays
+   * readable and the page skips it. These two assert the data the renderer
+   * keys on, so the admin warning and the skip cannot drift apart.
+   */
+  const { data: noOfferRows } = await anon
+    .from("products")
+    .select("id, offers:product_offers(affiliate_url, direct_url, availability)")
+    .eq("id", noOfferProduct.id)
+    .single();
+  check(
+    "product with no offers at all reads back empty (renderer skips)",
+    (noOfferRows?.offers ?? []).length === 0,
+  );
+
+  const { data: deadRows } = await anon
+    .from("products")
+    .select("id, offers:product_offers(affiliate_url, direct_url, availability)")
+    .eq("id", deadOfferProduct.id)
+    .single();
+  const usable = (deadRows?.offers ?? []).some(
+    (o) =>
+      o.availability !== "out_of_stock" &&
+      o.availability !== "discontinued" &&
+      (o.affiliate_url ?? o.direct_url),
+  );
+  check("out-of-stock offer is not usable (no substitution)", !usable);
+
+  const { data: liveRows } = await anon
+    .from("products")
+    .select("id, offers:product_offers(affiliate_url, direct_url, availability)")
+    .eq("id", pubProduct.id)
+    .single();
+  const liveUsable = (liveRows?.offers ?? []).some(
+    (o) =>
+      o.availability !== "out_of_stock" &&
+      o.availability !== "discontinued" &&
+      (o.affiliate_url ?? o.direct_url),
+  );
+  check("in-stock offer with a URL is usable (CTA renders)", liveUsable);
+  check(
+    "affiliate URL present -> disclosure required",
+    (liveRows?.offers ?? []).some((o) => Boolean(o.affiliate_url)),
+  );
+
+  await svc
+    .from("products")
+    .delete()
+    .in("id", [pubProduct.id, draftProduct.id, noOfferProduct.id, deadOfferProduct.id]);
+}
+
 // ------------------------------------------------------------------ cleanup
 await svc.from("editorial_sections").delete().in("id", [pubSection.id, draftSection.id]);
 await svc.from("categories").delete().eq("id", draftCat.id);

@@ -7,7 +7,10 @@ import { RankingCard } from "@/components/cards/RankingCard";
 import { AdvertiseCTA } from "@/components/cta/AdvertiseCTA";
 import { NewsletterSignup } from "@/components/cta/NewsletterSignup";
 import { NominationCTA } from "@/components/cta/NominationCTA";
+import { AffiliateDisclosure } from "@/components/products/AffiliateDisclosure";
+import { ProductCard } from "@/components/products/ProductCard";
 import { TopRail, rankingsToRailItems } from "@/components/rankings/TopRail";
+import { hasAffiliateLinks, merchantDisclosures } from "@/lib/affiliate";
 import { deriveRelatedFallback } from "@/lib/editorial/related-fallback";
 import { SearchBar } from "@/components/site/SearchBar";
 import { EditorialEmpty } from "@/components/ui/EditorialEmpty";
@@ -20,11 +23,12 @@ import {
   listRankings,
 } from "@/lib/data/queries";
 import {
+  pickedProducts,
   pickRankingSummaries,
   toPickCards,
   toRailItems,
   toRelatedLinks,
-  type PickProps,
+  type SectionPick,
 } from "@/lib/editorial/section-adapters";
 import type { Category } from "@/types/database";
 
@@ -107,7 +111,8 @@ export default async function HomePage() {
    * section configured with a larger max cannot break the grid.
    */
   const curatedPicks = toPickCards(picksSection, 5);
-  const fallbackPicks: PickProps[] = rankings.slice(0, 5).map((ranking) => ({
+  const fallbackPicks: SectionPick[] = rankings.slice(0, 5).map((ranking) => ({
+    kind: "editorial",
     key: ranking.id,
     title: ranking.title,
     subtitle: ranking.geography,
@@ -116,6 +121,16 @@ export default async function HomePage() {
     imageSeed: ranking.slug,
   }));
   const topPicks = curatedPicks.length > 0 ? curatedPicks : fallbackPicks;
+
+  /*
+   * Disclosure follows the monetised links actually on the page, never the name
+   * of the section — a Top Picks row of rankings claims no commercial
+   * relationship, and one gaining a tagged product discloses without anyone
+   * remembering to add a component.
+   */
+  const pickProducts = pickedProducts(topPicks);
+  const picksNeedDisclosure = hasAffiliateLinks(pickProducts);
+  const picksMerchantNotes = merchantDisclosures(pickProducts);
 
   const curatedTrending = pickRankingSummaries(trendingSection, rankings);
   const trending = curatedTrending.length > 0 ? curatedTrending : rankings.slice(0, 3);
@@ -219,18 +234,32 @@ export default async function HomePage() {
           title="Our Top Picks"
           description="Rankings from across our categories."
         />
+        {picksNeedDisclosure ? (
+          <div className="mt-3">
+            <AffiliateDisclosure variant="inline" merchantNotes={picksMerchantNotes} />
+          </div>
+        ) : null}
         {topPicks.length > 0 ? (
           <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-7 lg:grid-cols-5">
-            {topPicks.map((pick) => (
-              <PickCard
-                key={pick.key}
-                title={pick.title}
-                subtitle={pick.subtitle}
-                href={pick.href}
-                imageUrl={pick.imageUrl}
-                imageSeed={pick.imageSeed}
-              />
-            ))}
+            {topPicks.map((pick) =>
+              pick.kind === "product" ? (
+                <ProductCard
+                  key={pick.key}
+                  product={pick.product}
+                  badge={pick.badge}
+                  note={pick.note}
+                />
+              ) : (
+                <PickCard
+                  key={pick.key}
+                  title={pick.title}
+                  subtitle={pick.subtitle}
+                  href={pick.href}
+                  imageUrl={pick.imageUrl}
+                  imageSeed={pick.imageSeed}
+                />
+              ),
+            )}
           </div>
         ) : (
           /* Holds the five-card rhythm so the row keeps its shape unpublished. */

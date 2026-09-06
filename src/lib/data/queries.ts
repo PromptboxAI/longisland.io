@@ -24,6 +24,13 @@ import type {
   RankingSummary,
   RankingWithEntries,
 } from "@/types/database";
+import type {
+  AffiliateMerchant,
+  OfferWithMerchant,
+  ProductOffer,
+  ProductWithOffers,
+} from "@/types/products";
+import { indexMerchants } from "@/lib/affiliate";
 
 /**
  * Server-side data access for the public site.
@@ -762,8 +769,18 @@ export async function searchAll(query: string): Promise<SearchResults> {
 /* Editorial curation                                                          */
 /* -------------------------------------------------------------------------- */
 
+/*
+ * A product target brings its offers with it, so the commerce card can be
+ * rendered from the same round trip. Merchant rows are attached afterwards:
+ * product_offers.merchant is a slug rather than a foreign key, so PostgREST
+ * cannot embed it here.
+ */
 const SECTION_SELECT =
-  "*, items:editorial_section_items(*, ranking:rankings(*), business:businesses(*), category:categories(*), place:places(*), product_ranking:product_rankings(*))";
+  "*, items:editorial_section_items(" +
+  "*, ranking:rankings(*), business:businesses(*), category:categories(*), " +
+  "place:places(*), product_ranking:product_rankings(*), " +
+  "product:products(*, offers:product_offers(*))" +
+  ")";
 
 /**
  * Deterministic order for section items.
@@ -793,7 +810,9 @@ function compareItems(
  */
 function resolveItem(
   item: EditorialSectionItemWithTargets,
+  merchants: Map<string, AffiliateMerchant>,
 ): ResolvedSectionItem | null {
+  let commerce: ProductWithOffers | null = null;
   let targetType: SectionTargetType;
   let href: string;
   let inheritedKicker: string | null = null;
@@ -837,6 +856,29 @@ function resolveItem(
     href = `/products/${item.product_ranking.slug}`;
     inheritedHeadline = item.product_ranking.title;
     inheritedDek = item.product_ranking.description;
+  } else if (item.product_id) {
+    if (!item.product) return null;
+    targetType = "product";
+    /*
+     * A product has no page of its own — a page whose only content is a name
+     * and a buy button is a thin affiliate page, and we do not publish those.
+     * The card renders the merchant button as its one outbound link, so this
+     * href is never followed; it stays non-empty so the field's contract holds.
+     */
+    href = "";
+    inheritedKicker = item.product.brand;
+    inheritedHeadline = item.product.name;
+    inheritedDek = item.product.short_description;
+    inheritedImage = item.product.image_url;
+    commerce = {
+      ...item.product,
+      offers: (item.product.offers ?? []).map(
+        (offer): OfferWithMerchant => ({
+          ...(offer as ProductOffer),
+          merchantRecord: merchants.get(offer.merchant) ?? null,
+        }),
+      ),
+    };
   } else if (item.external_url) {
     targetType = "external_url";
     href = item.external_url;
@@ -861,6 +903,7 @@ function resolveItem(
     imageUrl: item.image_url ?? inheritedImage,
     badge: item.badge,
     isSponsored: item.is_sponsored,
+    commerce,
     overrides: {
       kicker: item.kicker !== null,
       headline: item.headline !== null,
@@ -920,9 +963,31 @@ export async function getSection(
     items: EditorialSectionItemWithTargets[] | null;
   };
 
-  const resolved = [...(section.items ?? [])]
+  const rawItems = section.items ?? [];
+
+  /*
+   * Merchant rows are only needed when a product is actually curated here, so
+   * the extra round trip is skipped on the editorial-only sections that make up
+   * most of the site. A missing merchant row is not fatal — the offer falls back
+   * to the house button styling and the default CTA wording.
+   */
+  let merchants: Map<string, AffiliateMerchant> = new Map();
+  if (rawItems.some((item) => item.product_id)) {
+    const { data: merchantRows, error: merchantError } = await supabase
+      .from("affiliate_merchants")
+      .select("*")
+      .eq("status", "published");
+
+    if (merchantError) {
+      logQueryError(`getSection(${key}) merchants`, merchantError);
+    } else {
+      merchants = indexMerchants((merchantRows ?? []) as AffiliateMerchant[]);
+    }
+  }
+
+  const resolved = [...rawItems]
     .sort(compareItems)
-    .map(resolveItem)
+    .map((item) => resolveItem(item, merchants))
     .filter((item): item is ResolvedSectionItem => item !== null);
 
   return {
