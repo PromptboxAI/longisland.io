@@ -10,7 +10,12 @@ import { NominationCTA } from "@/components/cta/NominationCTA";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { RuleHeading } from "@/components/ui/RuleHeading";
 import {
+  pickRankingSummaries,
+  toRelatedLinks,
+} from "@/lib/editorial/section-adapters";
+import {
   getCategoryBySlug,
+  getSection,
   listBusinesses,
   listCategories,
   listPlaces,
@@ -78,12 +83,37 @@ export default async function CategoryPage({ params }: PageParams) {
 
   if (!category) notFound();
 
-  const [rankings, businesses, allCategories, places] = await Promise.all([
+  const [
+    rankings,
+    businesses,
+    allCategories,
+    places,
+    moduleSection,
+    linksSection,
+    relatedSection,
+  ] = await Promise.all([
     listRankings({ categorySlug: category.slug }),
     listBusinesses({ categorySlug: category.slug, limit: 8 }),
     listCategories(),
     listPlaces(),
+    getSection("category_module", { categoryId: category.id }),
+    getSection("category_links", { categoryId: category.id }),
+    getSection("related_content", { categoryId: category.id }),
   ]);
+
+  /*
+   * Curated first, category feed second. Each fallback below is the behaviour
+   * this page had before curation existed, kept only while its section is
+   * unconfigured.
+   */
+  const curatedModule = pickRankingSummaries(moduleSection, rankings);
+  const moduleRankings = curatedModule.length > 0 ? curatedModule : rankings;
+
+  // Text links under the section heading — any target type.
+  const headingLinks = toRelatedLinks(linksSection);
+
+  // Related content replaces the sibling-category guess when configured.
+  const curatedRelated = toRelatedLinks(relatedSection);
 
   const children = allCategories.filter((c) => c.parent_id === category.id);
   const parent = category.parent_id
@@ -146,8 +176,8 @@ export default async function CategoryPage({ params }: PageParams) {
           </section>
         ) : null}
 
-        {/* Featured rankings */}
-        {rankings.length > 0 ? (
+        {/* Featured rankings — curated via category_module when configured */}
+        {moduleRankings.length > 0 ? (
           <section aria-labelledby="category-rankings">
             <RuleHeading
               id="category-rankings"
@@ -157,8 +187,22 @@ export default async function CategoryPage({ params }: PageParams) {
               linkLabel="All rankings"
               uppercase
             />
+            {headingLinks.length > 0 ? (
+              <p className="mt-3 text-sm leading-7 text-ink-700">
+                {headingLinks.map((link, index) => (
+                  <span key={link.href}>
+                    <Link href={link.href} className="text-brand-600 hover:underline">
+                      {link.title}
+                    </Link>
+                    {index < headingLinks.length - 1 ? (
+                      <span className="text-ink-400"> · </span>
+                    ) : null}
+                  </span>
+                ))}
+              </p>
+            ) : null}
             <div className="mt-7 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {rankings.map((ranking) => (
+              {moduleRankings.map((ranking) => (
                 <RankingCard key={ranking.id} ranking={ranking} />
               ))}
             </div>
@@ -220,8 +264,23 @@ export default async function CategoryPage({ params }: PageParams) {
           </div>
         </section>
 
-        {/* Related categories */}
-        {related.length > 0 ? (
+        {/* Related content — curated when configured, siblings otherwise */}
+        {curatedRelated.length > 0 ? (
+          <section aria-labelledby="related-content">
+            <RuleHeading id="related-content" title="Related" uppercase />
+            <div className="mt-5 flex flex-wrap gap-2">
+              {curatedRelated.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-full border border-navy-200 px-4 py-2 text-sm font-medium text-navy-900 transition-colors hover:border-brand-500 hover:text-brand-600"
+                >
+                  {item.title}
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : related.length > 0 ? (
           <section aria-labelledby="related-categories">
             <RuleHeading id="related-categories" title="Related Categories" uppercase />
             <div className="mt-5 flex flex-wrap gap-2">

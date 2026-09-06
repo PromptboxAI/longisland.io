@@ -13,11 +13,19 @@ import { SearchBar } from "@/components/site/SearchBar";
 import { EditorialEmpty } from "@/components/ui/EditorialEmpty";
 import { RuleHeading } from "@/components/ui/RuleHeading";
 import {
+  getSection,
   listBadgedBusinesses,
   listCategories,
   listPlaces,
   listRankings,
 } from "@/lib/data/queries";
+import {
+  pickRankingSummaries,
+  toPickCards,
+  toRailItems,
+  toRelatedLinks,
+  type PickProps,
+} from "@/lib/editorial/section-adapters";
 import type { Category } from "@/types/database";
 
 export const revalidate = 3600;
@@ -44,11 +52,28 @@ const CATEGORY_SECTIONS = [
 ] as const;
 
 export default async function HomePage() {
-  const [rankings, categories, places, hiddenGems] = await Promise.all([
+  const [
+    rankings,
+    categories,
+    places,
+    hiddenGems,
+    primarySection,
+    latestSection,
+    railSection,
+    picksSection,
+    trendingSection,
+    relatedSection,
+  ] = await Promise.all([
     listRankings({}),
     listCategories(),
     listPlaces(),
     listBadgedBusinesses("Hidden Gem", 4),
+    getSection("homepage_primary"),
+    getSection("homepage_latest"),
+    getSection("homepage_top_rail"),
+    getSection("homepage_top_picks"),
+    getSection("homepage_trending"),
+    getSection("related_content"),
   ]);
 
   const byParent = new Map<string, Category[]>();
@@ -60,24 +85,51 @@ export default async function HomePage() {
   }
 
   /*
-   * Every slot slices from the front of one ordered feed, so with few rankings
-   * published the lead, the rail and the picks will show overlapping records.
-   * Separating them properly needs an editorial flag on the ranking itself
-   * (featured / trending) rather than a different slice here — that is a schema
-   * change, so the windows stay as they are and the overlap is accepted.
+   * Each slot prefers what an editor curated. The feed slices below survive
+   * only as a fallback for a section nobody has configured yet — configure the
+   * section and the slice stops being consulted. They are the last automatic
+   * selection left on this page and should go when curation is populated.
    */
-  const [lead, ...rest] = rankings;
+  const [feedLead, ...rest] = rankings;
+
+  const lead = pickRankingSummaries(primarySection, rankings)[0] ?? feedLead;
+
+  const curatedLatest = pickRankingSummaries(latestSection, rankings);
+  const latest = curatedLatest.length > 0 ? curatedLatest : rest.slice(0, 5);
+
+  // The rail takes any target type, so a product guide can sit here already.
+  const curatedRail = toRailItems(railSection);
+  const railItems =
+    curatedRail.length > 0 ? curatedRail : rankingsToRailItems(rankings.slice(0, 5));
 
   /*
-   * Temporary until editorial curation ships — see related-fallback. The card
-   * takes whatever it is handed, so swapping this for curated items is a
-   * one-line change here and nothing else.
+   * Five is the row's rhythm, enforced in the adapter as well as here so a
+   * section configured with a larger max cannot break the grid.
    */
-  const relatedToLead = deriveRelatedFallback(lead, rest);
-  const latest = rest.slice(0, 5);
-  const railItems = rankingsToRailItems(rankings.slice(0, 5));
-  const topPicks = rankings.slice(0, 5);
-  const trending = rankings.slice(0, 3);
+  const curatedPicks = toPickCards(picksSection, 5);
+  const fallbackPicks: PickProps[] = rankings.slice(0, 5).map((ranking) => ({
+    key: ranking.id,
+    title: ranking.title,
+    subtitle: ranking.geography,
+    href: `/best/${ranking.slug}`,
+    imageUrl: ranking.hero_image_url,
+    imageSeed: ranking.slug,
+    // Preserved from the approved UI rather than corrected here — see the note
+    // in the wiring report about PickCard's own guidance on price CTAs.
+    ctaLabel: "Check Price",
+  }));
+  const topPicks = curatedPicks.length > 0 ? curatedPicks : fallbackPicks;
+
+  const curatedTrending = pickRankingSummaries(trendingSection, rankings);
+  const trending = curatedTrending.length > 0 ? curatedTrending : rankings.slice(0, 3);
+
+  /*
+   * Curated related content wins; deriveRelatedFallback stays only until a
+   * related_content section is populated, then it can be deleted outright.
+   */
+  const curatedRelated = toRelatedLinks(relatedSection);
+  const relatedToLead =
+    curatedRelated.length > 0 ? curatedRelated : deriveRelatedFallback(feedLead, rest);
 
   const regions = REGION_SLUGS.map((slug) =>
     places.find((place) => place.slug === slug),
@@ -172,15 +224,15 @@ export default async function HomePage() {
         />
         {topPicks.length > 0 ? (
           <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-7 lg:grid-cols-5">
-            {topPicks.map((ranking) => (
+            {topPicks.map((pick) => (
               <PickCard
-                key={ranking.id}
-                title={ranking.title}
-                subtitle={ranking.geography}
-                href={`/best/${ranking.slug}`}
-                imageUrl={ranking.hero_image_url}
-                imageSeed={ranking.slug}
-                ctaLabel="Check Price"
+                key={pick.key}
+                title={pick.title}
+                subtitle={pick.subtitle}
+                href={pick.href}
+                imageUrl={pick.imageUrl}
+                imageSeed={pick.imageSeed}
+                ctaLabel={pick.ctaLabel}
               />
             ))}
           </div>
