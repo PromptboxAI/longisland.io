@@ -10,6 +10,11 @@ import {
   SEED_RANKINGS,
 } from "@/lib/data/seed";
 import type {
+  EditorialSection,
+  EditorialSectionItemWithTargets,
+  ResolvedSection,
+  ResolvedSectionItem,
+  SectionTargetType,
   Business,
   BusinessAppearance,
   Category,
@@ -750,5 +755,178 @@ export async function searchAll(query: string): Promise<SearchResults> {
       .filter((c) => c.name.toLowerCase().includes(needle))
       .slice(0, 8),
     places: places.filter((p) => p.name.toLowerCase().includes(needle)).slice(0, 8),
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Editorial curation                                                          */
+/* -------------------------------------------------------------------------- */
+
+const SECTION_SELECT =
+  "*, items:editorial_section_items(*, ranking:rankings(*), business:businesses(*), category:categories(*), place:places(*))";
+
+/**
+ * Deterministic order for section items.
+ *
+ * `position` is not unique — reordering through PostgREST cannot run a
+ * multi-statement swap in one transaction — so ties break on created_at and
+ * then id. Two renders of the same data always produce the same order.
+ */
+function compareItems(
+  a: EditorialSectionItemWithTargets,
+  b: EditorialSectionItemWithTargets,
+): number {
+  if (a.position !== b.position) return a.position - b.position;
+  if (a.created_at !== b.created_at) {
+    return a.created_at < b.created_at ? -1 : 1;
+  }
+  return a.id < b.id ? -1 : 1;
+}
+
+/**
+ * Applies override-or-inherit for one item.
+ *
+ * Returns null when the destination row is absent. Under RLS that should not
+ * happen — the item policy requires a published target — but a null here is
+ * the safe outcome either way: drop the item rather than render a card that
+ * links nowhere.
+ */
+function resolveItem(
+  item: EditorialSectionItemWithTargets,
+): ResolvedSectionItem | null {
+  let targetType: SectionTargetType;
+  let href: string;
+  let inheritedKicker: string | null = null;
+  let inheritedHeadline: string | null = null;
+  let inheritedDek: string | null = null;
+  let inheritedImage: string | null = null;
+
+  if (item.ranking_id) {
+    if (!item.ranking) return null;
+    targetType = "ranking";
+    href = `/best/${item.ranking.slug}`;
+    inheritedKicker = item.ranking.geography;
+    inheritedHeadline = item.ranking.title;
+    inheritedDek = item.ranking.description;
+  } else if (item.business_id) {
+    if (!item.business) return null;
+    targetType = "business";
+    href = `/business/${item.business.slug}`;
+    inheritedKicker = item.business.city;
+    inheritedHeadline = item.business.name;
+    inheritedDek = item.business.description;
+    inheritedImage = item.business.primary_image_url;
+  } else if (item.category_id) {
+    if (!item.category) return null;
+    targetType = "category";
+    href = `/category/${item.category.slug}`;
+    inheritedHeadline = item.category.name;
+    inheritedDek = item.category.description;
+    inheritedImage = item.category.hero_image_url;
+  } else if (item.place_id) {
+    if (!item.place) return null;
+    targetType = "place";
+    href = `/place/${item.place.slug}`;
+    inheritedKicker = item.place.county;
+    inheritedHeadline = item.place.name;
+    inheritedDek = item.place.description;
+    inheritedImage = item.place.hero_image_url;
+  } else if (item.external_url) {
+    targetType = "external_url";
+    href = item.external_url;
+    // An external destination has no record to inherit from; the check
+    // constraint guarantees a headline was supplied.
+    inheritedHeadline = item.headline;
+  } else {
+    return null;
+  }
+
+  const headline = item.headline ?? inheritedHeadline;
+  if (!headline) return null;
+
+  return {
+    id: item.id,
+    position: item.position,
+    targetType,
+    href,
+    kicker: item.kicker ?? inheritedKicker,
+    headline,
+    dek: item.dek ?? inheritedDek,
+    imageUrl: item.image_url ?? inheritedImage,
+    badge: item.badge,
+    isSponsored: item.is_sponsored,
+    overrides: {
+      kicker: item.kicker !== null,
+      headline: item.headline !== null,
+      dek: item.dek !== null,
+      imageUrl: item.image_url !== null,
+    },
+  };
+}
+
+export interface SectionScopeRef {
+  categoryId?: string | null;
+  placeId?: string | null;
+}
+
+/**
+ * One published editorial section, with its live items resolved and ordered.
+ *
+ * This is the contract the public UI consumes. Everything the renderer needs is
+ * already decided here: which items are live, in what order, and what each one
+ * says after overrides are applied.
+ *
+ * Returns null when the section does not exist, is not published, or there is
+ * no database. Seed mode has no editorial sections — curation is an editor's
+ * decision, and inventing one would be exactly the fabrication the seed gate
+ * exists to prevent.
+ *
+ * Draft items, scheduled-but-not-yet-live items, expired items and items
+ * pointing at unpublished targets are removed by RLS, not here. Note that
+ * public pages revalidate hourly, so a scheduled item appears within an hour of
+ * its starts_at rather than to the second.
+ */
+export async function getSection(
+  key: string,
+  scope: SectionScopeRef = {},
+): Promise<ResolvedSection | null> {
+  const supabase = await getDb();
+  if (!supabase) return null;
+
+  let request = supabase.from("editorial_sections").select(SECTION_SELECT).eq("key", key);
+
+  request = scope.categoryId
+    ? request.eq("category_id", scope.categoryId)
+    : request.is("category_id", null);
+  request = scope.placeId
+    ? request.eq("place_id", scope.placeId)
+    : request.is("place_id", null);
+
+  const { data, error } = await request.maybeSingle();
+
+  if (error) {
+    logQueryError(`getSection(${key})`, error);
+    return null;
+  }
+  if (!data) return null;
+
+  const section = data as unknown as EditorialSection & {
+    items: EditorialSectionItemWithTargets[] | null;
+  };
+
+  const resolved = [...(section.items ?? [])]
+    .sort(compareItems)
+    .map(resolveItem)
+    .filter((item): item is ResolvedSectionItem => item !== null);
+
+  return {
+    id: section.id,
+    key: section.key,
+    scope: section.scope_type,
+    title: section.title,
+    description: section.description,
+    layout: section.layout,
+    maxItems: section.max_items,
+    items: section.max_items ? resolved.slice(0, section.max_items) : resolved,
   };
 }

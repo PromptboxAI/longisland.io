@@ -2,6 +2,8 @@ import "server-only";
 
 import { requireAdmin } from "@/lib/auth";
 import type {
+  EditorialSection,
+  EditorialSectionItemWithTargets,
   Business,
   Category,
   ContentItem,
@@ -240,4 +242,90 @@ export async function listAdminPlaces(): Promise<Place[]> {
   const { supabase } = await requireAdmin();
   const { data } = await supabase.from("places").select("*").order("name");
   return (data ?? []) as Place[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Editorial curation                                                          */
+/* -------------------------------------------------------------------------- */
+
+export interface AdminSection extends EditorialSection {
+  item_count: number;
+}
+
+export async function listEditorialSections(): Promise<AdminSection[]> {
+  const { supabase } = await requireAdmin();
+
+  const { data } = await supabase
+    .from("editorial_sections")
+    .select("*, editorial_section_items(count)")
+    .order("key");
+
+  type Row = EditorialSection & { editorial_section_items: { count: number }[] };
+
+  return ((data ?? []) as Row[]).map((row) => ({
+    ...row,
+    item_count: row.editorial_section_items?.[0]?.count ?? 0,
+  }));
+}
+
+export interface AdminSectionDetail extends EditorialSection {
+  items: EditorialSectionItemWithTargets[];
+}
+
+/**
+ * One section with every item, including drafts, expired and scheduled ones.
+ *
+ * Unlike the public getSection(), nothing is filtered — an editor has to see
+ * what they have scheduled or unpublished in order to manage it. Ordering
+ * matches the public contract so the admin list reflects the live order.
+ */
+export async function getEditorialSection(
+  id: string,
+): Promise<AdminSectionDetail | null> {
+  const { supabase } = await requireAdmin();
+
+  const { data } = await supabase
+    .from("editorial_sections")
+    .select(
+      "*, items:editorial_section_items(*, ranking:rankings(*), business:businesses(*), category:categories(*), place:places(*))",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  const section = data as unknown as AdminSectionDetail;
+  const items = [...(section.items ?? [])].sort((a, b) => {
+    if (a.position !== b.position) return a.position - b.position;
+    if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
+    return a.id < b.id ? -1 : 1;
+  });
+
+  return { ...section, items };
+}
+
+/** Candidates for the target picker. Small tables, so loaded whole. */
+export interface TargetCandidates {
+  rankings: { id: string; title: string; slug: string; status: string }[];
+  businesses: { id: string; name: string; city: string | null; status: string }[];
+  categories: { id: string; name: string; slug: string; status: string }[];
+  places: { id: string; name: string; slug: string; status: string }[];
+}
+
+export async function listTargetCandidates(): Promise<TargetCandidates> {
+  const { supabase } = await requireAdmin();
+
+  const [rankings, businesses, categories, places] = await Promise.all([
+    supabase.from("rankings").select("id, title, slug, status").order("title"),
+    supabase.from("businesses").select("id, name, city, status").order("name"),
+    supabase.from("categories").select("id, name, slug, status").order("name"),
+    supabase.from("places").select("id, name, slug, status").order("name"),
+  ]);
+
+  return {
+    rankings: (rankings.data ?? []) as TargetCandidates["rankings"],
+    businesses: (businesses.data ?? []) as TargetCandidates["businesses"],
+    categories: (categories.data ?? []) as TargetCandidates["categories"],
+    places: (places.data ?? []) as TargetCandidates["places"],
+  };
 }

@@ -6,6 +6,7 @@ import {
   FileText,
   Inbox,
   LayoutDashboard,
+  LayoutTemplate,
   ListOrdered,
   LogOut,
   Menu,
@@ -21,6 +22,7 @@ import { createClient } from "@/lib/supabase/client";
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/generate", label: "Generate List", icon: Sparkles },
+  { href: "/admin/editorial", label: "Editorial", icon: LayoutTemplate },
   { href: "/admin/rankings", label: "Rankings", icon: ListOrdered },
   { href: "/admin/businesses", label: "Businesses", icon: Building2 },
   { href: "/admin/nominations", label: "Nominations", icon: Inbox },

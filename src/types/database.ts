@@ -203,3 +203,125 @@ export const RANKING_BADGES = [
 ] as const;
 
 export type RankingBadge = (typeof RANKING_BADGES)[number];
+
+/* -------------------------------------------------------------------------- */
+/* Editorial curation                                                          */
+/* -------------------------------------------------------------------------- */
+
+export type SectionScope = "global" | "category" | "place";
+export type SectionLayout = "feature" | "rail" | "grid" | "link_row";
+
+/** Destination kinds an item may point at. No product_ranking until merged. */
+export type SectionTargetType =
+  | "ranking"
+  | "business"
+  | "category"
+  | "place"
+  | "external_url";
+
+export interface EditorialSection {
+  id: string;
+  key: string;
+  scope_type: SectionScope;
+  category_id: string | null;
+  place_id: string | null;
+  title: string | null;
+  description: string | null;
+  layout: SectionLayout;
+  max_items: number | null;
+  status: PublishStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EditorialSectionItem {
+  id: string;
+  section_id: string;
+  position: number;
+  ranking_id: string | null;
+  business_id: string | null;
+  category_id: string | null;
+  place_id: string | null;
+  external_url: string | null;
+  /** Nullable overrides — null means inherit from the target. */
+  kicker: string | null;
+  headline: string | null;
+  dek: string | null;
+  image_url: string | null;
+  badge: string | null;
+  is_sponsored: boolean;
+  status: PublishStatus;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** An item with its target rows embedded, as the queries return it. */
+export interface EditorialSectionItemWithTargets extends EditorialSectionItem {
+  ranking: Ranking | null;
+  business: Business | null;
+  category: Category | null;
+  place: Place | null;
+}
+
+/**
+ * What a renderer consumes: every field already resolved.
+ *
+ * `headline`, `dek`, `kicker`, `imageUrl` are the override if one was set, and
+ * the target's own value otherwise — the inheritance is applied once here so no
+ * component reimplements it.
+ */
+export interface ResolvedSectionItem {
+  id: string;
+  position: number;
+  targetType: SectionTargetType;
+  /** Where the item links. External URLs are passed through verbatim. */
+  href: string;
+  kicker: string | null;
+  headline: string;
+  dek: string | null;
+  imageUrl: string | null;
+  badge: string | null;
+  isSponsored: boolean;
+  /** True when the field came from an override rather than the target. */
+  overrides: {
+    kicker: boolean;
+    headline: boolean;
+    dek: boolean;
+    imageUrl: boolean;
+  };
+}
+
+/** A section plus its resolved, ordered, currently-live items. */
+export interface ResolvedSection {
+  id: string;
+  key: string;
+  scope: SectionScope;
+  title: string | null;
+  description: string | null;
+  layout: SectionLayout;
+  maxItems: number | null;
+  items: ResolvedSectionItem[];
+}
+
+export const SECTION_LAYOUTS: SectionLayout[] = [
+  "feature",
+  "rail",
+  "grid",
+  "link_row",
+];
+
+/** Keys the site is expected to ask for. Free text in the DB; curated here. */
+export const SECTION_KEYS = [
+  "homepage_primary",
+  "homepage_latest",
+  "homepage_top_rail",
+  "homepage_top_picks",
+  "homepage_trending",
+  "category_module",
+  "related_content",
+  "category_links",
+] as const;
+
+export type SectionKey = (typeof SECTION_KEYS)[number];
