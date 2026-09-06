@@ -310,22 +310,29 @@ export interface TargetCandidates {
   businesses: { id: string; name: string; city: string | null; status: string }[];
   categories: { id: string; name: string; slug: string; status: string }[];
   places: { id: string; name: string; slug: string; status: string }[];
+  productRankings: { id: string; title: string; slug: string; status: string }[];
 }
 
 export async function listTargetCandidates(): Promise<TargetCandidates> {
   const { supabase } = await requireAdmin();
 
-  const [rankings, businesses, categories, places] = await Promise.all([
-    supabase.from("rankings").select("id, title, slug, status").order("title"),
-    supabase.from("businesses").select("id, name, city, status").order("name"),
-    supabase.from("categories").select("id, name, slug, status").order("name"),
-    supabase.from("places").select("id, name, slug, status").order("name"),
-  ]);
+  const [rankings, businesses, categories, places, productRankings] =
+    await Promise.all([
+      supabase.from("rankings").select("id, title, slug, status").order("title"),
+      supabase.from("businesses").select("id, name, city, status").order("name"),
+      supabase.from("categories").select("id, name, slug, status").order("name"),
+      supabase.from("places").select("id, name, slug, status").order("name"),
+      supabase
+        .from("product_rankings")
+        .select("id, title, slug, status")
+        .order("title"),
+    ]);
 
   return {
     rankings: (rankings.data ?? []) as TargetCandidates["rankings"],
     businesses: (businesses.data ?? []) as TargetCandidates["businesses"],
     categories: (categories.data ?? []) as TargetCandidates["categories"],
     places: (places.data ?? []) as TargetCandidates["places"],
+    productRankings: (productRankings.data ?? []) as TargetCandidates["productRankings"],
   };
 }

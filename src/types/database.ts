@@ -1,3 +1,5 @@
+import type { ProductRanking } from "@/types/products";
+
 /**
  * Hand-written database types.
  *
@@ -211,12 +213,13 @@ export type RankingBadge = (typeof RANKING_BADGES)[number];
 export type SectionScope = "global" | "category" | "place";
 export type SectionLayout = "feature" | "rail" | "grid" | "link_row";
 
-/** Destination kinds an item may point at. No product_ranking until merged. */
+/** Destination kinds an editorial item may point at. */
 export type SectionTargetType =
   | "ranking"
   | "business"
   | "category"
   | "place"
+  | "product_ranking"
   | "external_url";
 
 export interface EditorialSection {
@@ -242,6 +245,7 @@ export interface EditorialSectionItem {
   business_id: string | null;
   category_id: string | null;
   place_id: string | null;
+  product_ranking_id: string | null;
   external_url: string | null;
   /** Nullable overrides — null means inherit from the target. */
   kicker: string | null;
@@ -263,6 +267,7 @@ export interface EditorialSectionItemWithTargets extends EditorialSectionItem {
   business: Business | null;
   category: Category | null;
   place: Place | null;
+  product_ranking: ProductRanking | null;
 }
 
 /**

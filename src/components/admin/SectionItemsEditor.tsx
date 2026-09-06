@@ -25,6 +25,7 @@ const TARGET_TYPES: { value: SectionTargetType; label: string }[] = [
   { value: "business", label: "Business" },
   { value: "category", label: "Category" },
   { value: "place", label: "Place" },
+  { value: "product_ranking", label: "Product guide" },
   { value: "external_url", label: "External URL" },
 ];
 
@@ -76,6 +77,18 @@ function inherited(item: EditorialSectionItemWithTargets) {
       headline: item.place.name,
       dek: item.place.description,
       image: item.place.hero_image_url,
+    };
+  }
+  if (item.product_ranking) {
+    return {
+      type: "Product guide" as const,
+      name: item.product_ranking.title,
+      href: `/products/${item.product_ranking.slug}`,
+      status: item.product_ranking.status,
+      kicker: null,
+      headline: item.product_ranking.title,
+      dek: item.product_ranking.description,
+      image: null,
     };
   }
   return {
@@ -137,6 +150,11 @@ export function AddSectionItem({
       return candidates.places
         .filter((p) => match(p.name))
         .map((p) => ({ id: p.id, label: p.name, note: p.status }));
+    }
+    if (targetType === "product_ranking") {
+      return candidates.productRankings
+        .filter((g) => match(g.title))
+        .map((g) => ({ id: g.id, label: g.title, note: g.status }));
     }
     return [];
   }, [targetType, filter, candidates]);

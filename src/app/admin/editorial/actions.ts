@@ -173,7 +173,14 @@ export async function deleteSection(id: string): Promise<void> {
 const itemSchema = z
   .object({
     sectionId: z.string().uuid(),
-    targetType: z.enum(["ranking", "business", "category", "place", "external_url"]),
+    targetType: z.enum([
+      "ranking",
+      "business",
+      "category",
+      "place",
+      "product_ranking",
+      "external_url",
+    ]),
     targetId: z.string().uuid().nullable(),
     externalUrl: z.string().trim().max(500).nullable(),
     headline: z.string().trim().max(200).nullable(),
@@ -224,6 +231,7 @@ export async function addSectionItem(
     business_id: null,
     category_id: null,
     place_id: null,
+    product_ranking_id: null,
     external_url: null,
   };
   if (d.targetType === "external_url") destination.external_url = d.externalUrl;

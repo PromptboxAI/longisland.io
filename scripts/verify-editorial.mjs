@@ -220,6 +220,74 @@ const liveNow = afterSwap.find((i) => i.id === created.live)?.position;
 const draftNow = afterSwap.find((i) => i.id === created.draftItem)?.position;
 check("reorder persists", liveNow === 2 && draftNow === 1, `live=${liveNow} draft=${draftNow}`);
 
+/* ------------------------------------------------- product guide target -- */
+console.log("\nProduct guide target");
+
+// Skips cleanly until 20260401000000_editorial_product_target.sql is applied.
+const columnProbe = await svc
+  .from("editorial_section_items")
+  .select("product_ranking_id")
+  .limit(1);
+
+if (columnProbe.error) {
+  console.log(
+    "  SKIPPED - product_ranking_id not present. Apply " +
+      "supabase/migrations/20260401000000_editorial_product_target.sql",
+  );
+} else {
+  const { data: pubGuide } = await svc
+    .from("product_rankings")
+    .insert({ title: "Probe Editorial Guide", slug: "probe-editorial-guide", status: "published" })
+    .select("id")
+    .single();
+  const { data: draftGuide } = await svc
+    .from("product_rankings")
+    .insert({ title: "Probe Editorial Draft", slug: "probe-editorial-draft", status: "draft" })
+    .select("id")
+    .single();
+
+  const { data: liveGuideItem, error: liveErr } = await svc
+    .from("editorial_section_items")
+    .insert({
+      section_id: pubSection.id,
+      product_ranking_id: pubGuide.id,
+      status: "published",
+      position: 7,
+    })
+    .select("id")
+    .single();
+  check("product guide accepted as a destination", !liveErr, liveErr?.message);
+
+  const { data: draftGuideItem } = await svc
+    .from("editorial_section_items")
+    .insert({
+      section_id: pubSection.id,
+      product_ranking_id: draftGuide.id,
+      status: "published",
+      position: 8,
+    })
+    .select("id")
+    .single();
+
+  const { data: anonNow } = await anon.from("editorial_section_items").select("id");
+  const visibleNow = new Set((anonNow ?? []).map((i) => i.id));
+  check("published product guide target -> visible", visibleNow.has(liveGuideItem?.id));
+  check("draft product guide target -> hidden", !visibleNow.has(draftGuideItem?.id));
+
+  const bothTargets = await svc.from("editorial_section_items").insert({
+    section_id: pubSection.id,
+    product_ranking_id: pubGuide.id,
+    category_id: pubCat.id,
+  });
+  check(
+    "product guide + another destination rejected",
+    Boolean(bothTargets.error),
+    bothTargets.error?.code,
+  );
+
+  await svc.from("product_rankings").delete().in("id", [pubGuide.id, draftGuide.id]);
+}
+
 // ------------------------------------------------------------------ cleanup
 await svc.from("editorial_sections").delete().in("id", [pubSection.id, draftSection.id]);
 await svc.from("categories").delete().eq("id", draftCat.id);

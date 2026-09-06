@@ -763,7 +763,7 @@ export async function searchAll(query: string): Promise<SearchResults> {
 /* -------------------------------------------------------------------------- */
 
 const SECTION_SELECT =
-  "*, items:editorial_section_items(*, ranking:rankings(*), business:businesses(*), category:categories(*), place:places(*))";
+  "*, items:editorial_section_items(*, ranking:rankings(*), business:businesses(*), category:categories(*), place:places(*), product_ranking:product_rankings(*))";
 
 /**
  * Deterministic order for section items.
@@ -831,6 +831,12 @@ function resolveItem(
     inheritedHeadline = item.place.name;
     inheritedDek = item.place.description;
     inheritedImage = item.place.hero_image_url;
+  } else if (item.product_ranking_id) {
+    if (!item.product_ranking) return null;
+    targetType = "product_ranking";
+    href = `/products/${item.product_ranking.slug}`;
+    inheritedHeadline = item.product_ranking.title;
+    inheritedDek = item.product_ranking.description;
   } else if (item.external_url) {
     targetType = "external_url";
     href = item.external_url;
