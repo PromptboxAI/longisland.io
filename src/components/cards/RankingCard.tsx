@@ -10,8 +10,14 @@ export interface RelatedLink {
 
 export interface RankingCardProps {
   ranking: RankingSummary;
-  /** Feature variant only: the "Related Reviews" line beneath the dek. */
-  related?: RelatedLink[];
+  /**
+   * Feature variant only: the "Related Reviews" line beneath the dek.
+   *
+   * Supplied by the caller. This component renders what it is handed and never
+   * decides what relates to what — that is an editorial choice, not a layout
+   * one.
+   */
+  relatedItems?: RelatedLink[];
   /**
    * feature  — large lead card with image above the headline
    * standard — grid card with image
@@ -24,7 +30,7 @@ export interface RankingCardProps {
 
 export function RankingCard({
   ranking,
-  related,
+  relatedItems,
   variant = "standard",
   priority = false,
 }: RankingCardProps) {
@@ -170,10 +176,10 @@ export function RankingCard({
           * whole card, so a call to action here would only repeat it, where
           * these send the reader somewhere the card cannot.
           */}
-        {isFeature && related && related.length > 0 ? (
+        {isFeature && relatedItems && relatedItems.length > 0 ? (
           <p className="mt-3 text-sm leading-[22px]">
             <span className="text-base font-bold text-navy-900">Related Reviews: </span>
-            {related.map((item, index) => (
+            {relatedItems.map((item, index) => (
               <span key={item.href}>
                 <Link
                   href={item.href}
@@ -181,7 +187,7 @@ export function RankingCard({
                 >
                   {item.title}
                 </Link>
-                {index < related.length - 1 ? (
+                {index < relatedItems.length - 1 ? (
                   <span className="text-ink-400">, </span>
                 ) : null}
               </span>

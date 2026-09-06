@@ -8,6 +8,7 @@ import { AdvertiseCTA } from "@/components/cta/AdvertiseCTA";
 import { NewsletterSignup } from "@/components/cta/NewsletterSignup";
 import { NominationCTA } from "@/components/cta/NominationCTA";
 import { TopRail, rankingsToRailItems } from "@/components/rankings/TopRail";
+import { deriveRelatedFallback } from "@/lib/editorial/related-fallback";
 import { SearchBar } from "@/components/site/SearchBar";
 import { EditorialEmpty } from "@/components/ui/EditorialEmpty";
 import { RuleHeading } from "@/components/ui/RuleHeading";
@@ -68,16 +69,11 @@ export default async function HomePage() {
   const [lead, ...rest] = rankings;
 
   /*
-   * Related reviews for the lead: the next lists in its own category. Derived
-   * from the rankings already fetched above, so this adds no query and no data
-   * model — a curated relationship belongs on the ranking itself, not here.
+   * Temporary until editorial curation ships — see related-fallback. The card
+   * takes whatever it is handed, so swapping this for curated items is a
+   * one-line change here and nothing else.
    */
-  const relatedToLead = lead?.category
-    ? rest
-        .filter((r) => r.category?.slug === lead.category?.slug)
-        .slice(0, 2)
-        .map((r) => ({ title: r.title, href: `/best/${r.slug}` }))
-    : [];
+  const relatedToLead = deriveRelatedFallback(lead, rest);
   const latest = rest.slice(0, 5);
   const railItems = rankingsToRailItems(rankings.slice(0, 5));
   const topPicks = rankings.slice(0, 5);
@@ -137,7 +133,7 @@ export default async function HomePage() {
             {lead ? (
               <RankingCard
                 ranking={lead}
-                related={relatedToLead}
+                relatedItems={relatedToLead}
                 variant="feature"
                 priority
               />
@@ -172,7 +168,7 @@ export default async function HomePage() {
         <RuleHeading
           id="top-picks"
           title="Our Top Picks"
-          description="The lists our editors send people to first, updated as places change."
+          description="Rankings from across our categories."
         />
         {topPicks.length > 0 ? (
           <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-7 lg:grid-cols-5">
@@ -222,8 +218,7 @@ export default async function HomePage() {
             Know before you go. Every time.
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-ink-700">
-            Search hundreds of Long Island businesses, rankings, towns and
-            categories.
+            Search Long Island businesses, rankings, towns and categories.
           </p>
           <div className="mx-auto mt-6 max-w-xl">
             <SearchBar variant="band" placeholder="Search rankings, places, businesses" />
@@ -240,7 +235,7 @@ export default async function HomePage() {
         <RuleHeading
           id="trending"
           title="What's Trending Now"
-          description="The rankings Long Islanders are reading this week."
+          description="Recently published rankings."
         />
         {trending.length > 0 ? (
           <div className="mt-6 grid gap-8 md:grid-cols-3">
