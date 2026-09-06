@@ -5,7 +5,6 @@ import {
   AFFILIATE_LINK_REL,
   ctaLabel,
   DEFAULT_CTA_LABEL,
-  displayPrice,
   isAffiliateOffer,
   merchantButtonTheme,
   merchantName,
@@ -34,8 +33,9 @@ export interface ProductOfferButtonProps {
   showMerchant?: boolean;
   /**
    * "compact" is the card size: smaller type and padding, and the label never
-   * wraps. In a five-card row a button that breaks "Check Price" over two lines
-   * on the tiles that also show a price makes the row's feet disagree.
+   * wraps. In a five-card row the tiles get narrow, and a button that breaks
+   * "Check Price" over two lines leaves the row's feet out of line with each
+   * other.
    */
   size?: "default" | "compact";
   className?: string;
@@ -53,6 +53,13 @@ export interface ProductOfferButtonProps {
  * Buttons carry the merchant NAME, not its logo: wordmark artwork carries brand
  * guideline and licensing obligations per network that a colour and a name do
  * not.
+ *
+ * No price on the button. "Check Price" is a promise that the number is on the
+ * other side of the click and current when you get there; printing one beside
+ * the words contradicts them, and a price we rendered minutes or days ago is
+ * exactly the number we cannot stand behind. Prices belong where they are being
+ * compared — the guide's comparison table — not on the control that goes and
+ * fetches them. Do not add one back here.
  *
  * The visible label stays merchant-neutral — "Check Price", never "Buy now" or
  * "Best price", and never the retailer's name unless `showMerchant` is set for a
@@ -82,7 +89,6 @@ export function ProductOfferButton({
    * because there the button is about that retailer specifically.
    */
   const label = showMerchant ? ctaLabel(offer) : DEFAULT_CTA_LABEL;
-  const price = displayPrice(offer);
   const unavailable =
     offer.availability === "out_of_stock" || offer.availability === "discontinued";
 
@@ -132,7 +138,6 @@ export function ProductOfferButton({
           </>
         ) : null}
       </span>
-      {price ? <span className="font-bold tabular-nums">{price}</span> : null}
       <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
       {isAffiliateOffer(offer) ? <span className="sr-only">(affiliate link)</span> : null}
     </a>
