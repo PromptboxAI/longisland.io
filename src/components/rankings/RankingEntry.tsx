@@ -2,6 +2,7 @@ import { Globe, MapPin, Navigation, Phone } from "lucide-react";
 import Link from "next/link";
 
 import { EditorialImage } from "@/components/ui/EditorialImage";
+import { isProfileReady } from "@/lib/business/readiness";
 import { resolveImage } from "@/lib/media/resolve";
 import type { RankingEntryWithBusiness } from "@/types/database";
 
@@ -17,8 +18,12 @@ export interface RankingEntryProps {
  * actions on the right, and a details row beneath with address, phone and
  * website. The `id` anchors the quick list at the top of the page.
  */
+const SECONDARY_ACTION =
+  "inline-flex items-center justify-center gap-1.5 rounded-full border border-navy-300 px-4 py-2 text-sm font-semibold text-navy-900 transition-colors hover:border-navy-500 hover:bg-navy-50";
+
 export function RankingEntry({ entry, priority = false }: RankingEntryProps) {
   const { business } = entry;
+  const profileReady = isProfileReady(business);
   const image = resolveImage(
     business.primary_media ?? null,
     business.primary_image_url,
@@ -66,21 +71,21 @@ export function RankingEntry({ entry, priority = false }: RankingEntryProps) {
 
         {/* Editorial content */}
         <div className="min-w-0">
-          <h3 className="text-xl font-extrabold leading-tight text-navy-900">
+          <h3 className="text-xl font-extrabold leading-tight text-navy-900 [overflow-wrap:anywhere]">
             <Link href={`/business/${business.slug}`} className="hover:text-brand-600">
               {business.name}
             </Link>
           </h3>
 
           {location ? (
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-500">
-              <MapPin aria-hidden="true" className="size-3.5 shrink-0" />
-              {location}
+            <p className="mt-1 flex items-start gap-1.5 text-sm text-ink-500">
+              <MapPin aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+              <span className="min-w-0">{location}</span>
             </p>
           ) : null}
 
           {entry.best_for ? (
-            <p className="mt-3 text-sm font-bold text-brand-600">
+            <p className="mt-3 text-sm font-bold text-brand-600 [overflow-wrap:anywhere]">
               Best for: {entry.best_for}
             </p>
           ) : null}
@@ -90,7 +95,7 @@ export function RankingEntry({ entry, priority = false }: RankingEntryProps) {
               <p className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
                 Why we picked it
               </p>
-              <p className="mt-1 text-sm leading-relaxed text-ink-700">
+              <p className="mt-1 text-sm leading-relaxed text-ink-700 [overflow-wrap:anywhere]">
                 {entry.editorial_reason}
               </p>
             </div>
@@ -138,23 +143,70 @@ export function RankingEntry({ entry, priority = false }: RankingEntryProps) {
         {/*
           self-start keeps this column from stretching to the row height — the
           buttons size to their content instead of growing to fill the card.
+
+          "View Profile" leads only when there is a profile worth reading. A
+          page holding a name and a town breaks the promise the button makes,
+          so until then the primary action is the one that gets a reader to the
+          business itself. See lib/business/readiness.
         */}
         <div className="flex flex-row flex-wrap gap-2 self-start sm:col-span-2 lg:col-span-1 lg:flex-col">
-          <Link
-            href={`/business/${business.slug}`}
-            className="rounded-full bg-navy-900 px-4 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-navy-800"
-          >
-            View Profile
-          </Link>
-          <a
-            href={`https://www.google.com/maps/search/?api=1&query=${directionsQuery}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 rounded-full border border-navy-300 px-4 py-2 text-sm font-semibold text-navy-900 transition-colors hover:border-navy-500 hover:bg-navy-50"
-          >
-            <Navigation aria-hidden="true" className="size-3.5" />
-            Directions
-          </a>
+          {profileReady ? (
+            <>
+              <Link
+                href={`/business/${business.slug}`}
+                className="rounded-full bg-navy-900 px-4 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-navy-800"
+              >
+                View Profile
+              </Link>
+              {business.website ? (
+                <a
+                  href={business.website}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className={SECONDARY_ACTION}
+                >
+                  <Globe aria-hidden="true" className="size-3.5" />
+                  Website
+                </a>
+              ) : null}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${directionsQuery}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={SECONDARY_ACTION}
+              >
+                <Navigation aria-hidden="true" className="size-3.5" />
+                Directions
+              </a>
+            </>
+          ) : (
+            <>
+              {business.website ? (
+                <a
+                  href={business.website}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-800"
+                >
+                  <Globe aria-hidden="true" className="size-3.5" />
+                  Visit Website
+                </a>
+              ) : null}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${directionsQuery}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={
+                  business.website
+                    ? SECONDARY_ACTION
+                    : "inline-flex items-center justify-center gap-1.5 rounded-full bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-800"
+                }
+              >
+                <Navigation aria-hidden="true" className="size-3.5" />
+                Directions
+              </a>
+            </>
+          )}
         </div>
       </div>
     </article>
