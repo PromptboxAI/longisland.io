@@ -50,6 +50,19 @@ export type RankingCopy = z.infer<typeof rankingCopySchema>;
 /* Standing rules                                                              */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The output contract, stated in the prompt rather than implied.
+ *
+ * This used to be enforced by prefilling `{` as the start of an assistant turn,
+ * which left the model nowhere to put a preamble. The current model rejects
+ * that outright, and without it a prompt that merely lists fields gets a
+ * helpful paragraph back — correct copy, unparseable shape. So the contract is
+ * said out loud instead of relied on as a side effect.
+ */
+const OUTPUT_CONTRACT = `
+Return a single JSON object and nothing else. No preamble, no explanation, no
+markdown code fence. Exactly these keys, all of them present:`.trim();
+
 const HOUSE_RULES = `
 You draft editorial copy for LongIsland.io, a local review publication.
 
@@ -151,6 +164,15 @@ WRITE
 - confidence: your honest read of how much you had to work with.
 - basis: one line naming what the draft rests on, for the editor.
 ${input.evidence.strength === "thin" ? "\nThe evidence here is THIN. Keep it short and non-specific." : ""}
+
+${OUTPUT_CONTRACT}
+{
+  "bestFor": "...",
+  "whyWePickedIt": "...",
+  "badge": "",
+  "confidence": "high" | "medium" | "low",
+  "basis": "..."
+}
 `.trim();
 
   return { system: HOUSE_RULES, prompt };
@@ -216,6 +238,13 @@ WRITE
   category. Do not summarise every entry.
 - methodology: how this list was made, following OUR ACTUAL PROCESS above.
   Written for a reader deciding whether to trust it.
+
+${OUTPUT_CONTRACT}
+{
+  "dek": "...",
+  "intro": "...",
+  "methodology": "..."
+}
 `.trim();
 
   return { system: HOUSE_RULES, prompt };
