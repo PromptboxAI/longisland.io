@@ -9,11 +9,13 @@ import {
   SectionItemEditor,
 } from "@/components/admin/SectionItemsEditor";
 import { StatusPill } from "@/components/admin/StatusPill";
+import { findPlacement } from "@/lib/editorial/placements";
 import { hasUsableOffer } from "@/lib/affiliate";
 import {
   getEditorialSection,
   listAdminCategories,
   listAdminPlaces,
+  listMediaAssets,
   listTargetCandidates,
 } from "@/lib/data/admin-queries";
 
@@ -24,14 +26,17 @@ type PageParams = { params: Promise<{ id: string }> };
 export default async function EditorialSectionEditorPage({ params }: PageParams) {
   const { id } = await params;
 
-  const [section, categories, places, candidates] = await Promise.all([
+  const [section, categories, places, candidates, library] = await Promise.all([
     getEditorialSection(id),
     listAdminCategories(),
     listAdminPlaces(),
     listTargetCandidates(),
+    listMediaAssets(),
   ]);
 
   if (!section) notFound();
+
+  const placement = findPlacement(section.key);
 
   async function removeSection() {
     "use server";
@@ -154,19 +159,38 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
         </p>
       ) : null}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-        <section aria-labelledby="section-settings">
-          <h2
-            id="section-settings"
-            className="mb-4 text-sm font-bold uppercase tracking-wider text-navy-900"
-          >
-            Settings
-          </h2>
-          <div className="rounded-card border border-line bg-white p-5">
-            <SectionForm section={section} categories={categories} places={places} />
-          </div>
-        </section>
+      {/*
+        The content is the work; the settings are configuration that is right
+        once and then left alone. Showing both as equals meant creating a
+        section, then opening it and being asked the same questions again.
+      */}
+      {placement ? (
+        <div className="rounded-card border border-line bg-sand-50 px-5 py-3">
+          <p className="text-sm font-semibold text-navy-900">
+            {placement.location} → {placement.name}
+          </p>
+          <p className="mt-0.5 text-xs leading-relaxed text-ink-700">
+            {placement.purpose}
+            {placement.showsHeading
+              ? ` Appears under the heading “${placement.publicHeading}”.`
+              : " The item you choose supplies the headline; this section's title is an admin label only."}
+          </p>
+        </div>
+      ) : null}
 
+      <details className="rounded-card border border-line bg-white">
+        <summary className="cursor-pointer px-5 py-3 text-sm font-semibold text-navy-900">
+          Section settings
+          <span className="ml-2 font-normal text-ink-400">
+            key, scope, layout, limit
+          </span>
+        </summary>
+        <div className="border-t border-line p-5">
+          <SectionForm section={section} categories={categories} places={places} />
+        </div>
+      </details>
+
+      <div className="grid gap-8">
         <section aria-labelledby="section-items" className="space-y-4">
           <h2
             id="section-items"
@@ -185,6 +209,7 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
             <div className="space-y-4">
               {section.items.map((item, index) => (
                 <SectionItemEditor
+                library={library}
                   key={item.id}
                   item={item}
                   sectionId={section.id}

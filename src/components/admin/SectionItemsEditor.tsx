@@ -12,11 +12,14 @@ import {
 } from "@/app/admin/editorial/actions";
 import { FormError } from "@/components/forms/Field";
 import { hasUsableOffer } from "@/lib/affiliate";
+import { MediaField } from "@/components/admin/MediaField";
+import { resolveImageUrl } from "@/lib/media/resolve";
 import type { TargetCandidates } from "@/lib/data/admin-queries";
 import type {
   EditorialSectionItemWithTargets,
   SectionTargetType,
 } from "@/types/database";
+import type { MediaAsset } from "@/types/media";
 
 const INPUT =
   "w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500";
@@ -43,7 +46,8 @@ function inherited(item: EditorialSectionItemWithTargets) {
       kicker: item.ranking.geography,
       headline: item.ranking.title,
       dek: item.ranking.description,
-      image: null as string | null,
+      image: resolveImageUrl(item.ranking.hero_media, item.ranking.hero_image_url),
+      media: item.ranking.hero_media ?? null,
     };
   }
   if (item.business) {
@@ -55,7 +59,8 @@ function inherited(item: EditorialSectionItemWithTargets) {
       kicker: item.business.city,
       headline: item.business.name,
       dek: item.business.description,
-      image: item.business.primary_image_url,
+      image: resolveImageUrl(item.business.primary_media, item.business.primary_image_url),
+      media: item.business.primary_media ?? null,
     };
   }
   if (item.category) {
@@ -67,7 +72,8 @@ function inherited(item: EditorialSectionItemWithTargets) {
       kicker: null,
       headline: item.category.name,
       dek: item.category.description,
-      image: item.category.hero_image_url,
+      image: resolveImageUrl(item.category.hero_media, item.category.hero_image_url),
+      media: item.category.hero_media ?? null,
     };
   }
   if (item.place) {
@@ -79,7 +85,8 @@ function inherited(item: EditorialSectionItemWithTargets) {
       kicker: item.place.county,
       headline: item.place.name,
       dek: item.place.description,
-      image: item.place.hero_image_url,
+      image: resolveImageUrl(item.place.hero_media, item.place.hero_image_url),
+      media: item.place.hero_media ?? null,
     };
   }
   if (item.product) {
@@ -92,7 +99,8 @@ function inherited(item: EditorialSectionItemWithTargets) {
       kicker: item.product.brand,
       headline: item.product.name,
       dek: item.product.short_description,
-      image: item.product.image_url,
+      image: resolveImageUrl(item.product.image_media, item.product.image_url),
+      media: item.product.image_media ?? null,
     };
   }
   if (item.article) {
@@ -104,7 +112,8 @@ function inherited(item: EditorialSectionItemWithTargets) {
       kicker: null,
       headline: item.article.title,
       dek: item.article.dek,
-      image: item.article.hero_image_url,
+      image: resolveImageUrl(item.article.hero_media, item.article.hero_image_url),
+      media: item.article.hero_media ?? null,
     };
   }
   if (item.product_ranking) {
@@ -116,7 +125,8 @@ function inherited(item: EditorialSectionItemWithTargets) {
       kicker: null,
       headline: item.product_ranking.title,
       dek: item.product_ranking.description,
-      image: null,
+      image: resolveImageUrl(item.product_ranking.hero_media, item.product_ranking.hero_image_url),
+      media: item.product_ranking.hero_media ?? null,
     };
   }
   return {
@@ -128,6 +138,7 @@ function inherited(item: EditorialSectionItemWithTargets) {
     headline: null,
     dek: null,
     image: null,
+    media: null,
   };
 }
 
@@ -353,11 +364,13 @@ export function SectionItemEditor({
   sectionId,
   isFirst,
   isLast,
+  library,
 }: {
   item: EditorialSectionItemWithTargets;
   sectionId: string;
   isFirst: boolean;
   isLast: boolean;
+  library: MediaAsset[];
 }) {
   const [state, formAction, saving] = useActionState<EditorialActionState, FormData>(
     updateSectionItem,
@@ -540,21 +553,53 @@ export function SectionItemEditor({
           />
         </div>
 
-        <div>
-          <label
-            htmlFor={`image-${item.id}`}
-            className="block text-xs font-semibold text-navy-900"
-          >
-            Image URL
-          </label>
-          <input
-            id={`image-${item.id}`}
-            name="imageUrl"
-            type="url"
-            defaultValue={item.image_url ?? ""}
-            placeholder={inheritPlaceholder(source.image)}
-            className={`mt-1.5 ${INPUT}`}
-          />
+        {/*
+          The inherited image, shown rather than described. An editor choosing a
+          ranking that plainly has a hero should see that hero, not a blank URL
+          box saying "no inherited value" — which is what this was.
+        */}
+        <div className="rounded-md border border-line bg-sand-50 p-3">
+          <p className="text-xs font-semibold text-navy-900">Image</p>
+
+          {source.image ? (
+            <div className="mt-2 flex items-center gap-3">
+              <span className="relative size-16 shrink-0 overflow-hidden rounded border border-line">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={source.image}
+                  alt=""
+                  className="size-full object-cover"
+                  style={
+                    source.media
+                      ? {
+                          objectPosition: `${source.media.focal_x * 100}% ${source.media.focal_y * 100}%`,
+                        }
+                      : undefined
+                  }
+                />
+              </span>
+              <p className="text-xs text-ink-500">
+                Inherited from {source.type.toLowerCase()}. Leave the override
+                empty to keep it.
+              </p>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-ink-500">
+              This {source.type.toLowerCase()} has no image yet. Add one on the
+              record itself so every placement inherits it, or override here for
+              this placement only.
+            </p>
+          )}
+
+          <div className="mt-3">
+            <MediaField
+              name="imageMediaId"
+              value={item.image_media ?? null}
+              library={library}
+              label="Override for this placement"
+              hint="Optional. Empty means use the inherited image above."
+            />
+          </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth";
+import { findPlacement } from "@/lib/editorial/placements";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -70,6 +71,59 @@ async function revalidateSectionSurfaces(
     return;
   }
   revalidatePath("/");
+}
+
+/**
+ * Opens a named placement, creating its row the first time.
+ *
+ * The homepage asks for `homepage_primary` by name in its own code, so the
+ * section is a fixed slot rather than something an editor invents. Making them
+ * type the key was asking them to guess an identifier the application already
+ * knows — and a typo produced a section that renders nowhere, with nothing to
+ * say why.
+ *
+ * Created as a DRAFT so provisioning a slot never publishes an empty block.
+ */
+export async function openPlacement(
+  key: string,
+  scope: { categoryId?: string | null; placeId?: string | null } = {},
+): Promise<void> {
+  const { supabase } = await requireAdmin();
+
+  const placement = findPlacement(key);
+  if (!placement) redirect("/admin/editorial");
+
+  let lookup = supabase.from("editorial_sections").select("id").eq("key", key);
+  lookup = scope.categoryId
+    ? lookup.eq("category_id", scope.categoryId)
+    : lookup.is("category_id", null);
+  lookup = scope.placeId
+    ? lookup.eq("place_id", scope.placeId)
+    : lookup.is("place_id", null);
+
+  const { data: existing } = await lookup.maybeSingle();
+  if (existing) redirect(`/admin/editorial/${(existing as { id: string }).id}`);
+
+  const { data: created } = await supabase
+    .from("editorial_sections")
+    .insert({
+      key,
+      scope_type: placement.scope,
+      category_id: scope.categoryId ?? null,
+      place_id: scope.placeId ?? null,
+      // The admin label. Whether it renders publicly is the placement's call,
+      // not a property of this string.
+      title: placement.publicHeading ?? placement.name,
+      layout: placement.layout,
+      max_items: placement.maxItems,
+      status: "draft",
+    })
+    .select("id")
+    .single();
+
+  revalidatePath("/admin/editorial");
+  if (created) redirect(`/admin/editorial/${(created as { id: string }).id}`);
+  redirect("/admin/editorial");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -330,6 +384,7 @@ const itemUpdateSchema = z.object({
   headline: z.string().trim().max(200).nullable(),
   dek: z.string().trim().max(500).nullable(),
   imageUrl: z.string().trim().max(500).nullable(),
+  imageMediaId: z.string().uuid().nullable(),
   badge: z.string().trim().max(60).nullable(),
   isSponsored: z.boolean(),
   status: z.enum(["draft", "review", "published", "archived"]),
@@ -350,6 +405,7 @@ export async function updateSectionItem(
     headline: readNullableString(formData, "headline"),
     dek: readNullableString(formData, "dek"),
     imageUrl: readNullableString(formData, "imageUrl"),
+    imageMediaId: readNullableString(formData, "imageMediaId"),
     badge: readNullableString(formData, "badge"),
     isSponsored: formData.get("isSponsored") === "on",
     status: readString(formData, "status") || "draft",
@@ -366,7 +422,9 @@ export async function updateSectionItem(
       kicker: d.kicker,
       headline: d.headline,
       dek: d.dek,
-      image_url: d.imageUrl,
+      // The chosen asset wins; a pasted URL only survives without one.
+      image_media_id: d.imageMediaId,
+      image_url: d.imageMediaId ? null : d.imageUrl,
       badge: d.badge,
       is_sponsored: d.isSponsored,
       status: d.status,

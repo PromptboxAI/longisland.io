@@ -256,24 +256,112 @@ export async function listAdminPlaces(): Promise<Place[]> {
 /* Editorial curation                                                          */
 /* -------------------------------------------------------------------------- */
 
+/** One item, reduced to what the dashboard card needs to show. */
+export interface AdminSectionLeadItem {
+  id: string;
+  image_media: MediaAsset | null;
+  image_url: string | null;
+  inheritedImageUrl: string | null;
+  inheritedMedia: MediaAsset | null;
+  displayHeadline: string;
+}
+
 export interface AdminSection extends EditorialSection {
   item_count: number;
+  /** Same number, named the way the dashboard reads. */
+  itemCount: number;
+  items: AdminSectionLeadItem[];
 }
 
 export async function listEditorialSections(): Promise<AdminSection[]> {
   const { supabase } = await requireAdmin();
 
+  /*
+   * The dashboard shows what is in each slot, so it needs the first item and
+   * enough of its target to name and picture it — not just a count. Limited to
+   * the lead item: a card showing five thumbnails tells an editor less than one
+   * showing the headline that will actually run.
+   */
   const { data } = await supabase
     .from("editorial_sections")
-    .select("*, editorial_section_items(count)")
+    .select(
+      "*, editorial_section_items(count), " +
+        "items:editorial_section_items(" +
+        "id, position, headline, image_url, " +
+        "image_media:media_assets!editorial_section_items_image_media_id_fkey(*), " +
+        "ranking:rankings(title, hero_image_url, hero_media:media_assets!rankings_hero_media_id_fkey(*)), " +
+        "article:articles(title, hero_image_url, hero_media:media_assets!articles_hero_media_id_fkey(*)), " +
+        "product_ranking:product_rankings(title, hero_image_url, hero_media:media_assets!product_rankings_hero_media_id_fkey(*)), " +
+        "business:businesses(name, primary_image_url, primary_media:media_assets!businesses_primary_media_id_fkey(*)), " +
+        "category:categories(name), place:places(name), product:products(name, image_url), " +
+        "external_url" +
+        ")",
+    )
     .order("key");
 
-  type Row = EditorialSection & { editorial_section_items: { count: number }[] };
+  type ItemRow = {
+    id: string;
+    position: number;
+    headline: string | null;
+    image_url: string | null;
+    image_media: MediaAsset | null;
+    ranking: { title: string; hero_image_url: string | null; hero_media: MediaAsset | null } | null;
+    article: { title: string; hero_image_url: string | null; hero_media: MediaAsset | null } | null;
+    product_ranking: { title: string; hero_image_url: string | null; hero_media: MediaAsset | null } | null;
+    business: { name: string; primary_image_url: string | null; primary_media: MediaAsset | null } | null;
+    category: { name: string } | null;
+    place: { name: string } | null;
+    product: { name: string; image_url: string | null } | null;
+    external_url: string | null;
+  };
 
-  return ((data ?? []) as Row[]).map((row) => ({
-    ...row,
-    item_count: row.editorial_section_items?.[0]?.count ?? 0,
-  }));
+  type Row = EditorialSection & {
+    editorial_section_items: { count: number }[];
+    items: ItemRow[] | null;
+  };
+
+  return ((data ?? []) as unknown as Row[]).map((row) => {
+    const items = [...(row.items ?? [])].sort((a, b) => a.position - b.position);
+
+    return {
+      ...row,
+      item_count: row.editorial_section_items?.[0]?.count ?? 0,
+      itemCount: row.editorial_section_items?.[0]?.count ?? 0,
+      items: items.map((item) => ({
+        id: item.id,
+        image_media: item.image_media,
+        image_url: item.image_url,
+        // The same precedence the public resolver uses: an override wins, then
+        // the target's own image.
+        inheritedImageUrl:
+          item.ranking?.hero_media?.storage_path
+            ? null
+            : (item.ranking?.hero_image_url ??
+              item.article?.hero_image_url ??
+              item.product_ranking?.hero_image_url ??
+              item.business?.primary_image_url ??
+              item.product?.image_url ??
+              null),
+        inheritedMedia:
+          item.ranking?.hero_media ??
+          item.article?.hero_media ??
+          item.product_ranking?.hero_media ??
+          item.business?.primary_media ??
+          null,
+        displayHeadline:
+          item.headline ??
+          item.ranking?.title ??
+          item.article?.title ??
+          item.product_ranking?.title ??
+          item.business?.name ??
+          item.category?.name ??
+          item.place?.name ??
+          item.product?.name ??
+          item.external_url ??
+          "Untitled",
+      })),
+    };
+  });
 }
 
 export interface AdminSectionDetail extends EditorialSection {
@@ -295,11 +383,19 @@ export async function getEditorialSection(
   const { data } = await supabase
     .from("editorial_sections")
     .select(
+      /*
+       * Every target brings its own media, or the editor sees "no inherited
+       * value" beside a record that plainly has a hero image.
+       */
       "*, items:editorial_section_items(" +
-        "*, ranking:rankings(*), business:businesses(*), category:categories(*), " +
-        "place:places(*), product_ranking:product_rankings(*), " +
-        "article:articles(*), " +
-        "product:products(*, offers:product_offers(*))" +
+        "*, image_media:media_assets!editorial_section_items_image_media_id_fkey(*), " +
+        "ranking:rankings(*, hero_media:media_assets!rankings_hero_media_id_fkey(*)), " +
+        "article:articles(*, hero_media:media_assets!articles_hero_media_id_fkey(*)), " +
+        "business:businesses(*, primary_media:media_assets!businesses_primary_media_id_fkey(*)), " +
+        "category:categories(*, hero_media:media_assets!categories_hero_media_id_fkey(*)), " +
+        "place:places(*, hero_media:media_assets!places_hero_media_id_fkey(*)), " +
+        "product_ranking:product_rankings(*, hero_media:media_assets!product_rankings_hero_media_id_fkey(*)), " +
+        "product:products(*, offers:product_offers(*), image_media:media_assets!products_image_media_id_fkey(*))" +
         ")",
     )
     .eq("id", id)
