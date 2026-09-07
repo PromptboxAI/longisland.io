@@ -3,16 +3,25 @@
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 
-import { moveEntry, removeEntry, saveEntry } from "@/app/admin/rankings/actions";
+import {
+  moveEntry,
+  removeEntry,
+  saveEntry,
+  setBusinessMedia,
+} from "@/app/admin/rankings/actions";
+import { MediaField } from "@/components/admin/MediaField";
 import { SaveIndicator } from "@/components/admin/SaveIndicator";
 import { useAutosave } from "@/components/admin/useAutosave";
 import { RANKING_BADGES, type RankingEntryWithBusiness } from "@/types/database";
+import type { MediaAsset } from "@/types/media";
 
 export interface RankingEntryEditorProps {
   entry: RankingEntryWithBusiness;
   rankingId: string;
   isFirst: boolean;
   isLast: boolean;
+  /** The media library, for setting this business's photo without leaving. */
+  library: MediaAsset[];
 }
 
 /**
@@ -34,6 +43,7 @@ export function RankingEntryEditor({
   rankingId,
   isFirst,
   isLast,
+  library,
 }: RankingEntryEditorProps) {
   const [isPending, startTransition] = useTransition();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -138,6 +148,25 @@ export function RankingEntryEditor({
           </button>
         </p>
       ) : null}
+
+      {/*
+        The business's own photo, set from here. It saves to the BUSINESS, so
+        the same pizzeria shows the same image in every list it appears in and
+        one correction fixes all of them — there is deliberately no per-entry
+        image field to drift out of step.
+      */}
+      <div className="mt-4 rounded-md border border-line bg-sand-50 p-3">
+        <MediaField
+          name={`businessMedia-${entry.id}`}
+          value={entry.business.primary_media ?? null}
+          library={library}
+          label={`Photo for ${entry.business.name}`}
+          hint="Saved to the business, so it appears wherever this business is ranked."
+          onChange={(mediaId) => {
+            void setBusinessMedia(entry.business.id, mediaId, rankingId);
+          }}
+        />
+      </div>
 
       <div className="mt-4 space-y-3">
 

@@ -446,6 +446,67 @@ export async function publishEntryBusinesses(rankingId: string): Promise<ActionS
   return { ok: true };
 }
 
+/**
+ * Sets a business's primary image from inside a ranking.
+ *
+ * The image belongs to the BUSINESS, not to this entry — which is the whole
+ * point. A pizzeria in four rankings has one photo, and fixing it once fixes
+ * all four. An entry-level image field would quietly recreate the duplication
+ * the media library exists to remove.
+ *
+ * What this changes is only where the editor stands when they set it: working
+ * through ten entries should not mean ten trips to the business editor and ten
+ * journeys back.
+ */
+export async function setBusinessMedia(
+  businessId: string,
+  mediaId: string | null,
+  rankingId: string,
+): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("slug")
+    .eq("id", businessId)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("businesses")
+    .update({ primary_media_id: mediaId })
+    .eq("id", businessId);
+
+  if (error) return { error: "Could not save that image." };
+
+  revalidatePath(`/admin/rankings/${rankingId}`);
+  revalidatePath("/admin/businesses");
+  if ((business as { slug: string } | null)?.slug) {
+    revalidatePath(`/business/${(business as { slug: string }).slug}`);
+  }
+
+  /*
+   * Every ranking this business appears in shows the new photo, so every one of
+   * them has to be refreshed — not just the ranking the editor happens to be
+   * looking at. This is the cost of the shared image, and it is worth paying.
+   */
+  const { data: appearances } = await supabase
+    .from("ranking_entries")
+    .select("ranking:rankings(slug, status)")
+    .eq("business_id", businessId);
+
+  for (const row of (appearances ?? []) as unknown as {
+    ranking: { slug: string; status: string } | null;
+  }[]) {
+    if (row.ranking?.status === "published") {
+      revalidatePath(`/best/${row.ranking.slug}`);
+    }
+  }
+  revalidatePath("/best");
+  revalidatePath("/");
+
+  return { ok: true };
+}
+
 export async function reorderEntries(
   rankingId: string,
   orderedEntryIds: string[],

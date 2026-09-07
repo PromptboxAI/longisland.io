@@ -130,7 +130,11 @@ export async function getAdminRanking(
   const { data } = await supabase
     .from("rankings")
     .select(
-      "*, category:categories(*), place:places(*), entries:ranking_entries(*, business:businesses(*))",
+      "*, category:categories(*), place:places(*), " +
+        "entries:ranking_entries(*, business:businesses(*, " +
+        "primary_media:media_assets!businesses_primary_media_id_fkey(*))), " +
+        "hero_media:media_assets!rankings_hero_media_id_fkey(*), " +
+        "og_media:media_assets!rankings_og_image_media_id_fkey(*)",
     )
     .eq("id", id)
     .maybeSingle();

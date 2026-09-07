@@ -167,6 +167,8 @@ export interface ProductRankingEntryWithProduct extends ProductRankingEntry {
 
 /** A buying guide joined to its entries and categories. */
 export interface ProductRankingWithEntries extends ProductRanking {
+  hero_media?: MediaAsset | null;
+  og_media?: MediaAsset | null;
   category: ProductCategory | null;
   localCategory: Pick<Category, "id" | "name" | "slug"> | null;
   entries: ProductRankingEntryWithProduct[];

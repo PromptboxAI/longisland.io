@@ -1,5 +1,5 @@
 import { listMediaAssets } from "@/lib/data/admin-queries";
-import { ArrowLeft, Eye, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -80,21 +80,14 @@ export default async function ProductGuideEditorPage({ params }: PageParams) {
 
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={`/products/${guide.slug}`}
+            href={
+              isPublished ? `/products/${guide.slug}` : `/preview/guide/${guide.id}`
+            }
             target="_blank"
             className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-5 py-2.5 text-sm font-semibold text-navy-900 hover:border-brand-500"
           >
-            Preview
+            {isPublished ? "View page" : "Preview"}
             <ExternalLink aria-hidden="true" className="size-3.5" />
-          </Link>
-
-          <Link
-            href={`/preview/guide/${guide.id}`}
-            target="_blank"
-            className="inline-flex items-center gap-1.5 rounded-full border border-navy-300 px-4 py-2 text-sm font-semibold text-navy-900 hover:border-navy-500 hover:bg-navy-50"
-          >
-            <Eye aria-hidden="true" className="size-4" />
-            Preview
           </Link>
 
           {isPublished ? (
@@ -174,6 +167,7 @@ export default async function ProductGuideEditorPage({ params }: PageParams) {
                 guideId={guide.id}
                 isFirst={index === 0}
                 isLast={index === guide.entries.length - 1}
+                library={library}
               />
             ))}
 

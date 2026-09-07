@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { reorderEntries } from "@/app/admin/rankings/actions";
 import { RankingEntryEditor } from "@/components/admin/RankingEntryEditor";
 import type { RankingEntryWithBusiness } from "@/types/database";
+import type { MediaAsset } from "@/types/media";
 
 /**
  * The ordered list of ranking entries.
@@ -26,9 +27,11 @@ import type { RankingEntryWithBusiness } from "@/types/database";
 export function RankingEntryList({
   entries,
   rankingId,
+  library,
 }: {
   entries: RankingEntryWithBusiness[];
   rankingId: string;
+  library: MediaAsset[];
 }) {
   const [order, setOrder] = useState(entries);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -136,6 +139,7 @@ export function RankingEntryList({
                   rankingId={rankingId}
                   isFirst={index === 0}
                   isLast={index === order.length - 1}
+                  library={library}
                 />
               </div>
             </div>

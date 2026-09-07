@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { EditorialDisclosure } from "@/components/editorial/EditorialDisclosure";
+import { EditorialImage } from "@/components/ui/EditorialImage";
+import { resolveImage } from "@/lib/media/resolve";
 import { AffiliateDisclosure } from "@/components/products/AffiliateDisclosure";
 import { ProductComparisonTable } from "@/components/products/ProductComparisonTable";
 import { ProductGuideCard } from "@/components/products/ProductGuideCard";
@@ -39,6 +41,7 @@ export async function ProductGuideView({
   guide: ProductRankingWithEntries;
 }) {
   const products = guide.entries.map((entry) => entry.product);
+  const hero = resolveImage(guide.hero_media, guide.hero_image_url, guide.title);
   const showDisclosure = hasAffiliateLinks(products);
   const merchantNotes = merchantDisclosures(products);
 
@@ -92,6 +95,24 @@ export async function ProductGuideView({
             <p className="mt-3 text-lg leading-relaxed text-ink-700">
               {guide.description}
             </p>
+          ) : null}
+
+          {hero ? (
+            <figure className="mt-5">
+              <div className="relative aspect-[16/9] overflow-hidden rounded-card border border-line">
+                <EditorialImage
+                  src={hero.url}
+                  alt={hero.alt}
+                  seed={guide.slug}
+                  priority
+                  objectPosition={hero.objectPosition}
+                  sizes="(max-width: 1024px) 100vw, 900px"
+                />
+              </div>
+              {hero.credit ? (
+                <figcaption className="mt-2 text-xs text-ink-400">{hero.credit}</figcaption>
+              ) : null}
+            </figure>
           ) : null}
 
           <div className="mt-4 border-y border-line py-3">

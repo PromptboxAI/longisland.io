@@ -254,6 +254,45 @@ export async function addProductToGuide(
  * (product_ranking_id, position) collisions would otherwise be possible
  * mid-swap.
  */
+/**
+ * Sets a product's image from inside a guide.
+ *
+ * Same principle as the business photo on a ranking entry: the image belongs to
+ * the PRODUCT, so it follows that product into every guide and into Top Picks,
+ * and populating ten of them should not mean ten trips to the product editor.
+ */
+export async function setProductMedia(
+  productId: string,
+  mediaId: string | null,
+  guideId: string,
+): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { error } = await supabase
+    .from("products")
+    .update({ image_media_id: mediaId })
+    .eq("id", productId);
+
+  if (error) return { error: "Could not save that image." };
+
+  const { data: guide } = await supabase
+    .from("product_rankings")
+    .select("slug, status")
+    .eq("id", guideId)
+    .maybeSingle();
+
+  revalidatePath(`/admin/product-rankings/${guideId}`);
+  revalidatePath("/admin/products");
+
+  const row = guide as { slug: string; status: string } | null;
+  if (row?.status === "published") revalidatePath(`/products/${row.slug}`);
+  revalidatePath("/products");
+  // The product may also be curated into Top Picks on the homepage.
+  revalidatePath("/");
+
+  return { ok: true };
+}
+
 export async function moveGuideEntry(
   entryId: string,
   guideId: string,

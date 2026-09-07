@@ -9,7 +9,10 @@ import {
   removeGuideEntry,
   saveGuideEntry,
   type ActionState,
+  setProductMedia,
 } from "@/app/admin/product-rankings/actions";
+import { MediaField } from "@/components/admin/MediaField";
+import type { MediaAsset } from "@/types/media";
 import { PRODUCT_BADGES } from "@/types/products";
 import type { ProductRankingEntryWithProduct } from "@/types/products";
 
@@ -18,6 +21,8 @@ export interface ProductGuideEntryEditorProps {
   guideId: string;
   isFirst: boolean;
   isLast: boolean;
+  /** The media library, for setting this product's image without leaving. */
+  library: MediaAsset[];
 }
 
 const inputClass =
@@ -34,6 +39,7 @@ export function ProductGuideEntryEditor({
   guideId,
   isFirst,
   isLast,
+  library,
 }: ProductGuideEntryEditorProps) {
   const [state, formAction, saving] = useActionState<ActionState, FormData>(
     saveGuideEntry,
@@ -146,6 +152,24 @@ export function ProductGuideEntryEditor({
           </Link>
         </p>
       ) : null}
+
+      {/*
+        The product's own image, set from here. It saves to the PRODUCT, so it
+        follows into every guide and into Top Picks — there is deliberately no
+        entry-level image to drift out of step.
+      */}
+      <div className="mt-4 rounded-md border border-line bg-sand-50 p-3">
+        <MediaField
+          name={`productMedia-${entry.id}`}
+          value={entry.product.image_media ?? null}
+          library={library}
+          label={`Image for ${entry.product.name}`}
+          hint="Saved to the product, so it appears wherever this product is shown."
+          onChange={(mediaId) => {
+            void setProductMedia(entry.product.id, mediaId, guideId);
+          }}
+        />
+      </div>
 
       <form action={formAction} className="mt-4 space-y-3">
         <input type="hidden" name="entryId" value={entry.id} />

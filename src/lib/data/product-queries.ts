@@ -347,6 +347,8 @@ export async function getProductGuideBySlug(
       .from("product_rankings")
       .select(
         "*, category:product_categories(*), localCategory:categories(id, name, slug), " +
+          "hero_media:media_assets!product_rankings_hero_media_id_fkey(*), " +
+          "og_media:media_assets!product_rankings_og_image_media_id_fkey(*), " +
           "entries:product_ranking_entries(*, product:products(*, offers:product_offers(*), image_media:media_assets!products_image_media_id_fkey(*)))",
       )
       .eq("slug", slug)

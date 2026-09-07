@@ -236,7 +236,9 @@ export async function getAdminProductGuide(
       .from("product_rankings")
       .select(
         "*, category:product_categories(*), localCategory:categories(id, name, slug), " +
-          "entries:product_ranking_entries(*, product:products(*, offers:product_offers(*)))",
+          "hero_media:media_assets!product_rankings_hero_media_id_fkey(*), " +
+          "og_media:media_assets!product_rankings_og_image_media_id_fkey(*), " +
+          "entries:product_ranking_entries(*, product:products(*, offers:product_offers(*), image_media:media_assets!products_image_media_id_fkey(*)))",
       )
       .eq("id", id)
       .maybeSingle(),

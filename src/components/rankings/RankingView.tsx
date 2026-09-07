@@ -8,6 +8,8 @@ import { RecommendedProductsModule } from "@/components/products/RecommendedProd
 import { RankingEntry } from "@/components/rankings/RankingEntry";
 import { RankingQuickList } from "@/components/rankings/RankingQuickList";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
+import { EditorialImage } from "@/components/ui/EditorialImage";
+import { resolveImage } from "@/lib/media/resolve";
 import { RuleHeading } from "@/components/ui/RuleHeading";
 import { listRankings } from "@/lib/data/queries";
 import {
@@ -54,6 +56,8 @@ export async function RankingView({
     { name: ranking.title, href: `/best/${ranking.slug}` },
   ];
 
+  const hero = resolveImage(ranking.hero_media, ranking.hero_image_url, ranking.title);
+
   return (
     <>
       <script {...jsonLdScriptProps(rankingJsonLd(ranking))} />
@@ -90,6 +94,30 @@ export async function RankingView({
             <p className="mt-3 text-lg leading-relaxed text-ink-700">
               {ranking.description}
             </p>
+          ) : null}
+
+          {/*
+            The hero, between the dek and the dateline. It was stored, editable
+            and used on cards and share previews long before it appeared here —
+            an image an editor uploads has to show on the page they uploaded it
+            for, or the field reads as broken.
+          */}
+          {hero ? (
+            <figure className="mt-5">
+              <div className="relative aspect-[16/9] overflow-hidden rounded-card border border-line">
+                <EditorialImage
+                  src={hero.url}
+                  alt={hero.alt}
+                  seed={ranking.slug}
+                  priority
+                  objectPosition={hero.objectPosition}
+                  sizes="(max-width: 1024px) 100vw, 900px"
+                />
+              </div>
+              {hero.credit ? (
+                <figcaption className="mt-2 text-xs text-ink-400">{hero.credit}</figcaption>
+              ) : null}
+            </figure>
           ) : null}
 
           <div className="mt-4 border-y border-line py-3">
