@@ -90,15 +90,25 @@
 }
 
 @layer base {
+  /*
+   * No `scroll-behavior: smooth` here, deliberately.
+   *
+   * The App Router resets scroll on navigation by setting scrollTop on this
+   * element. Smooth turns that into an animation, and the incoming render
+   * interrupts it — every navigation landed 108px down, exactly the height of
+   * the sticky header, so the breadcrumbs and the H1 of the page you had just
+   * opened sat behind it. Instant scrolling on route changes is worth more than
+   * an eased jump to an in-page anchor, and the anchors still land correctly
+   * because of the scroll-margin below.
+   *
+   * If smooth anchor scrolling is wanted back, scope it to the anchor itself
+   * (scrollIntoView({ behavior: "smooth" }) on click), never to the document.
+   */
   html {
     -webkit-text-size-adjust: 100%;
-    scroll-behavior: smooth;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    html {
-      scroll-behavior: auto;
-    }
     *,
     *::before,
     *::after {
