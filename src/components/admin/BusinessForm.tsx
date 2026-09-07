@@ -256,7 +256,7 @@ export function BusinessForm({
             urlValue={business.primary_image_url ?? null}
             library={library}
             label="Primary image"
-            hint="Owned, licensed or business-provided photography only. Never a third-party listing photo."
+            hint="1200 × 900 (4:3). Owned, licensed or business-provided photography only. Never a third-party listing photo."
           />
         </div>
       </section>

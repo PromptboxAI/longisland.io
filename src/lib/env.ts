@@ -80,3 +80,27 @@ export function getYelpApiKey(): string {
 }
 
 export const isYelpConfigured = Boolean(process.env.YELP_API_KEY);
+
+/* -------------------------------------------------------------------------- */
+/* AI drafting                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Key for the drafting provider. SERVER ONLY — never prefixed NEXT_PUBLIC.
+ *
+ * Absent is a supported state, not an error: the Generate controls render
+ * disabled and say so, the same way the Yelp workbench behaves without a Yelp
+ * key. Editors can still write every field by hand.
+ */
+export function getAiApiKey(): string {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) {
+    throw new Error(
+      "ANTHROPIC_API_KEY is not set. AI drafting is unavailable; every field " +
+        "remains editable by hand.",
+    );
+  }
+  return key;
+}
+
+export const isAiConfigured = Boolean(process.env.ANTHROPIC_API_KEY);

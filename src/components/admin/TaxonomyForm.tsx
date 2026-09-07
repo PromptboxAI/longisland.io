@@ -186,6 +186,11 @@ export function TaxonomyForm({
         urlValue={record.hero_image_url ?? null}
         library={library}
         label="Hero image"
+        hint={
+          kind === "category"
+            ? "1600 × 900 (16:9)."
+            : "1200 × 900 (4:3)."
+        }
       />
 
       <fieldset className="rounded-card border border-line bg-sand-50 p-4">

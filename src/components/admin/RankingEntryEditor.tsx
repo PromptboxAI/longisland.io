@@ -161,7 +161,7 @@ export function RankingEntryEditor({
           value={entry.business.primary_media ?? null}
           library={library}
           label={`Photo for ${entry.business.name}`}
-          hint="Saved to the business, so it appears wherever this business is ranked."
+          hint="1200 × 900 (4:3). Saved to the business, so it appears wherever this business is ranked."
           onChange={(mediaId) => {
             void setBusinessMedia(entry.business.id, mediaId, rankingId);
           }}

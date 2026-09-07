@@ -163,6 +163,7 @@ export function ArticleForm({
         urlValue={article.hero_image_url ?? null}
         library={library}
         label="Hero image"
+        hint="2000 × 1125 (16:9)."
       />
 
       <div>
@@ -239,7 +240,7 @@ export function ArticleForm({
             value={article.og_media}
             library={library}
             label="Social share image"
-            hint="Optional. Falls back to the hero image."
+            hint="1200 × 630. Optional — falls back to the hero image."
           />
         </div>
       </fieldset>

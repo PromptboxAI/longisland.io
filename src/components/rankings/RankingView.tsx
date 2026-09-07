@@ -63,13 +63,16 @@ export async function RankingView({
       <script {...jsonLdScriptProps(rankingJsonLd(ranking))} />
       <script {...jsonLdScriptProps(breadcrumbJsonLd(crumbs))} />
 
-      {/* Editorial independence disclosure, above everything. */}
+      {/*
+        Editorial independence disclosure, above everything.
+        The sentence stays — it is a commitment, not decoration. The "How we
+        rank" link does not: it was one of three routes to the same page inside
+        one viewport, and the full methodology block at the foot of the article
+        is the one that earns its place.
+      */}
       <div className="border-b border-line bg-sand-100">
         <p className="mx-auto max-w-7xl px-4 py-2.5 text-center text-xs text-ink-500 sm:px-6 lg:px-8">
-          {EDITORIAL_INDEPENDENCE_NOTICE}{" "}
-          <Link href="/methodology" className="text-brand-600 underline underline-offset-2">
-            How we rank
-          </Link>
+          {EDITORIAL_INDEPENDENCE_NOTICE}
         </p>
       </div>
 
@@ -136,10 +139,6 @@ export async function RankingView({
         ) : null}
 
         <div className="mt-6">
-          <MethodologyNotice methodology={ranking.methodology} variant="banner" />
-        </div>
-
-        <div className="mt-6">
           <RankingQuickList entries={ranking.entries} />
         </div>
 
@@ -170,9 +169,6 @@ export async function RankingView({
           <MethodologyNotice methodology={ranking.methodology} variant="section" />
         </div>
 
-        <div className="mt-8">
-          <NominationCTA variant="inline" />
-        </div>
       </article>
 
       {related.length > 0 ? (

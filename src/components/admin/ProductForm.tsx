@@ -174,7 +174,7 @@ export function ProductForm({
             urlValue={product.image_url ?? null}
             library={library}
             label="Product image"
-            hint="Owned, licensed or manufacturer-supplied only. Blank renders a branded placeholder."
+            hint="1200 × 1200. Owned, licensed or manufacturer-supplied only. Blank renders a branded placeholder."
           />
         </div>
       </section>

@@ -164,7 +164,7 @@ export function ProductGuideEntryEditor({
           value={entry.product.image_media ?? null}
           library={library}
           label={`Image for ${entry.product.name}`}
-          hint="Saved to the product, so it appears wherever this product is shown."
+          hint="1200 × 1200. Saved to the product, so it appears wherever this product is shown."
           onChange={(mediaId) => {
             void setProductMedia(entry.product.id, mediaId, guideId);
           }}

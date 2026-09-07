@@ -205,7 +205,7 @@ export function ProductGuideDetailsForm({
         urlValue={guide.hero_image_url ?? null}
         library={library}
         label="Hero image"
-        hint="Shown on the guide and on its cards. A guide is an article, so this is editorial art rather than a product shot."
+        hint="2000 × 1125 (16:9). Shown on the guide and on its cards. A guide is an article, so this is editorial art rather than a product shot."
       />
 
       <fieldset className="rounded-card border border-line bg-sand-50 p-4">
@@ -248,7 +248,7 @@ export function ProductGuideDetailsForm({
             value={ogMedia}
             library={library}
             label="Social share image"
-            hint="Optional. Falls back to the hero image."
+            hint="1200 × 630. Optional — falls back to the hero image."
           />
         </div>
       </fieldset>

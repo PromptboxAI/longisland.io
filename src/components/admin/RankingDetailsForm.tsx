@@ -201,7 +201,7 @@ export function RankingDetailsForm({
         urlValue={ranking.hero_image_url ?? null}
         library={library}
         label="Hero image"
-        hint="Used on the ranking page, on cards, and when this list is shared."
+        hint="2000 × 1125 (16:9). Used on the ranking page, on cards, and when this list is shared."
         onChange={(mediaId, url) =>
           setMedia((current) => ({
             ...current,
@@ -299,7 +299,7 @@ export function RankingDetailsForm({
             value={ogMedia}
             library={library}
             label="Social share image"
-            hint="Optional. Falls back to the hero image."
+            hint="1200 × 630. Optional — falls back to the hero image."
             onChange={(mediaId) =>
               setMedia((current) => ({ ...current, ogImageMediaId: mediaId ?? "" }))
             }
