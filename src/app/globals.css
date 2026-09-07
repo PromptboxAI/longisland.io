@@ -66,14 +66,15 @@
   /*
    * Tinted grounds for banded sections.
    *
-   * Neutral rather than cool: R and G are equal and blue is lifted a couple of
-   * steps, so a band reads as a shade of the page rather than as a colour. The
-   * scale steps by 8 on R/G, which is what separates a masthead band (100) from
-   * an ordinary section band (50) without either looking grey.
+   * R and G are equal with blue lifted eight steps — a cool tint rather than a
+   * grey. That lift is the whole difference: at +2 the band reads as dirty
+   * white, at +8 it reads as a deliberate shade of the page and sits with the
+   * navy. The scale steps by 8 on R/G, which separates a masthead band (100)
+   * from an ordinary section band (50).
    */
-  --color-sand-50: #f8f8fa;
-  --color-sand-100: #f0f0f4;
-  --color-sand-200: #e6e9f0;
+  --color-sand-50: #f5f5fd;
+  --color-sand-100: #ededf5;
+  --color-sand-200: #e5e5ed;
 
   /* Borders */
   --color-line: #d4d7e0;
