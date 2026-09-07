@@ -347,7 +347,7 @@ export async function getProductGuideBySlug(
       .from("product_rankings")
       .select(
         "*, category:product_categories(*), localCategory:categories(id, name, slug), " +
-          "entries:product_ranking_entries(*, product:products(*, offers:product_offers(*)))",
+          "entries:product_ranking_entries(*, product:products(*, offers:product_offers(*), image_media:media_assets!products_image_media_id_fkey(*)))",
       )
       .eq("slug", slug)
       .maybeSingle(),
@@ -465,7 +465,7 @@ export async function getRecommendedProducts(
   const [{ data }, merchants] = await Promise.all([
     supabase
       .from("content_product_recommendations")
-      .select("*, product:products(*, offers:product_offers(*))")
+      .select("*, product:products(*, offers:product_offers(*), image_media:media_assets!products_image_media_id_fkey(*))")
       .eq("content_type", contentType)
       .eq("content_id", contentId)
       .order("position"),

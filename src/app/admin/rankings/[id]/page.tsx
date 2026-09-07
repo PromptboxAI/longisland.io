@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { setRankingStatus } from "@/app/admin/rankings/actions";
 import { AddRankingEntry } from "@/components/admin/AddRankingEntry";
 import { RankingDetailsForm } from "@/components/admin/RankingDetailsForm";
-import { RankingEntryEditor } from "@/components/admin/RankingEntryEditor";
+import { RankingEntryList } from "@/components/admin/RankingEntryList";
 import { RecommendedProductsEditor } from "@/components/admin/RecommendedProductsEditor";
 import { StatusPill } from "@/components/admin/StatusPill";
 import {
@@ -164,17 +164,7 @@ export default async function RankingEditorPage({ params }: PageParams) {
               </Link>
             </div>
           ) : (
-            <div className="space-y-4">
-              {ranking.entries.map((entry, index) => (
-                <RankingEntryEditor
-                  key={entry.id}
-                  entry={entry}
-                  rankingId={ranking.id}
-                  isFirst={index === 0}
-                  isLast={index === ranking.entries.length - 1}
-                />
-              ))}
-            </div>
+            <RankingEntryList entries={ranking.entries} rankingId={ranking.id} />
           )}
 
           <div className="mt-4">

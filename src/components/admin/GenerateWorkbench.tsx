@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { CandidateCard } from "@/components/admin/CandidateCard";
+import {
+  suggestRankingSlug,
+  suggestRankingTitle,
+} from "@/lib/rankings/naming";
 import { SEARCH_AREAS, SEARCH_TOWNS, resolveArea } from "@/lib/yelp/areas";
 import { YELP_SORT_OPTIONS, type YelpSortBy } from "@/lib/yelp/schema";
 import type { YelpBusiness } from "@/lib/yelp/types";
@@ -43,9 +47,22 @@ export function GenerateWorkbench({
   const [topic, setTopic] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [area, setArea] = useState("long-island");
-  const [resultCount, setResultCount] = useState(10);
+  /*
+   * Two different numbers, deliberately separate.
+   *
+   * `rankingSize` is how many businesses the published list holds.
+   * `batchSize` is how many candidates Yelp is asked for at a time.
+   *
+   * They used to be one, which meant asking for a ten-item list capped the
+   * research pool at ten — and a strong candidate sitting at Yelp's 40th result
+   * was unreachable no matter how many matches Yelp reported.
+   */
+  const [rankingSize, setRankingSize] = useState(10);
+  const [batchSize, setBatchSize] = useState(25);
   const [minReviews, setMinReviews] = useState(100);
-  const [sortBy, setSortBy] = useState<YelpSortBy>("best_match");
+  // Rating rather than best_match: for a local "best of" list, Yelp's adjusted
+  // rating is the closest thing it offers to the question we are asking.
+  const [sortBy, setSortBy] = useState<YelpSortBy>("rating");
 
   const [candidates, setCandidates] = useState<YelpBusiness[]>([]);
   // Insertion order is the ranking order, so this is an array, not a Set.
@@ -57,12 +74,54 @@ export function GenerateWorkbench({
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
   const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nameQuery, setNameQuery] = useState("");
+  const [nameSearching, setNameSearching] = useState(false);
+  // Empty means "use the suggestion". An editor who types here owns the value.
+  const [titleOverride, setTitleOverride] = useState("");
+  const [slugOverride, setSlugOverride] = useState("");
 
-  async function findCandidates(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSearching(true);
-    setError("");
+  /*
+   * The town or region being searched, for comparison against where each
+   * candidate actually is. A region ("Suffolk County") has no single town to
+   * compare against, so it stays null and the cards show plain geography.
+   */
+  const searchAreaLabel = SEARCH_TOWNS.includes(area) ? area : null;
 
+  const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
+  const currentAreaLabel =
+    SEARCH_AREAS.find((option) => option.value === area)?.label ?? area;
+  const suggestedTitle = suggestRankingTitle({
+    count: selectedIds.length,
+    categorySlug: selectedCategory?.slug ?? null,
+    categoryName: selectedCategory?.name ?? null,
+    topic,
+    areaLabel: currentAreaLabel,
+  });
+  const suggestedSlug = suggestRankingSlug({
+    categorySlug: selectedCategory?.slug ?? null,
+    topic,
+    areaSlug: area,
+  });
+
+  /**
+   * One request to Yelp, shared by the initial search, Load More, and the
+   * search-by-name box.
+   *
+   * `append` is what makes deeper research possible without losing work:
+   * selections, exclusions and the order they were made in are untouched, and
+   * candidates already on screen are not duplicated.
+   */
+  async function runSearch({
+    term,
+    nextOffset,
+    append,
+  }: {
+    term: string;
+    nextOffset: number;
+    append: boolean;
+  }): Promise<boolean> {
     const { location } = resolveArea(area);
 
     try {
@@ -70,43 +129,88 @@ export function GenerateWorkbench({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          term: topic,
+          term: term || undefined,
           location,
           sortBy,
-          // Over-fetch so the review floor still leaves a full slate to pick
-          // from; Yelp caps a page at 50.
-          limit: Math.min(50, Math.max(resultCount * 2, 20)),
+          limit: Math.min(50, Math.max(batchSize, 1)),
+          offset: nextOffset,
         }),
       });
 
       const body = (await response.json()) as SearchResponse | ErrorResponse;
 
       if (!response.ok) {
-        setError(
-          "error" in body ? body.error.message : "The search could not be run.",
-        );
-        setCandidates([]);
-        return;
+        setError("error" in body ? body.error.message : "The search could not be run.");
+        if (!append) setCandidates([]);
+        return false;
       }
 
       const result = body as SearchResponse;
-      setCandidates(result.businesses);
       setTotal(result.total);
+      setCandidates((current) => {
+        if (!append) return result.businesses;
+        const seen = new Set(current.map((c) => c.id));
+        return [...current, ...result.businesses.filter((c) => !seen.has(c.id))];
+      });
+      return true;
+    } catch {
+      setError("Could not reach the server.");
+      return false;
+    }
+  }
+
+  async function findCandidates(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSearching(true);
+    setError("");
+
+    const ok = await runSearch({ term: topic, nextOffset: 0, append: false });
+    if (ok) {
+      setOffset(0);
+      // A fresh search is a fresh slate; Load More is what preserves choices.
       setSelectedIds([]);
       setExcludedIds([]);
       setSearched(true);
-    } catch {
-      setError("Could not reach the server.");
-    } finally {
-      setSearching(false);
     }
+    setSearching(false);
+  }
+
+  async function loadMore() {
+    setLoadingMore(true);
+    setError("");
+    const nextOffset = offset + batchSize;
+    const ok = await runSearch({ term: topic, nextOffset, append: true });
+    if (ok) setOffset(nextOffset);
+    setLoadingMore(false);
+  }
+
+  /**
+   * Finds one business by name and adds it to the pool.
+   *
+   * For the case where an editor already knows the answer — a place with 458
+   * reviews that happens to sit at Yelp's 40th result — and should not have to
+   * page through to reach it.
+   */
+  async function findByName(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!nameQuery.trim()) return;
+
+    setNameSearching(true);
+    setError("");
+
+    const ok = await runSearch({ term: nameQuery.trim(), nextOffset: 0, append: true });
+    if (ok) {
+      setSearched(true);
+      setNameQuery("");
+    }
+    setNameSearching(false);
   }
 
   function toggleSelected(id: string) {
     setSelectedIds((current) =>
       current.includes(id)
         ? current.filter((value) => value !== id)
-        : current.length >= resultCount
+        : current.length >= rankingSize
           ? current
           : [...current, id],
     );
@@ -131,13 +235,32 @@ export function GenerateWorkbench({
 
     const areaLabel =
       SEARCH_AREAS.find((option) => option.value === area)?.label ?? area;
+    const category = categories.find((c) => c.id === categoryId) ?? null;
+
+    const title =
+      titleOverride.trim() ||
+      suggestRankingTitle({
+        count: ordered.length,
+        categorySlug: category?.slug ?? null,
+        categoryName: category?.name ?? null,
+        topic,
+        areaLabel,
+      });
+    const slug =
+      slugOverride.trim() ||
+      suggestRankingSlug({
+        categorySlug: category?.slug ?? null,
+        topic,
+        areaSlug: area,
+      });
 
     try {
       const response = await fetch("/api/admin/rankings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: `The ${ordered.length} Best ${titleCase(topic)} in ${areaLabel}`,
+          title,
+          slug,
           categoryId: categoryId || null,
           placeId: places.find((place) => place.slug === area)?.id ?? null,
           geography: areaLabel,
@@ -264,17 +387,38 @@ export function GenerateWorkbench({
 
           <div>
             <label htmlFor="count" className="block text-sm font-semibold text-navy-900">
-              Number of results
+              Final ranking size
             </label>
             <input
               id="count"
               type="number"
-              min={3}
-              max={25}
-              value={resultCount}
-              onChange={(event) => setResultCount(Number(event.target.value))}
+              min={1}
+              max={50}
+              step={1}
+              value={rankingSize}
+              onChange={(event) => setRankingSize(Number(event.target.value))}
               className={`mt-2 ${inputClass}`}
             />
+            <p className="mt-1 text-xs text-ink-500">How many make the list.</p>
+          </div>
+
+          <div>
+            <label htmlFor="batch" className="block text-sm font-semibold text-navy-900">
+              Candidates per batch
+            </label>
+            <input
+              id="batch"
+              type="number"
+              min={5}
+              max={50}
+              step={1}
+              value={batchSize}
+              onChange={(event) => setBatchSize(Number(event.target.value))}
+              className={`mt-2 ${inputClass}`}
+            />
+            <p className="mt-1 text-xs text-ink-500">
+              How many to research at a time. Load more below.
+            </p>
           </div>
 
           <div>
@@ -288,7 +432,7 @@ export function GenerateWorkbench({
               id="min-reviews"
               type="number"
               min={0}
-              step={25}
+              step={1}
               value={minReviews}
               onChange={(event) => setMinReviews(Number(event.target.value))}
               className={`mt-2 ${inputClass}`}
@@ -356,12 +500,12 @@ export function GenerateWorkbench({
           <div className="sticky top-14 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-5 py-3.5">
             <div>
               <p className="text-sm font-semibold text-navy-900">
-                Selected {selectedIds.length} / {resultCount}
+                Selected {selectedIds.length} / {rankingSize}
               </p>
               <p className="text-xs text-ink-500">
-                {visible.length} shown
+                {visible.length} shown of {candidates.length} researched
                 {minReviews > 0 ? ` · ${minReviews}+ reviews` : ""}
-                {total > candidates.length ? ` · ${total} matched on Yelp` : ""}
+                {total > 0 ? ` · ${total.toLocaleString()} matched on Yelp` : ""}
               </p>
             </div>
             <button
@@ -398,6 +542,8 @@ export function GenerateWorkbench({
                     selected={selectionIndex !== -1}
                     excluded={excludedIds.includes(candidate.id)}
                     position={selectionIndex === -1 ? undefined : selectionIndex + 1}
+                    searchAreaLabel={searchAreaLabel}
+                    topicHint={selectedCategory?.slug ?? (topic.trim() || null)}
                     onToggle={() => toggleSelected(candidate.id)}
                     onExclude={() => toggleExcluded(candidate.id)}
                   />
@@ -405,16 +551,115 @@ export function GenerateWorkbench({
               })}
             </div>
           )}
+
+          {/*
+            Title and slug, suggested and editable. The suggestion follows the
+            category's own grammar — "Pizza Places", not "Pizza" — and the slug
+            deliberately carries neither the count nor the word "best": the
+            /best/ route says the second, and the first breaks the URL the day a
+            top ten becomes a top twelve.
+          */}
+          {selectedIds.length > 0 ? (
+            <div className="grid gap-4 border-t border-line px-5 py-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="ranking-title"
+                  className="block text-xs font-semibold text-navy-900"
+                >
+                  Title
+                </label>
+                <input
+                  id="ranking-title"
+                  value={titleOverride}
+                  onChange={(event) => setTitleOverride(event.target.value)}
+                  placeholder={suggestedTitle}
+                  className={`mt-1 ${inputClass}`}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="ranking-slug"
+                  className="block text-xs font-semibold text-navy-900"
+                >
+                  Slug
+                </label>
+                <input
+                  id="ranking-slug"
+                  value={slugOverride}
+                  onChange={(event) => setSlugOverride(event.target.value)}
+                  placeholder={suggestedSlug}
+                  className={`mt-1 ${inputClass} font-mono`}
+                />
+                <p className="mt-1 font-mono text-xs text-ink-400">
+                  /best/{slugOverride.trim() || suggestedSlug}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {/*
+            Deeper research and direct lookup, together at the foot of the list.
+            Both add to the pool rather than replacing it, so nothing selected
+            or excluded so far is lost.
+          */}
+          <div className="border-t border-line px-5 py-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore || candidates.length >= total}
+                className="inline-flex items-center gap-2 rounded-full border border-navy-300 px-5 py-2 text-sm font-semibold text-navy-900 transition-colors hover:border-navy-500 hover:bg-navy-50 disabled:opacity-50"
+              >
+                {loadingMore ? (
+                  <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                ) : null}
+                Load more candidates
+              </button>
+              <p className="text-xs text-ink-500">
+                {candidates.length >= total
+                  ? "Every match Yelp will return is loaded."
+                  : `${(total - candidates.length).toLocaleString()} more matched on Yelp.`}
+              </p>
+            </div>
+
+            <form onSubmit={findByName} className="mt-4 flex flex-wrap items-end gap-3">
+              <div className="min-w-56 flex-1">
+                <label
+                  htmlFor="find-by-name"
+                  className="block text-xs font-semibold text-navy-900"
+                >
+                  Find another business by name
+                </label>
+                <input
+                  id="find-by-name"
+                  type="search"
+                  value={nameQuery}
+                  onChange={(event) => setNameQuery(event.target.value)}
+                  placeholder="O Sole Mio"
+                  className={`mt-1 ${inputClass}`}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={nameSearching || !nameQuery.trim()}
+                className="inline-flex items-center gap-2 rounded-full border border-navy-300 px-5 py-2 text-sm font-semibold text-navy-900 hover:border-navy-500 hover:bg-navy-50 disabled:opacity-50"
+              >
+                {nameSearching ? (
+                  <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                ) : (
+                  <Search aria-hidden="true" className="size-4" />
+                )}
+                Add to candidates
+              </button>
+            </form>
+            <p className="mt-1.5 text-xs text-ink-400">
+              For a place you already know belongs on the list but that sits
+              deep in Yelp&rsquo;s results. Matches are added to the pool above.
+            </p>
+          </div>
         </div>
       ) : null}
     </div>
   );
 }
 
-function titleCase(value: string): string {
-  return value
-    .trim()
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}

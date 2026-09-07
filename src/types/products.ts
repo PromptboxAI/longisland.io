@@ -6,6 +6,7 @@
  * commerce types can move independently.
  */
 
+import type { MediaAsset } from "@/types/media";
 import type { Category, Place, PublishStatus } from "@/types/database";
 
 export type OfferAvailability =
@@ -156,6 +157,7 @@ export interface OfferWithMerchant extends ProductOffer {
 /** A product with everywhere you can buy it, cheapest usable offer first. */
 export interface ProductWithOffers extends Product {
   offers: OfferWithMerchant[];
+  image_media?: MediaAsset | null;
 }
 
 /** One ranked entry in a buying guide, joined to its product. */

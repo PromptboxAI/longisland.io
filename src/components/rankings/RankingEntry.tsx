@@ -2,6 +2,7 @@ import { Globe, MapPin, Navigation, Phone } from "lucide-react";
 import Link from "next/link";
 
 import { EditorialImage } from "@/components/ui/EditorialImage";
+import { resolveImage } from "@/lib/media/resolve";
 import type { RankingEntryWithBusiness } from "@/types/database";
 
 export interface RankingEntryProps {
@@ -18,6 +19,11 @@ export interface RankingEntryProps {
  */
 export function RankingEntry({ entry, priority = false }: RankingEntryProps) {
   const { business } = entry;
+  const image = resolveImage(
+    business.primary_media ?? null,
+    business.primary_image_url,
+    business.name,
+  );
   const location = [business.city, business.county].filter(Boolean).join(", ");
   const directionsQuery = encodeURIComponent(
     [business.name, business.address, business.city, "NY"].filter(Boolean).join(", "),
@@ -39,11 +45,18 @@ export function RankingEntry({ entry, priority = false }: RankingEntryProps) {
       <div className="grid gap-5 p-5 pt-7 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-6 lg:grid-cols-[220px_minmax(0,1fr)_190px]">
         {/* Image */}
         <div className="relative aspect-[4/3] overflow-hidden rounded border border-line">
+          {/*
+            One image per entry, and it belongs to the BUSINESS rather than to
+            this list. The same restaurant in four rankings shows the same
+            photo, and correcting it once corrects all four — which is why
+            there is no per-entry image field to get out of step.
+          */}
           <EditorialImage
-            src={business.primary_image_url}
-            alt=""
+            src={image?.url ?? null}
+            alt={image?.alt ?? ""}
             seed={business.slug}
             priority={priority}
+            objectPosition={image?.objectPosition}
             sizes="(max-width: 640px) 100vw, 220px"
           />
           <span className="absolute left-2 top-2 grid size-9 place-items-center rounded-full bg-navy-900 text-sm font-bold text-white">

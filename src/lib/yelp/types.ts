@@ -91,6 +91,8 @@ export interface YelpBusiness {
   reviewCount: number;
   /** Human-readable category titles, e.g. `["Pizza", "Italian"]`. */
   categories: string[];
+  /** Yelp category aliases, e.g. "pizza", "bakeries". Stable; titles are not. */
+  categoryAliases: string[];
   address: string | null;
   city: string | null;
   /**

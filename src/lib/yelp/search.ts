@@ -106,6 +106,7 @@ export function normalizeYelpBusiness(raw: YelpApiBusiness): YelpBusiness {
     rating: typeof raw.rating === "number" ? raw.rating : null,
     reviewCount: typeof raw.review_count === "number" ? raw.review_count : 0,
     categories: (raw.categories ?? []).map((c) => c.title).filter(Boolean),
+    categoryAliases: (raw.categories ?? []).map((c) => c.alias).filter(Boolean),
     // `address1` is the street line; `display_address[0]` covers records where
     // Yelp only filled in the formatted variant.
     address:

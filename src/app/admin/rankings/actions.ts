@@ -348,6 +348,69 @@ export async function moveEntry(
   revalidatePath(`/admin/rankings/${rankingId}`);
 }
 
+/**
+ * Persists a complete new order.
+ *
+ * Drag-and-drop moves an entry from 1 to 10 in one gesture, which the pairwise
+ * swap behind the up/down buttons cannot express — nine swaps would each be a
+ * separate write with nine chances to interleave badly.
+ *
+ * Positions are renormalised to 1..n from the order given, so a list stays
+ * coherent no matter what it looked like before: gaps left by a deletion close,
+ * and duplicates introduced by two editors working at once resolve to whatever
+ * the last save says.
+ *
+ * Ids not belonging to this ranking are dropped rather than trusted, and any
+ * entry the caller omitted is appended in its existing order rather than
+ * silently losing its place.
+ */
+export async function reorderEntries(
+  rankingId: string,
+  orderedEntryIds: string[],
+): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { data: existing } = await supabase
+    .from("ranking_entries")
+    .select("id, position")
+    .eq("ranking_id", rankingId)
+    .order("position");
+
+  const rows = (existing ?? []) as { id: string; position: number }[];
+  const known = new Set(rows.map((row) => row.id));
+
+  const ordered = orderedEntryIds.filter((id) => known.has(id));
+  const missing = rows.map((row) => row.id).filter((id) => !ordered.includes(id));
+  const final = [...ordered, ...missing];
+
+  if (final.length !== rows.length) {
+    return { error: "That order did not match this list. Reload and try again." };
+  }
+
+  /*
+   * Two passes, because `position` has no unique constraint but the intent is
+   * that it behaves like one: writing 1..n directly over 1..n would briefly
+   * give two rows the same position, and any read landing in between would see
+   * a list that never existed. Negatives are outside the range the UI can ever
+   * produce, so the parking pass cannot collide with a real value.
+   */
+  for (const [index, id] of final.entries()) {
+    await supabase
+      .from("ranking_entries")
+      .update({ position: -(index + 1) })
+      .eq("id", id);
+  }
+  for (const [index, id] of final.entries()) {
+    await supabase
+      .from("ranking_entries")
+      .update({ position: index + 1 })
+      .eq("id", id);
+  }
+
+  revalidatePath(`/admin/rankings/${rankingId}`);
+  return { ok: true };
+}
+
 export async function removeEntry(
   entryId: string,
   rankingId: string,

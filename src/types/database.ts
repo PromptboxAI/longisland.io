@@ -181,7 +181,7 @@ export interface EmailSubscriber {
 
 /** A ranking entry joined to its business, as rendered on a ranking page. */
 export interface RankingEntryWithBusiness extends RankingEntry {
-  business: Business;
+  business: Business & { primary_media?: MediaAsset | null };
 }
 
 /** A ranking joined to its entries, category and place. */

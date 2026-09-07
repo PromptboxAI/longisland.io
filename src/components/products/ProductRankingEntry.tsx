@@ -1,6 +1,7 @@
 import { ProductOfferList } from "@/components/products/ProductOfferButton";
 import { ProductProsCons } from "@/components/products/ProductProsCons";
 import { EditorialImage } from "@/components/ui/EditorialImage";
+import { resolveImage } from "@/lib/media/resolve";
 import type { ProductRankingEntryWithProduct } from "@/types/products";
 
 export interface ProductRankingEntryProps {
@@ -22,6 +23,7 @@ export function ProductRankingEntry({
   priority = false,
 }: ProductRankingEntryProps) {
   const { product } = entry;
+  const image = resolveImage(product.image_media ?? null, product.image_url, product.name);
   const headingId = `product-${entry.position}-name`;
 
   return (
@@ -41,7 +43,7 @@ export function ProductRankingEntry({
         {/* Image */}
         <div className="relative aspect-[4/3] overflow-hidden rounded border border-line">
           <EditorialImage
-            src={product.image_url}
+            src={image?.url ?? null}
             alt=""
             seed={product.slug}
             priority={priority}
