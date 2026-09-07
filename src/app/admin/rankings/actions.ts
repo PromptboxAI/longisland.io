@@ -270,26 +270,81 @@ export async function setRankingStatus(
 
   const { data: current } = await supabase
     .from("rankings")
-    .select("published_at, slug")
+    .select("published_at, slug, status, pending_changes")
     .eq("id", id)
     .maybeSingle();
+
+  const previous = current as {
+    published_at: string | null;
+    slug: string | null;
+    status: string;
+    pending_changes: Record<string, string> | null;
+  } | null;
+
+  /*
+   * Unpublishing folds staged text into the real fields.
+   *
+   * Staging exists to keep half-typed prose off a public page. Once the page
+   * is not public there is nothing to protect, and a draft has no Update live
+   * page button — so leaving text staged would strand an editor's newest work
+   * behind a control that is no longer on screen. Folding it in loses nothing:
+   * it is what the editor typed, and it is now on a page nobody can read.
+   */
+  const leavingPublished = previous?.status === "published" && status !== "published";
+  const fold: Record<string, unknown> = {};
+
+  if (leavingPublished && previous?.pending_changes) {
+    for (const [field, value] of Object.entries(previous.pending_changes)) {
+      fold[field] = value || null;
+    }
+    fold.pending_changes = null;
+  }
 
   await supabase
     .from("rankings")
     .update({
+      ...fold,
       status,
       // Stamp the first publication only, so re-publishing an edit does not
       // reset the article's original date.
       published_at:
-        status === "published" && !current?.published_at
+        status === "published" && !previous?.published_at
           ? new Date().toISOString()
-          : (current?.published_at ?? null),
+          : (previous?.published_at ?? null),
     })
     .eq("id", id);
 
+  /*
+   * The entries carry their own staged text, and it needs the same treatment
+   * for the same reason. Applied with the values already in the column so one
+   * statement covers every entry, rather than a read and a write per row.
+   *
+   * `ai_draft` is deliberately untouched by all of this. A proposal awaiting
+   * review is still awaiting review whether or not the page is public, and
+   * publishing must never be a way for generated copy to slip past a person.
+   */
+  if (leavingPublished) {
+    const { data: staged } = await supabase
+      .from("ranking_entries")
+      .select("id, pending_changes")
+      .eq("ranking_id", id)
+      .not("pending_changes", "is", null);
+
+    for (const row of (staged ?? []) as {
+      id: string;
+      pending_changes: Record<string, string> | null;
+    }[]) {
+      const update: Record<string, unknown> = { pending_changes: null };
+      for (const [field, value] of Object.entries(row.pending_changes ?? {})) {
+        update[field] = value || null;
+      }
+      await supabase.from("ranking_entries").update(update).eq("id", row.id);
+    }
+  }
+
   revalidatePath(`/admin/rankings/${id}`);
   revalidatePath("/admin/rankings");
-  if (current?.slug) revalidatePath(`/best/${current.slug}`);
+  if (previous?.slug) revalidatePath(`/best/${previous.slug}`);
   revalidatePath("/best");
   revalidatePath("/");
 }

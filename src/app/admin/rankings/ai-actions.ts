@@ -399,11 +399,28 @@ export async function generateAllEntryCopy(
             (e) => !e.best_for?.trim() || !e.editorial_reason?.trim(),
           );
 
+  /*
+   * Entries the run deliberately left alone, reported rather than omitted.
+   *
+   * "2 drafts ready" on a ten-entry ranking reads like a failure until you know
+   * eight were skipped on purpose. The skip is the reassurance that manual copy
+   * was not touched, so it belongs in the summary — not inferred from a count
+   * that does not add up.
+   */
+  const skipped = ranking.entries
+    .filter((entry) => !targets.some((target) => target.id === entry.id))
+    .map((entry) => ({
+      entryId: entry.id,
+      name: entry.business.name,
+      status: "skipped" as const,
+      detail: "editorial copy already exists",
+    }));
+
   if (targets.length === 0) {
-    return { ok: true, results: [] };
+    return { ok: true, results: skipped };
   }
 
-  const results: NonNullable<AiActionState["results"]> = [];
+  const results: NonNullable<AiActionState["results"]> = [...skipped];
 
   for (const entry of targets) {
     const outcome = await generateEntryCopy(rankingId, entry.id, {
