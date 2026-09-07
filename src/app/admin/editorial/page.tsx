@@ -48,6 +48,20 @@ export default async function EditorialPage() {
         </p>
       </div>
 
+      {/*
+        The one thing an editor could not check before publishing. A ranking has
+        its own preview URL; "what does the front page look like with this in
+        the feature slot" did not, short of publishing and looking.
+      */}
+      <Link
+        href="/preview/homepage"
+        target="_blank"
+        className="inline-flex items-center gap-2 rounded-full border border-navy-300 px-4 py-2 text-sm font-semibold text-navy-900 transition-colors hover:border-navy-500 hover:bg-navy-50"
+      >
+        Preview the homepage with drafts
+        <ExternalLink aria-hidden="true" className="size-3.5" />
+      </Link>
+
       {placementsByLocation().map((group) => (
         <section key={group.location}>
           <h2 className="text-sm font-bold uppercase tracking-wider text-navy-900">

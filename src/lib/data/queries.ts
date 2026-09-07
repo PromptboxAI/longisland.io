@@ -2,6 +2,7 @@ import "server-only";
 
 import { isSeedContentAllowed } from "@/lib/env";
 import { createPublicClient } from "@/lib/supabase/public";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { resolveImageUrl } from "@/lib/media/resolve";
 import {
   SEED_BUSINESSES,
@@ -107,6 +108,20 @@ async function getDb() {
   const client = createPublicClient();
   if (!client) return null;
   return (await hasSchema(client)) ? client : null;
+}
+
+/**
+ * The same database as `getDb`, read with the current user's cookies.
+ *
+ * Drafts come back only because RLS lets that particular person see them. A
+ * signed-out visitor gets an anonymous session here and sees precisely what
+ * they would have seen anyway, so this is safe to reach from a route that
+ * forgot to check — though every caller does check.
+ */
+async function getEditorDb() {
+  const client = await createServerClient();
+  // Both are PostgREST clients; only the auth context differs.
+  return (await hasSchema(client as never)) ? (client as never) : null;
 }
 
 /**
@@ -977,11 +992,21 @@ export interface SectionScopeRef {
  * public pages revalidate hourly, so a scheduled item appears within an hour of
  * its starts_at rather than to the second.
  */
+/**
+ * One editorial placement, resolved.
+ *
+ * `draft` swaps the anonymous client for the signed-in editor's own, which is
+ * the whole mechanism behind the homepage preview. It does NOT bypass RLS —
+ * the admin policy on `editorial_sections` is what admits an unpublished row,
+ * and an anonymous caller passing this flag gets exactly what they got before.
+ * That is why it takes a client rather than a "show me everything" switch.
+ */
 export async function getSection(
   key: string,
   scope: SectionScopeRef = {},
+  options: { draft?: boolean } = {},
 ): Promise<ResolvedSection | null> {
-  const supabase = await getDb();
+  const supabase = options.draft ? await getEditorDb() : await getDb();
   if (!supabase) return null;
 
   let request = supabase.from("editorial_sections").select(SECTION_SELECT).eq("key", key);

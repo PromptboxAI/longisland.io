@@ -14,7 +14,7 @@ import { FormError } from "@/components/forms/Field";
 import { hasUsableOffer } from "@/lib/affiliate";
 import { MediaField } from "@/components/admin/MediaField";
 import { resolveImageUrl } from "@/lib/media/resolve";
-import type { TargetCandidates } from "@/lib/data/admin-queries";
+import type { TargetCandidates, TargetPreview } from "@/lib/data/admin-queries";
 import type {
   EditorialSectionItemWithTargets,
   SectionTargetType,
@@ -173,32 +173,32 @@ export function AddSectionItem({
     if (targetType === "ranking") {
       return candidates.rankings
         .filter((r) => match(r.title))
-        .map((r) => ({ id: r.id, label: r.title, note: r.status }));
+        .map((r) => ({ id: r.id, label: r.title, note: r.status, preview: r.preview }));
     }
     if (targetType === "business") {
       return candidates.businesses
         .filter((b) => match(`${b.name} ${b.city ?? ""}`))
-        .map((b) => ({ id: b.id, label: b.name, note: b.city ?? b.status }));
+        .map((b) => ({ id: b.id, label: b.name, note: b.city ?? b.status, preview: b.preview }));
     }
     if (targetType === "category") {
       return candidates.categories
         .filter((c) => match(c.name))
-        .map((c) => ({ id: c.id, label: c.name, note: c.status }));
+        .map((c) => ({ id: c.id, label: c.name, note: c.status, preview: c.preview }));
     }
     if (targetType === "place") {
       return candidates.places
         .filter((p) => match(p.name))
-        .map((p) => ({ id: p.id, label: p.name, note: p.status }));
+        .map((p) => ({ id: p.id, label: p.name, note: p.status, preview: p.preview }));
     }
     if (targetType === "article") {
       return candidates.articles
         .filter((a) => match(a.title))
-        .map((a) => ({ id: a.id, label: a.title, note: a.status }));
+        .map((a) => ({ id: a.id, label: a.title, note: a.status, preview: a.preview }));
     }
     if (targetType === "product_ranking") {
       return candidates.productRankings
         .filter((g) => match(g.title))
-        .map((g) => ({ id: g.id, label: g.title, note: g.status }));
+        .map((g) => ({ id: g.id, label: g.title, note: g.status, preview: g.preview }));
     }
     if (targetType === "product") {
       return candidates.products
@@ -211,12 +211,22 @@ export function AddSectionItem({
           note: hasUsableOffer(p.offers)
             ? (p.status as string)
             : `${p.status} · no usable offer — will not render`,
+          preview: p.preview,
         }));
     }
     return [];
   }, [targetType, filter, candidates]);
 
   const isExternal = targetType === "external_url";
+
+  /*
+   * What the chosen target would bring with it.
+   *
+   * This is the whole point of the panel below: an editor picking between two
+   * rankings is really picking between two images and two deks, and until now
+   * neither was visible until after the item had been added.
+   */
+  const chosen = options.find((option) => option.id === targetId) ?? null;
 
   return (
     <form action={formAction} className="rounded-card border border-line bg-white p-5">
@@ -331,6 +341,8 @@ export function AddSectionItem({
           </div>
         )}
       </div>
+
+      {chosen ? <InheritedPreview preview={chosen.preview} /> : null}
 
       <FormError message={state.error} />
 
@@ -707,6 +719,93 @@ export function SectionItemEditor({
           ) : null}
         </div>
       </form>
+    </div>
+  );
+}
+
+/**
+ * Everything the item would inherit, shown before it is added.
+ *
+ * Deliberately the same four fields the public card renders — image, kicker,
+ * headline, dek — laid out the way they will appear, plus the two facts that
+ * decide whether it renders at all: what kind of thing it is, and whether it
+ * is published. A draft target in a published section is the single most
+ * common way a placement goes live empty.
+ *
+ * Missing values are named rather than left blank. "No image" is information;
+ * an empty box is a question.
+ */
+function InheritedPreview({ preview }: { preview: TargetPreview }) {
+  const published = preview.status === "published";
+
+  return (
+    <div className="mt-4 rounded-card border border-line bg-sand-50 p-4">
+      <p className="text-xs font-bold uppercase tracking-wider text-ink-500">
+        What this will inherit
+      </p>
+
+      <div className="mt-3 flex gap-4">
+        {preview.imageUrl ? (
+          <span className="relative h-20 w-28 shrink-0 overflow-hidden rounded border border-line bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={preview.imageUrl}
+              alt=""
+              className="size-full object-cover"
+            />
+          </span>
+        ) : (
+          <span className="grid h-20 w-28 shrink-0 place-items-center rounded border border-dashed border-line bg-white px-2 text-center text-[11px] font-semibold leading-tight text-amber-700">
+            No image
+          </span>
+        )}
+
+        <div className="min-w-0 flex-1">
+          {preview.kicker ? (
+            <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">
+              {preview.kicker}
+            </p>
+          ) : (
+            <p className="text-[11px] italic text-ink-400">No kicker</p>
+          )}
+
+          <p className="mt-0.5 text-sm font-bold leading-snug text-navy-900">
+            {preview.headline || "Untitled"}
+          </p>
+
+          {preview.dek ? (
+            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-700">
+              {preview.dek}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs italic text-ink-400">No dek</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-2.5 text-xs">
+        <span className="text-ink-500">
+          Type <span className="font-semibold text-navy-900">{preview.typeLabel}</span>
+        </span>
+        <span className="text-ink-500">
+          Status{" "}
+          <span
+            className={`font-semibold ${published ? "text-emerald-700" : "text-amber-700"}`}
+          >
+            {published ? "Published" : "Draft"}
+          </span>
+        </span>
+        {!published ? (
+          <span className="text-amber-700">
+            A draft target will not appear on the public page until it is
+            published.
+          </span>
+        ) : null}
+      </div>
+
+      <p className="mt-2 text-xs text-ink-400">
+        Anything here can be overridden on the item once it is added.
+      </p>
     </div>
   );
 }

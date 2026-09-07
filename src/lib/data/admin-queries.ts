@@ -5,6 +5,7 @@ import type { MediaAsset } from "@/types/media";
 import type { Article, ArticleWithRelations } from "@/types/articles";
 
 import { requireAdmin } from "@/lib/auth";
+import { resolveImageUrl } from "@/lib/media/resolve";
 import type {
   EditorialSection,
   EditorialSectionItemWithTargets,
@@ -414,56 +415,188 @@ export async function getEditorialSection(
 }
 
 /** Candidates for the target picker. Small tables, so loaded whole. */
+/**
+ * What a target would contribute if it were added, resolved at pick time.
+ *
+ * The picker used to show a title and a status, and the inherited image,
+ * headline, dek and kicker only appeared once the item had been added — which
+ * is backwards, because those are what an editor is choosing BETWEEN. Picking
+ * blind and then finding the ranking has no hero image means removing the item
+ * and starting again.
+ *
+ * These fields mirror `resolveItem()`. If that changes, this has to.
+ */
+export interface TargetPreview {
+  /** What an editor calls this kind of thing. */
+  typeLabel: string;
+  headline: string;
+  dek: string | null;
+  kicker: string | null;
+  imageUrl: string | null;
+  status: string;
+}
+
+interface Candidate {
+  id: string;
+  status: string;
+  preview: TargetPreview;
+}
+
 export interface TargetCandidates {
-  rankings: { id: string; title: string; slug: string; status: string }[];
-  businesses: { id: string; name: string; city: string | null; status: string }[];
-  categories: { id: string; name: string; slug: string; status: string }[];
-  places: { id: string; name: string; slug: string; status: string }[];
-  productRankings: { id: string; title: string; slug: string; status: string }[];
+  rankings: (Candidate & { title: string; slug: string })[];
+  businesses: (Candidate & { name: string; city: string | null })[];
+  categories: (Candidate & { name: string; slug: string })[];
+  places: (Candidate & { name: string; slug: string })[];
+  productRankings: (Candidate & { title: string; slug: string })[];
+  articles: (Candidate & { title: string; slug: string })[];
   /**
    * Products carry their offers so the picker can warn about one that has
    * nothing buyable behind it — that product is curatable but will not render.
    */
-  articles: { id: string; title: string; slug: string; status: string }[];
-  products: {
-    id: string;
+  products: (Candidate & {
     name: string;
     brand: string | null;
-    status: string;
     offers: OfferCore[];
-  }[];
+  })[];
 }
 
 export async function listTargetCandidates(): Promise<TargetCandidates> {
   const { supabase } = await requireAdmin();
 
+  // Each select now pulls the hero image and the dek/kicker source alongside
+  // the label, so the picker can show what would be inherited before anything
+  // is added. Extra columns on queries that already run; no extra round trips.
   const [rankings, businesses, categories, places, productRankings, products, articles] =
     await Promise.all([
-      supabase.from("rankings").select("id, title, slug, status").order("title"),
-      supabase.from("businesses").select("id, name, city, status").order("name"),
-      supabase.from("categories").select("id, name, slug, status").order("name"),
-      supabase.from("places").select("id, name, slug, status").order("name"),
+      supabase
+        .from("rankings")
+        .select(
+          "id, title, slug, status, description, geography, hero_image_url, " +
+            "hero_media:media_assets!rankings_hero_media_id_fkey(*)",
+        )
+        .order("title"),
+      supabase
+        .from("businesses")
+        .select(
+          "id, name, city, status, editorial_summary, description, primary_image_url, " +
+            "primary_media:media_assets!businesses_primary_media_id_fkey(*)",
+        )
+        .order("name"),
+      supabase
+        .from("categories")
+        .select(
+          "id, name, slug, status, description, hero_image_url, " +
+            "hero_media:media_assets!categories_hero_media_id_fkey(*)",
+        )
+        .order("name"),
+      supabase
+        .from("places")
+        .select(
+          "id, name, slug, status, description, type, hero_image_url, " +
+            "hero_media:media_assets!places_hero_media_id_fkey(*)",
+        )
+        .order("name"),
       supabase
         .from("product_rankings")
-        .select("id, title, slug, status")
+        .select(
+          "id, title, slug, status, description, hero_image_url, " +
+            "hero_media:media_assets!product_rankings_hero_media_id_fkey(*)",
+        )
         .order("title"),
       supabase
         .from("products")
         .select(
-          "id, name, brand, status, offers:product_offers(affiliate_url, direct_url, availability)",
+          "id, name, brand, status, summary, image_url, " +
+            "offers:product_offers(affiliate_url, direct_url, availability)",
         )
         .order("name"),
-      supabase.from("articles").select("id, title, slug, status").order("title"),
+      supabase
+        .from("articles")
+        .select(
+          "id, title, slug, status, dek, kicker, hero_image_url, " +
+            "hero_media:media_assets!articles_hero_media_id_fkey(*)",
+        )
+        .order("title"),
     ]);
 
+  type Row = Record<string, unknown>;
+
+  const image = (row: Row, mediaKey: string, urlKey: string) =>
+    resolveImageUrl(
+      (row[mediaKey] ?? null) as MediaAsset | null,
+      (row[urlKey] ?? null) as string | null,
+    );
+
+  const text = (row: Row, key: string) =>
+    ((row[key] ?? null) as string | null) || null;
+
+  const withPreview = (
+    rows: Row[],
+    typeLabel: string,
+    build: (row: Row) => Omit<TargetPreview, "typeLabel" | "status">,
+  ) =>
+    rows.map((row) => ({
+      ...row,
+      preview: {
+        typeLabel,
+        status: String(row.status ?? "draft"),
+        ...build(row),
+      },
+    }));
+
   return {
-    rankings: (rankings.data ?? []) as TargetCandidates["rankings"],
-    businesses: (businesses.data ?? []) as TargetCandidates["businesses"],
-    categories: (categories.data ?? []) as TargetCandidates["categories"],
-    places: (places.data ?? []) as TargetCandidates["places"],
-    productRankings: (productRankings.data ?? []) as TargetCandidates["productRankings"],
-    products: (products.data ?? []) as unknown as TargetCandidates["products"],
-    articles: (articles.data ?? []) as TargetCandidates["articles"],
+    rankings: withPreview((rankings.data ?? []) as unknown as Row[], "Ranking", (r) => ({
+      headline: String(r.title ?? ""),
+      dek: text(r, "description"),
+      kicker: text(r, "geography"),
+      imageUrl: image(r, "hero_media", "hero_image_url"),
+    })) as unknown as TargetCandidates["rankings"],
+
+    businesses: withPreview((businesses.data ?? []) as unknown as Row[], "Business", (b) => ({
+      headline: String(b.name ?? ""),
+      dek: text(b, "editorial_summary") ?? text(b, "description"),
+      kicker: text(b, "city"),
+      imageUrl: image(b, "primary_media", "primary_image_url"),
+    })) as unknown as TargetCandidates["businesses"],
+
+    categories: withPreview((categories.data ?? []) as unknown as Row[], "Category", (c) => ({
+      headline: String(c.name ?? ""),
+      dek: text(c, "description"),
+      kicker: null,
+      imageUrl: image(c, "hero_media", "hero_image_url"),
+    })) as unknown as TargetCandidates["categories"],
+
+    places: withPreview((places.data ?? []) as unknown as Row[], "Place", (p) => ({
+      headline: String(p.name ?? ""),
+      dek: text(p, "description"),
+      kicker: text(p, "type"),
+      imageUrl: image(p, "hero_media", "hero_image_url"),
+    })) as unknown as TargetCandidates["places"],
+
+    productRankings: withPreview(
+      (productRankings.data ?? []) as unknown as Row[],
+      "Product guide",
+      (g) => ({
+        headline: String(g.title ?? ""),
+        dek: text(g, "description"),
+        kicker: null,
+        imageUrl: image(g, "hero_media", "hero_image_url"),
+      }),
+    ) as unknown as TargetCandidates["productRankings"],
+
+    products: withPreview((products.data ?? []) as unknown as Row[], "Product", (p) => ({
+      headline: [p.brand, p.name].filter(Boolean).join(" "),
+      dek: text(p, "summary"),
+      kicker: text(p, "brand"),
+      imageUrl: text(p, "image_url"),
+    })) as unknown as TargetCandidates["products"],
+
+    articles: withPreview((articles.data ?? []) as unknown as Row[], "Article", (a) => ({
+      headline: String(a.title ?? ""),
+      dek: text(a, "dek"),
+      kicker: text(a, "kicker"),
+      imageUrl: image(a, "hero_media", "hero_image_url"),
+    })) as unknown as TargetCandidates["articles"],
   };
 }
 
