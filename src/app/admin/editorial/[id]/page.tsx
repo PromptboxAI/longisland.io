@@ -16,7 +16,6 @@ import {
   listAdminCategories,
   listAdminPlaces,
   listMediaAssets,
-  listTargetCandidates,
 } from "@/lib/data/admin-queries";
 
 export const dynamic = "force-dynamic";
@@ -26,11 +25,10 @@ type PageParams = { params: Promise<{ id: string }> };
 export default async function EditorialSectionEditorPage({ params }: PageParams) {
   const { id } = await params;
 
-  const [section, categories, places, candidates, library] = await Promise.all([
+  const [section, categories, places, library] = await Promise.all([
     getEditorialSection(id),
     listAdminCategories(),
     listAdminPlaces(),
-    listTargetCandidates(),
     listMediaAssets(),
   ]);
 
@@ -199,7 +197,11 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
             Items ({section.items.length})
           </h2>
 
-          <AddSectionItem sectionId={section.id} candidates={candidates} />
+          <AddSectionItem
+            sectionId={section.id}
+            placementKey={section.key}
+            returnTo={`/admin/editorial/${section.id}`}
+          />
 
           {section.items.length === 0 ? (
             <p className="rounded-card border border-line bg-white p-8 text-center text-sm text-ink-500">

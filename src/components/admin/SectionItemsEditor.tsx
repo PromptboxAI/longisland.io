@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Check, ExternalLink, Loader2, Trash2 } from "lucide-react";
-import { useActionState, useMemo, useState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 
 import {
   addSectionItem,
@@ -11,29 +11,17 @@ import {
   type EditorialActionState,
 } from "@/app/admin/editorial/actions";
 import { FormError } from "@/components/forms/Field";
-import { hasUsableOffer } from "@/lib/affiliate";
 import { MediaField } from "@/components/admin/MediaField";
+import { TargetPicker } from "@/components/admin/TargetPicker";
+import { findPlacement } from "@/lib/editorial/placements";
 import { resolveImageUrl } from "@/lib/media/resolve";
-import type { TargetCandidates, TargetPreview } from "@/lib/data/admin-queries";
-import type {
-  EditorialSectionItemWithTargets,
-  SectionTargetType,
-} from "@/types/database";
+import type { TargetPreview } from "@/lib/data/admin-queries";
+import type { TargetKind, TargetResult } from "@/lib/data/target-search";
+import type { EditorialSectionItemWithTargets } from "@/types/database";
 import type { MediaAsset } from "@/types/media";
 
 const INPUT =
   "w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500";
-
-const TARGET_TYPES: { value: SectionTargetType; label: string }[] = [
-  { value: "ranking", label: "Ranking" },
-  { value: "article", label: "Article" },
-  { value: "business", label: "Business" },
-  { value: "category", label: "Category" },
-  { value: "place", label: "Place" },
-  { value: "product_ranking", label: "Product guide" },
-  { value: "product", label: "Product (commerce)" },
-  { value: "external_url", label: "External URL" },
-];
 
 /** What the item inherits when an override is blank. Mirrors resolveItem(). */
 function inherited(item: EditorialSectionItemWithTargets) {
@@ -153,202 +141,134 @@ function inheritPlaceholder(value: string | null): string {
 
 export function AddSectionItem({
   sectionId,
-  candidates,
+  placementKey,
+  returnTo,
 }: {
   sectionId: string;
-  candidates: TargetCandidates;
+  /** Which placement this is, so the picker searches only what it accepts. */
+  placementKey?: string | null;
+  /** Where a "create new" link should come back to. */
+  returnTo?: string;
 }) {
   const [state, formAction, pending] = useActionState<EditorialActionState, FormData>(
     addSectionItem,
     {},
   );
-  const [targetType, setTargetType] = useState<SectionTargetType>("ranking");
-  const [filter, setFilter] = useState("");
-  const [targetId, setTargetId] = useState("");
 
-  const options = useMemo(() => {
-    const needle = filter.trim().toLowerCase();
-    const match = (label: string) => !needle || label.toLowerCase().includes(needle);
-
-    if (targetType === "ranking") {
-      return candidates.rankings
-        .filter((r) => match(r.title))
-        .map((r) => ({ id: r.id, label: r.title, note: r.status, preview: r.preview }));
-    }
-    if (targetType === "business") {
-      return candidates.businesses
-        .filter((b) => match(`${b.name} ${b.city ?? ""}`))
-        .map((b) => ({ id: b.id, label: b.name, note: b.city ?? b.status, preview: b.preview }));
-    }
-    if (targetType === "category") {
-      return candidates.categories
-        .filter((c) => match(c.name))
-        .map((c) => ({ id: c.id, label: c.name, note: c.status, preview: c.preview }));
-    }
-    if (targetType === "place") {
-      return candidates.places
-        .filter((p) => match(p.name))
-        .map((p) => ({ id: p.id, label: p.name, note: p.status, preview: p.preview }));
-    }
-    if (targetType === "article") {
-      return candidates.articles
-        .filter((a) => match(a.title))
-        .map((a) => ({ id: a.id, label: a.title, note: a.status, preview: a.preview }));
-    }
-    if (targetType === "product_ranking") {
-      return candidates.productRankings
-        .filter((g) => match(g.title))
-        .map((g) => ({ id: g.id, label: g.title, note: g.status, preview: g.preview }));
-    }
-    if (targetType === "product") {
-      return candidates.products
-        .filter((p) => match(`${p.name} ${p.brand ?? ""}`))
-        .map((p) => ({
-          id: p.id,
-          label: p.brand ? `${p.brand} ${p.name}` : p.name,
-          // Says up front what will happen: a product with nothing buyable
-          // behind it can be curated, but the page will skip it.
-          note: hasUsableOffer(p.offers)
-            ? (p.status as string)
-            : `${p.status} · no usable offer — will not render`,
-          preview: p.preview,
-        }));
-    }
-    return [];
-  }, [targetType, filter, candidates]);
-
-  const isExternal = targetType === "external_url";
+  const placement = placementKey ? findPlacement(placementKey) : null;
 
   /*
-   * What the chosen target would bring with it.
+   * What this placement will accept.
    *
-   * This is the whole point of the panel below: an editor picking between two
-   * rankings is really picking between two images and two deks, and until now
-   * neither was visible until after the item had been added.
+   * A custom section has no placement row, so it falls back to the full
+   * editorial set — the only case where the picker is genuinely allowed to
+   * search everything, because nothing has told it otherwise.
    */
-  const chosen = options.find((option) => option.id === targetId) ?? null;
+  const accepts: TargetKind[] = placement?.accepts ?? [
+    "ranking",
+    "article",
+    "product_ranking",
+    "product",
+    "business",
+    "category",
+    "place",
+  ];
+
+  const [external, setExternal] = useState(false);
+  const [chosen, setChosen] = useState<TargetResult | null>(null);
 
   return (
     <form action={formAction} className="rounded-card border border-line bg-white p-5">
       <input type="hidden" name="sectionId" value={sectionId} />
-      <input type="hidden" name="targetId" value={isExternal ? "" : targetId} />
+      <input type="hidden" name="targetId" value={external ? "" : (chosen?.id ?? "")} />
+      <input
+        type="hidden"
+        name="targetType"
+        value={external ? "external_url" : (chosen?.kind ?? "")}
+      />
 
-      <h3 className="text-sm font-bold uppercase tracking-wider text-navy-900">
-        Add an item
-      </h3>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-[200px_minmax(0,1fr)]">
-        <div>
-          <label htmlFor="targetType" className="block text-xs font-semibold text-navy-900">
-            Target type
-          </label>
-          <select
-            id="targetType"
-            name="targetType"
-            value={targetType}
-            onChange={(event) => {
-              setTargetType(event.target.value as SectionTargetType);
-              setTargetId("");
-              setFilter("");
-            }}
-            className={`mt-1.5 ${INPUT} bg-white`}
-          >
-            {TARGET_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {isExternal ? (
-          <div className="space-y-3">
-            <div>
-              <label
-                htmlFor="externalUrl"
-                className="block text-xs font-semibold text-navy-900"
-              >
-                URL
-              </label>
-              <input
-                id="externalUrl"
-                name="externalUrl"
-                type="url"
-                placeholder="https://"
-                className={`mt-1.5 ${INPUT}`}
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="externalHeadline"
-                className="block text-xs font-semibold text-navy-900"
-              >
-                Headline <span className="font-normal text-ink-500">(required)</span>
-              </label>
-              <input
-                id="externalHeadline"
-                name="headline"
-                type="text"
-                className={`mt-1.5 ${INPUT}`}
-              />
-              <p className="mt-1 text-xs text-ink-500">
-                An external link has no record to inherit a headline from.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <label htmlFor="targetFilter" className="block text-xs font-semibold text-navy-900">
-              Find a target
-            </label>
-            <input
-              id="targetFilter"
-              type="search"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              placeholder="Type to filter…"
-              className={`mt-1.5 ${INPUT}`}
-            />
-
-            <div className="mt-2 max-h-48 overflow-y-auto rounded-md border border-line">
-              {options.length === 0 ? (
-                <p className="px-3 py-4 text-center text-xs text-ink-500">
-                  No matches.
-                </p>
-              ) : (
-                <ul className="divide-y divide-line">
-                  {options.slice(0, 50).map((option) => (
-                    <li key={option.id}>
-                      <button
-                        type="button"
-                        onClick={() => setTargetId(option.id)}
-                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
-                          targetId === option.id
-                            ? "bg-brand-50 font-semibold text-brand-600"
-                            : "hover:bg-sand-50"
-                        }`}
-                      >
-                        <span className="truncate">{option.label}</span>
-                        <span className="shrink-0 text-xs text-ink-400">
-                          {option.note}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-navy-900">
+          Add an item
+        </h3>
+        {/*
+          An external link is not a search result — there is no record to find,
+          only a URL to type — so it is a mode rather than a target type in the
+          picker's list, where it would be a permanent empty row.
+        */}
+        <button
+          type="button"
+          onClick={() => {
+            setExternal((current) => !current);
+            setChosen(null);
+          }}
+          className="text-xs font-semibold text-brand-600 hover:underline"
+        >
+          {external ? "Choose existing content instead" : "Link to an external URL instead"}
+        </button>
       </div>
 
-      {chosen ? <InheritedPreview preview={chosen.preview} /> : null}
+      {external ? (
+        <div className="mt-4 space-y-3">
+          <div>
+            <label htmlFor="externalUrl" className="block text-xs font-semibold text-navy-900">
+              URL
+            </label>
+            <input
+              id="externalUrl"
+              name="externalUrl"
+              type="url"
+              placeholder="https://"
+              className={`mt-1.5 ${INPUT}`}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="externalHeadline"
+              className="block text-xs font-semibold text-navy-900"
+            >
+              Headline <span className="font-normal text-ink-500">(required)</span>
+            </label>
+            <input
+              id="externalHeadline"
+              name="headline"
+              type="text"
+              className={`mt-1.5 ${INPUT}`}
+            />
+            <p className="mt-1 text-xs text-ink-500">
+              An external link has no record to inherit a headline from.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4">
+          <TargetPicker
+            accepts={accepts}
+            selectedId={chosen?.id ?? null}
+            onSelect={setChosen}
+            returnTo={returnTo}
+          />
+        </div>
+      )}
+
+      {chosen ? (
+        <InheritedPreview
+          preview={{
+            typeLabel: chosen.typeLabel,
+            headline: chosen.title,
+            dek: chosen.dek,
+            kicker: chosen.kicker,
+            imageUrl: chosen.imageUrl,
+            status: chosen.status,
+          }}
+        />
+      ) : null}
 
       <FormError message={state.error} />
 
       <button
         type="submit"
-        disabled={pending || (!isExternal && !targetId)}
+        disabled={pending || (!external && !chosen)}
         className="mt-4 inline-flex items-center gap-2 rounded-full bg-navy-900 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-800 disabled:opacity-50"
       >
         {pending ? (

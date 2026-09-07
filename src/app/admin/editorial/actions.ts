@@ -7,6 +7,11 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { findPlacement } from "@/lib/editorial/placements";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  searchTargets,
+  type TargetQuery,
+  type TargetSearchResult,
+} from "@/lib/data/target-search";
 
 /**
  * Editorial section mutations.
@@ -530,4 +535,18 @@ async function renormalise(
       .update({ position: next })
       .eq("id", item.id);
   }
+}
+
+/**
+ * Search targets for the picker, one page at a time.
+ *
+ * A Server Action rather than a route handler so it inherits `requireAdmin`
+ * from the query underneath and needs no separate auth check, no CORS story
+ * and no client-side key. The picker calls it on every keystroke behind a
+ * debounce.
+ */
+export async function searchTargetsAction(
+  input: TargetQuery,
+): Promise<TargetSearchResult> {
+  return searchTargets(input);
 }

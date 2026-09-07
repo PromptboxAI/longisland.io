@@ -14,6 +14,8 @@
  * there produces two competing headlines on the same page.
  */
 
+import type { TargetKind } from "@/lib/data/target-search";
+
 export type PlacementScope = "global" | "category" | "place";
 
 export interface Placement {
@@ -40,6 +42,16 @@ export interface Placement {
   maxItems: number | null;
   /** Which target types belong here. Empty means anything editorial. */
   restrictedTo?: string[];
+  /**
+   * What the picker is allowed to search for this placement.
+   *
+   * Narrower than "everything editorial" on purpose. A commerce row cannot
+   * hold a restaurant ranking, so Top Picks does not query the rankings table
+   * at all — which is both faster and the only way the picker can be honest
+   * about what it is offering. `external_url` is always available and is not
+   * listed, because it is typed rather than searched.
+   */
+  accepts: TargetKind[];
   /** Where to look at the result. */
   previewPath: string | null;
 }
@@ -47,6 +59,7 @@ export interface Placement {
 export const PLACEMENTS: Placement[] = [
   {
     key: "homepage_primary",
+    accepts: ["ranking", "article", "product_ranking"],
     name: "Primary Feature",
     location: "Homepage",
     purpose:
@@ -61,6 +74,7 @@ export const PLACEMENTS: Placement[] = [
   },
   {
     key: "homepage_latest",
+    accepts: ["ranking", "article", "product_ranking"],
     name: "Latest",
     location: "Homepage",
     purpose: "The left rail beside the feature. Recent lists and articles.",
@@ -73,6 +87,7 @@ export const PLACEMENTS: Placement[] = [
   },
   {
     key: "homepage_top_rail",
+    accepts: ["ranking", "article", "product_ranking"],
     name: "Top Rail",
     location: "Homepage",
     purpose: "The right rail beside the feature. Anything worth a numbered slot.",
@@ -85,6 +100,7 @@ export const PLACEMENTS: Placement[] = [
   },
   {
     key: "homepage_top_picks",
+    accepts: ["product", "product_ranking"],
     name: "Top Picks",
     location: "Homepage",
     purpose:
@@ -99,6 +115,7 @@ export const PLACEMENTS: Placement[] = [
   },
   {
     key: "homepage_trending",
+    accepts: ["ranking", "article", "product_ranking"],
     name: "Trending",
     location: "Homepage",
     purpose: "Three cards below the newsletter band.",
@@ -111,6 +128,7 @@ export const PLACEMENTS: Placement[] = [
   },
   {
     key: "related_content",
+    accepts: ["ranking", "article", "product_ranking", "business"],
     name: "Related Content",
     location: "Homepage",
     purpose: "The Related Reviews line under the feature.",
@@ -123,6 +141,7 @@ export const PLACEMENTS: Placement[] = [
   },
   {
     key: "category_module",
+    accepts: ["ranking", "article", "product_ranking", "business"],
     name: "Featured Module",
     location: "Category page",
     purpose: "The featured rankings grid, for one category.",
@@ -135,6 +154,7 @@ export const PLACEMENTS: Placement[] = [
   },
   {
     key: "category_links",
+    accepts: ["ranking", "article", "product_ranking", "category"],
     name: "Heading Links",
     location: "Category page",
     purpose: "Text links beside the section heading.",
