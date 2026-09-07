@@ -1,14 +1,11 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Check, Loader2, Trash2 } from "lucide-react";
-import { useActionState, useState, useTransition } from "react";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
+import { useState, useTransition } from "react";
 
-import {
-  moveEntry,
-  removeEntry,
-  saveEntry,
-  type ActionState,
-} from "@/app/admin/rankings/actions";
+import { moveEntry, removeEntry, saveEntry } from "@/app/admin/rankings/actions";
+import { SaveIndicator } from "@/components/admin/SaveIndicator";
+import { useAutosave } from "@/components/admin/useAutosave";
 import { RANKING_BADGES, type RankingEntryWithBusiness } from "@/types/database";
 
 export interface RankingEntryEditorProps {
@@ -21,9 +18,16 @@ export interface RankingEntryEditorProps {
 /**
  * One editable ranking entry.
  *
- * Reordering uses explicit up/down buttons rather than drag-and-drop, so it
- * works with a keyboard and a screen reader. That is the accessible baseline
- * the brief asks for, not a fallback bolted onto a drag handle.
+ * Editorial fields autosave. A twenty-entry ranking carries eighty of them,
+ * and a Save button on each is eighty clicks and eighty ways to lose an edit by
+ * navigating away.
+ *
+ * Removing an entry stays an explicit two-step action, because that one cannot
+ * be undone by typing again.
+ *
+ * Reordering keeps its up/down buttons, which is how this works with a keyboard
+ * and a screen reader — the drag handle in the parent list is the pointer
+ * shortcut, not the only way.
  */
 export function RankingEntryEditor({
   entry,
@@ -31,12 +35,26 @@ export function RankingEntryEditor({
   isFirst,
   isLast,
 }: RankingEntryEditorProps) {
-  const [state, formAction, saving] = useActionState<ActionState, FormData>(
-    saveEntry,
-    {},
-  );
   const [isPending, startTransition] = useTransition();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+
+  const [fields, setFields] = useState({
+    bestFor: entry.best_for ?? "",
+    badge: entry.badge ?? "",
+    editorialReason: entry.editorial_reason ?? "",
+    editorNotes: entry.editor_notes ?? "",
+  });
+
+  const set = (key: keyof typeof fields) => (value: string) =>
+    setFields((current) => ({ ...current, [key]: value }));
+
+  const { status, error, saveNow } = useAutosave(fields, async (values) => {
+    const form = new FormData();
+    form.set("entryId", entry.id);
+    form.set("rankingId", rankingId);
+    for (const [key, value] of Object.entries(values)) form.set(key, value);
+    return saveEntry({}, form);
+  });
 
   const inputClass =
     "w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500";
@@ -121,9 +139,7 @@ export function RankingEntryEditor({
         </p>
       ) : null}
 
-      <form action={formAction} className="mt-4 space-y-3">
-        <input type="hidden" name="entryId" value={entry.id} />
-        <input type="hidden" name="rankingId" value={rankingId} />
+      <div className="mt-4 space-y-3">
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
@@ -135,10 +151,11 @@ export function RankingEntryEditor({
             </label>
             <input
               id={`bestFor-${entry.id}`}
-              name="bestFor"
               type="text"
               placeholder="A late slice on the way home"
-              defaultValue={entry.best_for ?? ""}
+              value={fields.bestFor}
+              onChange={(event) => set("bestFor")(event.target.value)}
+              onBlur={saveNow}
               className={`mt-1.5 ${inputClass}`}
             />
           </div>
@@ -152,8 +169,10 @@ export function RankingEntryEditor({
             </label>
             <select
               id={`badge-${entry.id}`}
-              name="badge"
-              defaultValue={entry.badge ?? ""}
+              value={fields.badge}
+              onChange={(event) => {
+                set("badge")(event.target.value);
+              }}
               className={`mt-1.5 ${inputClass} bg-white`}
             >
               <option value="">No badge</option>
@@ -175,10 +194,11 @@ export function RankingEntryEditor({
           </label>
           <textarea
             id={`reason-${entry.id}`}
-            name="editorialReason"
             rows={3}
             placeholder="What specifically makes this one worth the position?"
-            defaultValue={entry.editorial_reason ?? ""}
+            value={fields.editorialReason}
+            onChange={(event) => set("editorialReason")(event.target.value)}
+            onBlur={saveNow}
             className={`mt-1.5 ${inputClass}`}
           />
         </div>
@@ -192,43 +212,19 @@ export function RankingEntryEditor({
           </label>
           <textarea
             id={`notes-${entry.id}`}
-            name="editorNotes"
             rows={2}
             placeholder="Internal only — never published."
-            defaultValue={entry.editor_notes ?? ""}
+            value={fields.editorNotes}
+            onChange={(event) => set("editorNotes")(event.target.value)}
+            onBlur={saveNow}
             className={`mt-1.5 ${inputClass}`}
           />
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-full border border-navy-300 px-4 py-1.5 text-xs font-semibold text-navy-900 hover:bg-sand-50 disabled:opacity-60"
-          >
-            {saving ? (
-              <span className="flex items-center gap-1.5">
-                <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
-                Saving
-              </span>
-            ) : (
-              "Save entry"
-            )}
-          </button>
-
-          {state.ok && !saving ? (
-            <span role="status" className="flex items-center gap-1 text-xs text-brand-600">
-              <Check aria-hidden="true" className="size-3.5" />
-              Saved
-            </span>
-          ) : null}
-          {state.error ? (
-            <span role="alert" className="text-xs text-red-600">
-              {state.error}
-            </span>
-          ) : null}
+          <SaveIndicator status={status} error={error} />
         </div>
-      </form>
+      </div>
     </div>
   );
 }

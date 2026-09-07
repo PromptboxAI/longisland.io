@@ -42,6 +42,11 @@ export interface MediaFieldProps {
   urlName?: string;
   urlValue?: string | null;
   hint?: string;
+  /**
+   * Called whenever the selection changes, so a parent using autosave can
+   * persist it. The hidden inputs remain for the forms that still submit.
+   */
+  onChange?: (mediaId: string | null, urlFallback: string | null) => void;
 }
 
 const BUTTON =
@@ -55,6 +60,7 @@ export function MediaField({
   urlName,
   urlValue = null,
   hint,
+  onChange,
 }: MediaFieldProps) {
   const [asset, setAsset] = useState<MediaAsset | null>(value);
   const [url, setUrl] = useState(urlValue ?? "");
@@ -120,6 +126,7 @@ export function MediaField({
 
       setAsset(result.asset);
       setUrl("");
+      onChange?.(result.asset.id, null);
     } catch {
       setError("The upload did not complete.");
     } finally {
@@ -195,6 +202,7 @@ export function MediaField({
                 onClick={() => {
                   setAsset(null);
                   setUrl("");
+                  onChange?.(null, null);
                 }}
               >
                 <Trash2 aria-hidden="true" className="size-3.5" />
@@ -237,7 +245,10 @@ export function MediaField({
                 id={`${name}-url`}
                 type="url"
                 value={url}
-                onChange={(event) => setUrl(event.target.value)}
+                onChange={(event) => {
+                  setUrl(event.target.value);
+                  onChange?.(null, event.target.value);
+                }}
                 placeholder="https://…"
                 className="mt-1 w-full rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-brand-500"
               />
@@ -290,6 +301,7 @@ export function MediaField({
                       setAsset(item);
                       setUrl("");
                       setPicking(false);
+                      onChange?.(item.id, null);
                     }}
                     className={`block w-full overflow-hidden rounded-md border transition-colors ${
                       asset?.id === item.id

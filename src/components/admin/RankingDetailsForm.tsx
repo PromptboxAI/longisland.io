@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, Loader2 } from "lucide-react";
-import { useActionState } from "react";
+import { useState } from "react";
 
-import { FormError } from "@/components/forms/Field";
 import { MediaField } from "@/components/admin/MediaField";
-import { saveRankingDetails, type ActionState } from "@/app/admin/rankings/actions";
+import { useRankingTitle } from "@/components/admin/RankingEditorContext";
+import { SaveIndicator } from "@/components/admin/SaveIndicator";
+import { useAutosave } from "@/components/admin/useAutosave";
+import { saveRankingDetails } from "@/app/admin/rankings/actions";
 import type { Category, Place, RankingWithEntries } from "@/types/database";
 import type { MediaAsset } from "@/types/media";
 
@@ -26,17 +27,46 @@ export function RankingDetailsForm({
   heroMedia,
   ogMedia,
 }: RankingDetailsFormProps) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(
-    saveRankingDetails,
-    {},
-  );
+  const { setTitle } = useRankingTitle();
+  const isPublished = ranking.status === "published";
+
+  const [fields, setFields] = useState({
+    title: ranking.title,
+    slug: ranking.slug,
+    categoryId: ranking.category_id ?? "",
+    placeId: ranking.place_id ?? "",
+    geography: ranking.geography ?? "",
+    authorName: ranking.author_name ?? "",
+    description: ranking.description ?? "",
+    intro: ranking.intro ?? "",
+    methodology: ranking.methodology ?? "",
+    seoTitle: ranking.seo_title ?? "",
+    seoDescription: ranking.seo_description ?? "",
+  });
+  // Media and the slug of a published ranking are not autosaved — see below.
+  const [media, setMedia] = useState({
+    heroMediaId: ranking.hero_media_id ?? "",
+    heroImageUrl: ranking.hero_image_url ?? "",
+    ogImageMediaId: ranking.og_image_media_id ?? "",
+  });
+
+  const set = (key: keyof typeof fields) => (value: string) => {
+    setFields((current) => ({ ...current, [key]: value }));
+    if (key === "title") setTitle(value);
+  };
+
+  const { status, error, saveNow } = useAutosave({ ...fields, ...media }, async (values) => {
+    const form = new FormData();
+    form.set("id", ranking.id);
+    for (const [key, value] of Object.entries(values)) form.set(key, value);
+    return saveRankingDetails({}, form);
+  });
 
   const inputClass =
     "w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500";
 
   return (
-    <form action={formAction} className="space-y-4">
-      <input type="hidden" name="id" value={ranking.id} />
+    <div className="space-y-4">
 
       <div>
         <label htmlFor="title" className="block text-sm font-semibold text-navy-900">
@@ -44,10 +74,11 @@ export function RankingDetailsForm({
         </label>
         <input
           id="title"
-          name="title"
           type="text"
           required
-          defaultValue={ranking.title}
+          value={fields.title}
+          onChange={(event) => set("title")(event.target.value)}
+          onBlur={saveNow}
           className={`mt-2 ${inputClass}`}
         />
       </div>
@@ -60,10 +91,11 @@ export function RankingDetailsForm({
           <span className="shrink-0 font-mono text-xs text-ink-400">/best/</span>
           <input
             id="slug"
-            name="slug"
-            type="text"
+              type="text"
             required
-            defaultValue={ranking.slug}
+            value={fields.slug}
+          onChange={(event) => set("slug")(event.target.value)}
+          onBlur={saveNow}
             className={`${inputClass} font-mono`}
           />
         </div>
@@ -80,8 +112,9 @@ export function RankingDetailsForm({
           </label>
           <select
             id="categoryId"
-            name="categoryId"
-            defaultValue={ranking.category_id ?? ""}
+              value={fields.categoryId}
+          onChange={(event) => set("categoryId")(event.target.value)}
+          onBlur={saveNow}
             className={`mt-2 ${inputClass} bg-white`}
           >
             <option value="">No category</option>
@@ -99,8 +132,9 @@ export function RankingDetailsForm({
           </label>
           <select
             id="placeId"
-            name="placeId"
-            defaultValue={ranking.place_id ?? ""}
+              value={fields.placeId}
+          onChange={(event) => set("placeId")(event.target.value)}
+          onBlur={saveNow}
             className={`mt-2 ${inputClass} bg-white`}
           >
             <option value="">No place</option>
@@ -120,10 +154,11 @@ export function RankingDetailsForm({
           </label>
           <input
             id="geography"
-            name="geography"
-            type="text"
+              type="text"
             placeholder="Long Island"
-            defaultValue={ranking.geography ?? ""}
+            value={fields.geography}
+          onChange={(event) => set("geography")(event.target.value)}
+          onBlur={saveNow}
             className={`mt-2 ${inputClass}`}
           />
         </div>
@@ -134,10 +169,11 @@ export function RankingDetailsForm({
           </label>
           <input
             id="authorName"
-            name="authorName"
-            type="text"
+              type="text"
             placeholder="The LongIsland.io Editorial Team"
-            defaultValue={ranking.author_name ?? ""}
+            value={fields.authorName}
+          onChange={(event) => set("authorName")(event.target.value)}
+          onBlur={saveNow}
             className={`mt-2 ${inputClass}`}
           />
         </div>
@@ -149,10 +185,11 @@ export function RankingDetailsForm({
         </label>
         <textarea
           id="description"
-          name="description"
           rows={2}
           placeholder="One sentence shown on cards and in search results."
-          defaultValue={ranking.description ?? ""}
+          value={fields.description}
+          onChange={(event) => set("description")(event.target.value)}
+          onBlur={saveNow}
           className={`mt-2 ${inputClass}`}
         />
       </div>
@@ -165,6 +202,13 @@ export function RankingDetailsForm({
         library={library}
         label="Hero image"
         hint="Used on the ranking page, on cards, and when this list is shared."
+        onChange={(mediaId, url) =>
+          setMedia((current) => ({
+            ...current,
+            heroMediaId: mediaId ?? "",
+            heroImageUrl: url ?? "",
+          }))
+        }
       />
 
       <div>
@@ -173,10 +217,11 @@ export function RankingDetailsForm({
         </label>
         <textarea
           id="intro"
-          name="intro"
           rows={5}
           placeholder="The opening paragraph readers see above the list."
-          defaultValue={ranking.intro ?? ""}
+          value={fields.intro}
+          onChange={(event) => set("intro")(event.target.value)}
+          onBlur={saveNow}
           className={`mt-2 ${inputClass}`}
         />
       </div>
@@ -187,10 +232,11 @@ export function RankingDetailsForm({
         </label>
         <textarea
           id="methodology"
-          name="methodology"
           rows={5}
           placeholder="How this list was researched and ordered. Shown on the page."
-          defaultValue={ranking.methodology ?? ""}
+          value={fields.methodology}
+          onChange={(event) => set("methodology")(event.target.value)}
+          onBlur={saveNow}
           className={`mt-2 ${inputClass}`}
         />
         <p className="mt-1 text-xs text-ink-500">
@@ -217,9 +263,10 @@ export function RankingDetailsForm({
             </label>
             <input
               id="seoTitle"
-              name="seoTitle"
-              maxLength={70}
-              defaultValue={ranking.seo_title ?? ""}
+                  maxLength={70}
+              value={fields.seoTitle}
+          onChange={(event) => set("seoTitle")(event.target.value)}
+          onBlur={saveNow}
               placeholder={ranking.title}
               className={`mt-2 ${inputClass}`}
             />
@@ -237,10 +284,11 @@ export function RankingDetailsForm({
             </label>
             <textarea
               id="seoDescription"
-              name="seoDescription"
-              rows={2}
+                  rows={2}
               maxLength={200}
-              defaultValue={ranking.seo_description ?? ""}
+              value={fields.seoDescription}
+          onChange={(event) => set("seoDescription")(event.target.value)}
+          onBlur={saveNow}
               placeholder={ranking.description ?? "Falls back to the dek."}
               className={`mt-2 ${inputClass}`}
             />
@@ -252,35 +300,27 @@ export function RankingDetailsForm({
             library={library}
             label="Social share image"
             hint="Optional. Falls back to the hero image."
+            onChange={(mediaId) =>
+              setMedia((current) => ({ ...current, ogImageMediaId: mediaId ?? "" }))
+            }
           />
         </div>
       </fieldset>
 
-      <FormError message={state.error} />
-
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="inline-flex items-center gap-2 rounded-full bg-navy-900 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy-800 disabled:opacity-60"
-        >
-          {pending ? (
-            <>
-              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-              Saving
-            </>
-          ) : (
-            "Save Draft"
-          )}
-        </button>
-
-        {state.ok && !pending ? (
-          <span role="status" className="flex items-center gap-1.5 text-sm text-brand-600">
-            <Check aria-hidden="true" className="size-4" />
-            Saved
-          </span>
-        ) : null}
+      <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+        <SaveIndicator status={status} error={error} />
+        <p className="text-xs text-ink-400">
+          Changes save as you type. Publishing and deleting stay explicit.
+        </p>
       </div>
-    </form>
+
+      {isPublished ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          This ranking is published. Changing the slug moves its URL and breaks
+          any link already pointing at the old one.
+        </p>
+      ) : null}
+    </div>
+
   );
 }

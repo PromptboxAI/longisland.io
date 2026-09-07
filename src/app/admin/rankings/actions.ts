@@ -75,6 +75,15 @@ export async function saveRankingDetails(
 
   const data = parsed.data;
 
+  // Read the slug before the write: after it there is no record of the URL the
+  // page used to live at, and that path stays cached serving the old content.
+  const { data: before } = await supabase
+    .from("rankings")
+    .select("slug, status")
+    .eq("id", data.id)
+    .maybeSingle();
+  const previous = before as { slug: string; status: string } | null;
+
   const { error } = await supabase
     .from("rankings")
     .update({
@@ -106,11 +115,38 @@ export async function saveRankingDetails(
     };
   }
 
+  /*
+   * A published ranking stays editable — edits go straight to the live record
+   * and the public pages refresh, rather than requiring an unpublish and a
+   * republish to fix a typo. That means every save has to reach everywhere the
+   * ranking appears, not just its own page.
+   */
+  const nextSlug = slugify(data.slug);
+
   revalidatePath(`/admin/rankings/${data.id}`);
   revalidatePath("/admin/rankings");
-  revalidatePath(`/best/${slugify(data.slug)}`);
+  revalidatePath(`/best/${nextSlug}`);
+  if (previous?.slug && previous.slug !== nextSlug) {
+    // The old URL now has no page behind it; leaving it cached would serve the
+    // moved content from an address that no longer resolves.
+    revalidatePath(`/best/${previous.slug}`);
+  }
   revalidatePath("/best");
   revalidatePath("/");
+
+  // The dek and hero show on its category and place pages too.
+  const { data: scope } = await supabase
+    .from("rankings")
+    .select("category:categories(slug), place:places(slug)")
+    .eq("id", data.id)
+    .maybeSingle();
+  const scoped = scope as unknown as {
+    category: { slug: string } | null;
+    place: { slug: string } | null;
+  } | null;
+  if (scoped?.category) revalidatePath(`/category/${scoped.category.slug}`);
+  if (scoped?.place) revalidatePath(`/place/${scoped.place.slug}`);
+
   return { ok: true };
 }
 
@@ -364,6 +400,52 @@ export async function moveEntry(
  * entry the caller omitted is appended in its existing order rather than
  * silently losing its place.
  */
+/**
+ * Publishes every business on a ranking.
+ *
+ * Businesses imported from a Yelp search are created as drafts on purpose —
+ * nothing reaches the public site straight from a third-party search. The
+ * consequence nobody sees coming is that publishing the RANKING is not enough:
+ * its entries join to business rows the public cannot read, so the page renders
+ * "no published entries" while the editor is looking at ten of them.
+ *
+ * This keeps the draft gate and makes clearing it one deliberate action rather
+ * than ten trips to the business editor.
+ */
+export async function publishEntryBusinesses(rankingId: string): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { data: entries } = await supabase
+    .from("ranking_entries")
+    .select("business_id")
+    .eq("ranking_id", rankingId);
+
+  const ids = ((entries ?? []) as { business_id: string }[]).map((e) => e.business_id);
+  if (ids.length === 0) return { ok: true };
+
+  const { error } = await supabase
+    .from("businesses")
+    .update({ status: "published" })
+    .in("id", ids)
+    .neq("status", "published");
+
+  if (error) return { error: "Could not publish those businesses." };
+
+  const { data: ranking } = await supabase
+    .from("rankings")
+    .select("slug")
+    .eq("id", rankingId)
+    .maybeSingle();
+
+  revalidatePath(`/admin/rankings/${rankingId}`);
+  if ((ranking as { slug: string } | null)?.slug) {
+    revalidatePath(`/best/${(ranking as { slug: string }).slug}`);
+  }
+  revalidatePath("/best");
+  revalidatePath("/");
+  return { ok: true };
+}
+
 export async function reorderEntries(
   rankingId: string,
   orderedEntryIds: string[],

@@ -2,9 +2,16 @@ import { ArrowLeft, Eye, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { setRankingStatus } from "@/app/admin/rankings/actions";
+import {
+  publishEntryBusinesses,
+  setRankingStatus,
+} from "@/app/admin/rankings/actions";
 import { AddRankingEntry } from "@/components/admin/AddRankingEntry";
 import { RankingDetailsForm } from "@/components/admin/RankingDetailsForm";
+import {
+  RankingEditorProvider,
+  RankingLiveTitle,
+} from "@/components/admin/RankingEditorContext";
 import { RankingEntryList } from "@/components/admin/RankingEntryList";
 import { RecommendedProductsEditor } from "@/components/admin/RecommendedProductsEditor";
 import { StatusPill } from "@/components/admin/StatusPill";
@@ -38,6 +45,22 @@ export default async function RankingEditorPage({ params }: PageParams) {
 
   const isPublished = ranking.status === "published";
 
+  /*
+   * Businesses arrive from a Yelp search as drafts, and RLS hides a draft
+   * business from readers — so a published ranking whose entries are all drafts
+   * renders "no published entries" while the editor is looking at ten of them.
+   * The warning below is the only place that failure is visible before a reader
+   * finds it.
+   */
+  const draftBusinesses = ranking.entries.filter(
+    (entry) => entry.business.status !== "published",
+  );
+
+  async function publishBusinesses() {
+    "use server";
+    await publishEntryBusinesses(id);
+  }
+
   // Server Actions must be bound here; the buttons below are inside forms.
   async function publish() {
     "use server";
@@ -50,7 +73,8 @@ export default async function RankingEditorPage({ params }: PageParams) {
   }
 
   return (
-    <div className="space-y-6">
+    <RankingEditorProvider initialTitle={ranking.title}>
+      <div className="space-y-6">
       <div>
         <Link
           href="/admin/rankings"
@@ -61,12 +85,36 @@ export default async function RankingEditorPage({ params }: PageParams) {
         </Link>
       </div>
 
+      {draftBusinesses.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-card border border-amber-300 bg-amber-50 p-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-navy-900">
+              {draftBusinesses.length} of {ranking.entries.length} businesses on
+              this list {draftBusinesses.length === 1 ? "is a draft" : "are drafts"}
+              {isPublished ? " and will not appear on the published page." : "."}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-ink-700">
+              Businesses researched from Yelp are created as drafts so nothing
+              reaches the site straight from a third-party search. Publishing the
+              ranking does not publish them.
+            </p>
+          </div>
+          <form action={publishBusinesses}>
+            <button
+              type="submit"
+              className="rounded-full bg-navy-900 px-5 py-2 text-sm font-semibold text-white hover:bg-navy-800"
+            >
+              Publish {draftBusinesses.length}{" "}
+              {draftBusinesses.length === 1 ? "business" : "businesses"}
+            </button>
+          </form>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-extrabold text-navy-900">
-              {ranking.title}
-            </h1>
+            <RankingLiveTitle fallback={ranking.title} />
             <StatusPill status={ranking.status} />
           </div>
           <p className="mt-1 font-mono text-xs text-ink-400">/best/{ranking.slug}</p>
@@ -74,7 +122,9 @@ export default async function RankingEditorPage({ params }: PageParams) {
 
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={`/best/${ranking.slug}`}
+            href={
+              isPublished ? `/best/${ranking.slug}` : `/preview/ranking/${ranking.id}`
+            }
             target="_blank"
             className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-5 py-2.5 text-sm font-semibold text-navy-900 hover:border-brand-500"
           >
@@ -180,6 +230,7 @@ export default async function RankingEditorPage({ params }: PageParams) {
       {/* Products recommended alongside this list. Self-contained: it fetches
           its own data and binds its own actions. */}
       <RecommendedProductsEditor contentType="ranking" contentId={ranking.id} />
-    </div>
+      </div>
+    </RankingEditorProvider>
   );
 }
