@@ -94,7 +94,7 @@ export function LegalSections({ sections }: { sections: LegalSection[] }) {
         <section
           key={section.heading}
           id={legalSectionId(section.heading)}
-          className="scroll-mt-24"
+          className="scroll-mt-20"
         >
           <h2 className="text-lg font-bold text-navy-900">
             {index + 1}. {section.heading}

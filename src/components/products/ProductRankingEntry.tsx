@@ -29,7 +29,7 @@ export function ProductRankingEntry({
   return (
     <article
       id={`product-${entry.position}`}
-      className="relative rounded-card border border-line bg-white shadow-card scroll-mt-24"
+      className="relative rounded-card border border-line bg-white shadow-card scroll-mt-20"
     >
       {entry.badge ? (
         <div className="absolute -top-3 left-5">

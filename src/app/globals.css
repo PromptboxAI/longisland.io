@@ -103,8 +103,8 @@
    *
    * The App Router resets scroll on navigation by setting scrollTop on this
    * element. Smooth turns that into an animation, and the incoming render
-   * interrupts it — every navigation landed 108px down, exactly the height of
-   * the sticky header, so the breadcrumbs and the H1 of the page you had just
+   * interrupts it — every navigation landed the height of the sticky header
+   * down the page, so the breadcrumbs and the H1 of the page you had just
    * opened sat behind it. Instant scrolling on route changes is worth more than
    * an eased jump to an in-page anchor, and the anchors still land correctly
    * because of the scroll-margin below.
@@ -153,9 +153,15 @@
     text-wrap: balance;
   }
 
-  /* Anchor targets clear the sticky header + category bar. */
+  /*
+   * Anchor targets clear the sticky header.
+   *
+   * 5rem, not 7.5: only the 4rem compact row sticks now. The category bar
+   * scrolls away with the page, so reserving its height here left every
+   * in-page anchor sitting 44px lower than it needed to.
+   */
   [id] {
-    scroll-margin-top: 7.5rem;
+    scroll-margin-top: 5rem;
   }
 
   :focus-visible {

@@ -12,8 +12,20 @@ import { primaryNav, site, type NavItem } from "@/lib/site";
  * Two-row masthead.
  *
  * Row 1: wordmark, a prominent search field, and the two conversion actions.
+ * It is the sticky one, and the only sticky one.
  * Row 2: a navy category bar that is the site's primary browse surface, with
- * hover/click mega-menus.
+ * hover/click mega-menus. It scrolls away.
+ *
+ * The two rows are siblings rather than nested because a sticky element can
+ * only travel inside its own containing block. With both rows in one `<header>`
+ * there were exactly two outcomes — stick the whole 108px block, or watch row 1
+ * come unstuck 44px later — and neither is the one we want. Splitting them
+ * costs nothing semantically: the category bar keeps its own named `<nav>`
+ * landmark, so it is still announced as navigation on its own.
+ *
+ * Sticking only row 1 also settles the desktop trade-off. 64px of wordmark and
+ * search is worth keeping in view; 108px of that plus a navy bar is a strip of
+ * furniture following you down a page you are trying to read.
  *
  * Row 2 is desktop-only. Ten top-level destinations cannot be squeezed into a
  * phone's width, and the two ways of trying both fail: scrolling the strip
@@ -42,12 +54,50 @@ export function SiteHeader() {
     setMobileSearchOpen(false);
   }
 
+  const [scrolled, setScrolled] = useState(false);
+
+  /*
+   * Locking the page behind the menu removes the scrollbar, and on any platform
+   * that reserves space for one that is a 15px lurch of every fixed and sticky
+   * thing on screen — the header most visibly — at the exact moment the menu
+   * appears over it. Replacing the width with padding keeps the layout still.
+   */
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    if (!mobileOpen) return;
+
+    const gap = window.innerWidth - document.documentElement.clientWidth;
+    const previous = {
+      overflow: document.body.style.overflow,
+      paddingRight: document.body.style.paddingRight,
+    };
+
+    document.body.style.overflow = "hidden";
+    if (gap > 0) document.body.style.paddingRight = `${gap}px`;
+
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previous.overflow;
+      document.body.style.paddingRight = previous.paddingRight;
     };
   }, [mobileOpen]);
+
+  /*
+   * The shadow earns its place only once there is something underneath to be
+   * lifted off. At the top of the page it is a line under a white bar on a
+   * white page; a few pixels down it is the thing that stops the header
+   * dissolving into the content scrolling beneath it.
+   */
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    // Deferred rather than called straight out: a reload part-way down a page
+    // needs the shadow immediately, but setting state inside the effect body
+    // costs an extra render pass before paint.
+    const frame = requestAnimationFrame(onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -74,63 +124,69 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-card">
-      {/* ------------------------------------------------------------ Row 1 */}
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
-        <Link
-          href="/"
-          className="shrink-0 text-xl font-extrabold tracking-tight text-navy-900 sm:text-2xl"
-        >
-          LongIsland<span className="text-gold-400">.io</span>
-        </Link>
-
-        <div className="mx-auto hidden w-full max-w-xl md:block">
-          <SearchBar variant="header" />
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setMobileSearchOpen((open) => !open)}
-            aria-expanded={mobileSearchOpen}
-            aria-label="Search"
-            className="rounded-md p-2 text-ink-700 transition-colors hover:bg-navy-50 md:hidden"
-          >
-            <Search aria-hidden="true" className="size-5" />
-          </button>
-
+    <>
+      {/* ------------------------------- Row 1 — the sticky one, every width */}
+      <header
+        className={`sticky top-0 z-50 bg-white transition-shadow ${
+          scrolled ? "shadow-card" : "shadow-none"
+        }`}
+      >
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
           <Link
-            href="/nominate"
-            className="hidden rounded-full border border-navy-200 px-4 py-2 text-sm font-semibold text-navy-900 transition-colors hover:border-navy-400 hover:bg-navy-50 lg:inline-block"
+            href="/"
+            className="shrink-0 text-xl font-extrabold tracking-tight text-navy-900 sm:text-2xl"
           >
-            Nominate
-          </Link>
-          <Link
-            href="/advertise"
-            className="hidden rounded-full bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-800 lg:inline-block"
-          >
-            Advertise
+            LongIsland<span className="text-gold-400">.io</span>
           </Link>
 
-          <button
-            type="button"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-            aria-expanded={mobileOpen}
-            className="rounded-md p-2 text-navy-900 transition-colors hover:bg-navy-50 lg:hidden"
-          >
-            <Menu aria-hidden="true" className="size-6" />
-          </button>
-        </div>
-      </div>
+          <div className="mx-auto hidden w-full max-w-xl md:block">
+            <SearchBar variant="header" />
+          </div>
 
-      {mobileSearchOpen ? (
-        <div className="border-t border-line px-4 py-3 md:hidden">
-          <SearchBar variant="header" autoFocus />
-        </div>
-      ) : null}
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen((open) => !open)}
+              aria-expanded={mobileSearchOpen}
+              aria-label="Search"
+              className="rounded-md p-2 text-ink-700 transition-colors hover:bg-navy-50 md:hidden"
+            >
+              <Search aria-hidden="true" className="size-5" />
+            </button>
 
-      {/* ---------------------------------------------- Row 2, desktop only */}
+            <Link
+              href="/nominate"
+              className="hidden rounded-full border border-navy-200 px-4 py-2 text-sm font-semibold text-navy-900 transition-colors hover:border-navy-400 hover:bg-navy-50 lg:inline-block"
+            >
+              Nominate
+            </Link>
+            <Link
+              href="/advertise"
+              className="hidden rounded-full bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-800 lg:inline-block"
+            >
+              Advertise
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={mobileOpen}
+              className="rounded-md p-2 text-navy-900 transition-colors hover:bg-navy-50 lg:hidden"
+            >
+              <Menu aria-hidden="true" className="size-6" />
+            </button>
+          </div>
+        </div>
+
+        {mobileSearchOpen ? (
+          <div className="border-t border-line px-4 py-3 md:hidden">
+            <SearchBar variant="header" autoFocus />
+          </div>
+        ) : null}
+      </header>
+
+      {/* ------------- Row 2 — desktop only, and deliberately not sticky */}
       <div className="relative hidden bg-navy-900 lg:block">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <nav aria-label="Categories">
@@ -255,7 +311,7 @@ export function SiteHeader() {
       {mobileOpen ? (
         <MobileNav onClose={() => setMobileOpen(false)} pathname={pathname} />
       ) : null}
-    </header>
+    </>
   );
 }
 
