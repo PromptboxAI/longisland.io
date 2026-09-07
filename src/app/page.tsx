@@ -268,23 +268,18 @@ export default async function HomePage() {
             )}
           </div>
         ) : (
-          /* Holds the five-card rhythm so the row keeps its shape unpublished. */
-          <>
-            {/*
-              * Two-up on mobile, unlike the populated grid: a real card earns a
-              * full-width row with its headline, but five wordless tiles at one
-              * per row is a screen and a half of nothing to scroll past.
-              */}
-            <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-7 lg:grid-cols-5">
-              {[1, 2, 3, 4, 5].map((rank) => (
-                <EditorialEmpty key={rank} variant="card" index={rank} />
-              ))}
-            </div>
-            <p className="mt-6 text-sm leading-relaxed text-ink-500">
-              Five lists we stand behind will sit here — the ones we hand to
-              friends who ask where to go.
-            </p>
-          </>
+          /*
+           * Holds the five-card rhythm so the row keeps its shape unpublished.
+           *
+           * Two-up on mobile, unlike the populated grid: a real card earns a
+           * full-width row with its headline, but five wordless tiles at one per
+           * row is a screen and a half of nothing to scroll past.
+           */
+          <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-7 lg:grid-cols-5">
+            {[1, 2, 3, 4, 5].map((rank) => (
+              <EditorialEmpty key={rank} variant="card" index={rank} />
+            ))}
+          </div>
         )}
       </section>
 

@@ -63,9 +63,16 @@
   --color-ink-500: #5a6779;
   --color-ink-400: #7d8797;
 
-  /* Warm neutral grounds */
-  --color-sand-50: #fafbfc;
-  --color-sand-100: #f2f4f8;
+  /*
+   * Tinted grounds for banded sections.
+   *
+   * Neutral rather than cool: R and G are equal and blue is lifted a couple of
+   * steps, so a band reads as a shade of the page rather than as a colour. The
+   * scale steps by 8 on R/G, which is what separates a masthead band (100) from
+   * an ordinary section band (50) without either looking grey.
+   */
+  --color-sand-50: #f8f8fa;
+  --color-sand-100: #f0f0f4;
   --color-sand-200: #e6e9f0;
 
   /* Borders */
