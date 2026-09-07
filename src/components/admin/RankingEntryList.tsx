@@ -28,10 +28,16 @@ export function RankingEntryList({
   entries,
   rankingId,
   library,
+  rankingPlaceName = null,
+  yelpReferencedBusinessIds = [],
+  aiConfigured = false,
 }: {
   entries: RankingEntryWithBusiness[];
   rankingId: string;
   library: MediaAsset[];
+  rankingPlaceName?: string | null;
+  yelpReferencedBusinessIds?: string[];
+  aiConfigured?: boolean;
 }) {
   const [order, setOrder] = useState(entries);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -140,6 +146,11 @@ export function RankingEntryList({
                   isFirst={index === 0}
                   isLast={index === order.length - 1}
                   library={library}
+                  rankingPlaceName={rankingPlaceName}
+                  hasYelpReference={yelpReferencedBusinessIds.includes(
+                    entry.business.id,
+                  )}
+                  aiConfigured={aiConfigured}
                 />
               </div>
             </div>

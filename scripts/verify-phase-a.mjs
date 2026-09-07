@@ -57,7 +57,10 @@ const made = {
 };
 
 async function cleanup() {
-  await svc.from("editorial_sections").delete().in("id", made.sections);
+  // Only ever the sections this run created, plus its own probe key. Real
+  // curation is never a candidate for deletion.
+  await svc.from("editorial_sections").delete().in("id", made.sections.filter(Boolean));
+  await svc.from("editorial_sections").delete().eq("key", "pa_probe_feature");
   await svc.from("rankings").delete().like("slug", "pa-%");
   await svc.from("articles").delete().like("slug", "pa-%");
   await svc.from("product_rankings").delete().like("slug", "pa-%");
@@ -359,13 +362,22 @@ try {
   check("13 · draft ranking is invisible to readers", draftRankingAnon === null);
 
   /* --------------------------------------------- article as the feature (9) */
-  heading("Article as homepage_primary");
+  heading("Article as a feature-slot target");
 
-  const { data: section } = await svc
+  /*
+   * A probe key, not "homepage_primary". The behaviour under test — an article
+   * as a destination, the one-destination constraint, and the draft-target
+   * guard — is identical for any section, and creating the real homepage key
+   * collides with whatever an editor has actually curated. A test suite must
+   * not be able to touch live editorial state.
+   */
+  const { data: section, error: sectionError } = await svc
     .from("editorial_sections")
-    .insert({ key: "homepage_primary", status: "published", layout: "feature" })
+    .insert({ key: "pa_probe_feature", status: "published", layout: "feature" })
     .select("id")
     .single();
+
+  check("probe section created", !sectionError, sectionError?.message);
   made.sections.push(section?.id);
 
   const { data: featureItem, error: featureError } = await svc
@@ -412,6 +424,74 @@ try {
     seoRow?.seo_title === "Fall weekends on Long Island" &&
       seoRow?.seo_description === "A seasonal guide.",
   );
+
+
+  /* ------------------------------------------------------- AI drafting -- */
+  heading("AI editorial drafting");
+
+  const aiConfigured = Boolean(env.ANTHROPIC_API_KEY);
+  check(
+    "provider key present (drafting enabled)",
+    true,
+    aiConfigured ? "ANTHROPIC_API_KEY set" : "not set — controls render disabled, fields stay editable",
+  );
+
+  /*
+   * The guardrails are asserted against the prompt text rather than a live
+   * generation: a model call is non-deterministic and slow, and what actually
+   * protects the copy is what the system prompt forbids. If a rule is deleted
+   * from the prompt, this fails.
+   */
+  const promptSource = readFileSync(
+    new URL("../src/lib/ai/prompts.ts", import.meta.url),
+    "utf8",
+  );
+  for (const [label, needle] of [
+    ["never claims a visit", "visited, ate, tasted, tested"],
+    ["never claims interviews", "interviewed anyone"],
+    ["never claims a review consensus", "overwhelmingly"],
+    ["treats three excerpts as three", "Three is three"],
+    ["forbids quoting excerpts", "Never quote them"],
+    ["keeps ratings out of prose", "Do not put a rating or a review count in the prose"],
+    ["forbids third-party ranking claims", "selected, ranked or endorsed"],
+    ["describes our real process", "Final selection and ordering decided by LongIsland.io"],
+    ["writes less when evidence is thin", "WHEN THE EVIDENCE IS THIN"],
+  ]) {
+    check(`prompt ${label}`, promptSource.includes(needle), needle.slice(0, 34));
+  }
+
+  const aiActions = readFileSync(
+    new URL("../src/app/admin/rankings/ai-actions.ts", import.meta.url),
+    "utf8",
+  );
+  check(
+    "drafts never overwrite written copy unless asked",
+    aiActions.includes("options.overwrite || !entry.best_for?.trim()"),
+  );
+  check(
+    "a badge is only ever suggested into an empty field",
+    aiActions.includes("!entry.badge && result.value.badge"),
+  );
+  check("nothing in the drafting layer publishes", !/status:\s*["']published["']/.test(aiActions));
+
+  const providerSource = readFileSync(
+    new URL("../src/lib/ai/provider.ts", import.meta.url),
+    "utf8",
+  );
+  check("provider is server-only", providerSource.includes('import "server-only"'));
+  check("output is schema-validated", providerSource.includes("schema.safeParse"));
+  check(
+    "provider errors are never forwarded verbatim",
+    providerSource.includes("never surface the provider's raw error".slice(0, 20).toLowerCase()) ||
+      providerSource.includes("Never surface the provider's raw error"),
+  );
+
+  const researchSource = readFileSync(
+    new URL("../src/lib/ai/research.ts", import.meta.url),
+    "utf8",
+  );
+  check("review excerpts are never written to the database", !researchSource.includes(".insert("));
+  check("excerpt count is capped at three", researchSource.includes("MAX_EXCERPTS = 3"));
 
   /* --------------------------------------------------------- Yelp policy */
   heading("Yelp and affiliate policy unchanged");

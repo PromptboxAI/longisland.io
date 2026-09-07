@@ -235,7 +235,7 @@ export async function generateEntryCopy(
  */
 export async function generateAllEntryCopy(
   rankingId: string,
-  mode: "missing" | "selected",
+  mode: "missing" | "all" | "selected",
   entryIds: string[] = [],
 ): Promise<AiActionState> {
   const { supabase } = await requireAdmin();
@@ -243,12 +243,20 @@ export async function generateAllEntryCopy(
   const ranking = await loadRanking(supabase, rankingId);
   if (!ranking) return { error: "That ranking could not be loaded." };
 
+  /*
+   * Three modes, kept distinct because they differ in what they destroy.
+   * "missing" fills blanks and touches nothing else. "all" and "selected"
+   * overwrite, which is what asking for a regenerate means — so neither is
+   * reachable by accident from a button labelled "generate".
+   */
   const targets =
     mode === "selected"
       ? ranking.entries.filter((e) => entryIds.includes(e.id))
-      : ranking.entries.filter(
-          (e) => !e.best_for?.trim() || !e.editorial_reason?.trim(),
-        );
+      : mode === "all"
+        ? ranking.entries
+        : ranking.entries.filter(
+            (e) => !e.best_for?.trim() || !e.editorial_reason?.trim(),
+          );
 
   if (targets.length === 0) {
     return { ok: true, results: [] };
@@ -258,7 +266,7 @@ export async function generateAllEntryCopy(
 
   for (const entry of targets) {
     const outcome = await generateEntryCopy(rankingId, entry.id, {
-      overwrite: mode === "selected",
+      overwrite: mode !== "missing",
     });
 
     if (outcome.error) {

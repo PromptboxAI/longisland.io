@@ -483,3 +483,26 @@ export async function getAdminArticle(
 
   return (data as unknown as ArticleWithRelations) ?? null;
 }
+
+/**
+ * Which of these businesses came from a Yelp search.
+ *
+ * Drives the evidence line in the ranking editor: a business with a reference
+ * can have review excerpts fetched for drafting, one added by hand cannot. One
+ * query for the whole list rather than one per entry.
+ */
+export async function listYelpReferencedBusinessIds(
+  businessIds: string[],
+): Promise<string[]> {
+  if (businessIds.length === 0) return [];
+
+  const { supabase } = await requireAdmin();
+
+  const { data } = await supabase
+    .from("external_business_refs")
+    .select("business_id")
+    .eq("provider", "yelp")
+    .in("business_id", businessIds);
+
+  return ((data ?? []) as { business_id: string }[]).map((row) => row.business_id);
+}

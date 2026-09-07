@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 
 import {
@@ -10,6 +10,7 @@ import {
   setBusinessMedia,
 } from "@/app/admin/rankings/actions";
 import { MediaField } from "@/components/admin/MediaField";
+import { generateEntryCopy } from "@/app/admin/rankings/ai-actions";
 import { SaveIndicator } from "@/components/admin/SaveIndicator";
 import { useAutosave } from "@/components/admin/useAutosave";
 import { RANKING_BADGES, type RankingEntryWithBusiness } from "@/types/database";
@@ -22,6 +23,11 @@ export interface RankingEntryEditorProps {
   isLast: boolean;
   /** The media library, for setting this business's photo without leaving. */
   library: MediaAsset[];
+  /** The town this ranking is about, for the exact-area signal. */
+  rankingPlaceName?: string | null;
+  /** Whether a Yelp reference exists, so excerpts are obtainable. */
+  hasYelpReference?: boolean;
+  aiConfigured?: boolean;
 }
 
 /**
@@ -44,6 +50,9 @@ export function RankingEntryEditor({
   isFirst,
   isLast,
   library,
+  rankingPlaceName = null,
+  hasYelpReference = false,
+  aiConfigured = false,
 }: RankingEntryEditorProps) {
   const [isPending, startTransition] = useTransition();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -57,6 +66,31 @@ export function RankingEntryEditor({
 
   const set = (key: keyof typeof fields) => (value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
+
+  const [drafting, startDraft] = useTransition();
+  const [draftNote, setDraftNote] = useState("");
+
+  /*
+   * Evidence, from what is already on this page — no extra requests. Ratings
+   * and review counts are absent because we deliberately never persist them,
+   * which is worth stating rather than leaving as a blank row.
+   */
+  const inArea =
+    rankingPlaceName && entry.business.city
+      ? entry.business.city.trim().toLowerCase() ===
+        rankingPlaceName.trim().toLowerCase()
+      : null;
+
+  const evidence = [
+    { label: "Editorial summary", ok: Boolean(entry.business.editorial_summary?.trim()) },
+    { label: "Business description", ok: Boolean(entry.business.description?.trim()) },
+    { label: "Editor notes", ok: Boolean(fields.editorNotes.trim()) },
+    { label: "Yelp review excerpts", ok: hasYelpReference },
+    ...(inArea === null
+      ? []
+      : [{ label: inArea ? "In the ranking's town" : "Outside the ranking's town", ok: inArea }]),
+  ];
+  const evidenceScore = evidence.filter((e) => e.ok).length;
 
   const { status, error, saveNow } = useAutosave(fields, async (values) => {
     const form = new FormData();
@@ -168,7 +202,68 @@ export function RankingEntryEditor({
         />
       </div>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-line bg-white px-3 py-2">
+        <button
+          type="button"
+          disabled={!aiConfigured || drafting}
+          title={
+            aiConfigured
+              ? "Fills Best for and Why we picked it if they are empty"
+              : "Add ANTHROPIC_API_KEY to enable drafting"
+          }
+          onClick={() =>
+            startDraft(async () => {
+              setDraftNote("");
+              const result = await generateEntryCopy(rankingId, entry.id);
+              setDraftNote(
+                result.error ??
+                  result.results?.[0]?.detail ??
+                  "Drafted. Reload to see it.",
+              );
+            })
+          }
+          className="inline-flex items-center gap-1.5 rounded-full border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-navy-900 hover:border-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {drafting ? (
+            <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+          ) : (
+            <Sparkles aria-hidden="true" className="size-3.5 text-brand-600" />
+          )}
+          Draft copy
+        </button>
+
+        {/*
+          What the draft has to work with, so a VA can tell a grounded
+          paragraph from a fluent guess before trusting it.
+        */}
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+          <span
+            className={`font-semibold ${
+              evidenceScore >= 3
+                ? "text-emerald-700"
+                : evidenceScore >= 2
+                  ? "text-amber-700"
+                  : "text-red-700"
+            }`}
+          >
+            Evidence: {evidenceScore >= 3 ? "good" : evidenceScore >= 2 ? "moderate" : "thin"}
+          </span>
+          {evidence.map((item) => (
+            <span
+              key={item.label}
+              className={item.ok ? "text-ink-500" : "text-ink-400 line-through"}
+            >
+              {item.label}
+            </span>
+          ))}
+        </span>
+
+        {draftNote ? (
+          <span className="w-full text-[11px] text-ink-500">{draftNote}</span>
+        ) : null}
+      </div>
+
+      <div className="mt-3 space-y-3">
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>

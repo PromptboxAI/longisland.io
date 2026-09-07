@@ -12,6 +12,7 @@ import {
   RankingEditorProvider,
   RankingLiveTitle,
 } from "@/components/admin/RankingEditorContext";
+import { AiDraftPanel } from "@/components/admin/AiDraftPanel";
 import { RankingEntryList } from "@/components/admin/RankingEntryList";
 import { RecommendedProductsEditor } from "@/components/admin/RecommendedProductsEditor";
 import { StatusPill } from "@/components/admin/StatusPill";
@@ -21,7 +22,9 @@ import {
   listAdminPlaces,
   listMediaAssets,
   listTargetCandidates,
+  listYelpReferencedBusinessIds,
 } from "@/lib/data/admin-queries";
+import { isAiConfigured } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +44,19 @@ export default async function RankingEditorPage({ params }: PageParams) {
   if (!ranking) notFound();
 
   const heroMedia = library.find((a) => a.id === ranking.hero_media_id) ?? null;
+
+  /*
+   * Which businesses have a Yelp reference, so the evidence line can say
+   * whether review excerpts are obtainable — one query for the whole list
+   * rather than one per entry.
+   */
+  const yelpReferencedBusinessIds = await listYelpReferencedBusinessIds(
+    ranking.entries.map((entry) => entry.business.id),
+  );
+
+  const entriesMissingCopy = ranking.entries.filter(
+    (entry) => !entry.best_for?.trim() || !entry.editorial_reason?.trim(),
+  ).length;
   const ogMedia = library.find((a) => a.id === ranking.og_image_media_id) ?? null;
 
   const isPublished = ranking.status === "published";
@@ -191,6 +207,15 @@ export default async function RankingEditorPage({ params }: PageParams) {
             Entries ({ranking.entries.length})
           </h2>
 
+          <div className="mb-4">
+            <AiDraftPanel
+              rankingId={ranking.id}
+              entryCount={ranking.entries.length}
+              entriesMissingCopy={entriesMissingCopy}
+              configured={isAiConfigured}
+            />
+          </div>
+
           {ranking.entries.length === 0 ? (
             <div className="rounded-card border border-line bg-white p-8 text-center">
               <p className="text-sm text-ink-500">
@@ -209,6 +234,9 @@ export default async function RankingEditorPage({ params }: PageParams) {
               entries={ranking.entries}
               rankingId={ranking.id}
               library={library}
+              rankingPlaceName={ranking.place?.name ?? null}
+              yelpReferencedBusinessIds={yelpReferencedBusinessIds}
+              aiConfigured={isAiConfigured}
             />
           )}
 
