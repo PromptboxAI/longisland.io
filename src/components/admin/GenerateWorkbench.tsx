@@ -12,6 +12,7 @@ import {
 import {
   SEARCH_AREAS,
   SEARCH_TOWNS,
+  classifyLocation,
   isOnLongIsland,
   resolveArea,
 } from "@/lib/yelp/areas";
@@ -80,6 +81,8 @@ export function GenerateWorkbench({
   const [searched, setSearched] = useState(false);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
+  /** How many rows the last request actually returned. */
+  const [fetchedSoFar, setFetchedSoFar] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [nameQuery, setNameQuery] = useState("");
   const [nameSearching, setNameSearching] = useState(false);
@@ -129,7 +132,7 @@ export function GenerateWorkbench({
     term: string;
     nextOffset: number;
     append: boolean;
-  }): Promise<boolean> {
+  }): Promise<number | null> {
     const { location } = resolveArea(area);
 
     try {
@@ -150,7 +153,7 @@ export function GenerateWorkbench({
       if (!response.ok) {
         setError("error" in body ? body.error.message : "The search could not be run.");
         if (!append) setCandidates([]);
-        return false;
+        return null;
       }
 
       const result = body as SearchResponse;
@@ -160,10 +163,10 @@ export function GenerateWorkbench({
         const seen = new Set(current.map((c) => c.id));
         return [...current, ...result.businesses.filter((c) => !seen.has(c.id))];
       });
-      return true;
+      return result.businesses.length;
     } catch {
       setError("Could not reach the server.");
-      return false;
+      return null;
     }
   }
 
@@ -172,8 +175,9 @@ export function GenerateWorkbench({
     setSearching(true);
     setError("");
 
-    const ok = await runSearch({ term: topic, nextOffset: 0, append: false });
-    if (ok) {
+    const fetched = await runSearch({ term: topic, nextOffset: 0, append: false });
+    if (fetched !== null) {
+      setFetchedSoFar(fetched);
       setOffset(0);
       // A fresh search is a fresh slate; Load More is what preserves choices.
       setSelectedIds([]);
@@ -183,12 +187,28 @@ export function GenerateWorkbench({
     setSearching(false);
   }
 
+  /**
+   * The next page starts where Yelp actually stopped.
+   *
+   * It used to advance by the batch size we asked for. Those are the same
+   * number right up until they are not — Yelp returns short near the end of a
+   * result set, and near the 240 ceiling — and every row in the gap is one an
+   * editor never sees and cannot know they missed. Advancing by what came back
+   * cannot skip a record.
+   *
+   * Note this is the FETCHED count, deliberately, not the eligible one. The
+   * geography and review filters run on our side, after the fact; treating a
+   * filtered-out row as un-fetched would ask Yelp for it again forever.
+   */
   async function loadMore() {
     setLoadingMore(true);
     setError("");
-    const nextOffset = offset + batchSize;
-    const ok = await runSearch({ term: topic, nextOffset, append: true });
-    if (ok) setOffset(nextOffset);
+    const nextOffset = offset + fetchedSoFar;
+    const fetched = await runSearch({ term: topic, nextOffset, append: true });
+    if (fetched !== null) {
+      setOffset(nextOffset);
+      setFetchedSoFar(fetched);
+    }
     setLoadingMore(false);
   }
 
@@ -206,8 +226,14 @@ export function GenerateWorkbench({
     setNameSearching(true);
     setError("");
 
-    const ok = await runSearch({ term: nameQuery.trim(), nextOffset: 0, append: true });
-    if (ok) {
+    // `!== null` rather than truthy: a name that matches nothing returns 0, and
+    // that is a completed search, not a failed one.
+    const found = await runSearch({
+      term: nameQuery.trim(),
+      nextOffset: 0,
+      append: true,
+    });
+    if (found !== null) {
       setSearched(true);
       setNameQuery("");
     }
@@ -326,8 +352,24 @@ export function GenerateWorkbench({
       : true;
 
   const afterReviews = candidates.filter(passesReviews);
-  const outsideArea = afterReviews.filter((c) => !eligibleArea(c));
   const filteredOutByReviews = candidates.length - afterReviews.length;
+
+  /*
+   * The two ways a candidate can fail the area test, kept apart.
+   *
+   * "Outside" is a confident exclusion — a Connecticut address. "Unrecognised"
+   * is our town list admitting it has never heard of somewhere in New York,
+   * which is a different statement and needs a different answer from the
+   * editor. Collapsing them is what hid every Fire Island business behind the
+   * same wording as New Haven.
+   */
+  const rejected = afterReviews.filter((c) => !eligibleArea(c));
+  const outsideArea = rejected.filter(
+    (c) => classifyLocation(c.city, c.state) === "outside_ny",
+  );
+  const unrecognisedArea = rejected.filter(
+    (c) => classifyLocation(c.city, c.state) === "unrecognised",
+  );
 
   const eligible = afterReviews
     .filter(eligibleArea)
@@ -676,11 +718,11 @@ export function GenerateWorkbench({
           {outsideArea.length > 0 ? (
             <div className="border-t border-line px-5 py-4">
               <p className="text-xs font-bold uppercase tracking-wider text-ink-500">
-                Outside the selected area ({outsideArea.length})
+                Outside Long Island ({outsideArea.length})
               </p>
               <p className="mt-1 text-xs text-ink-400">
-                Yelp searches a radius, not a boundary. These are shown so a
-                wrong filter is visible, and cannot be selected.
+                Yelp searches a radius, not a boundary, so a Long Island search
+                reaches Connecticut. Shown so a wrong filter is visible.
               </p>
               <ul className="mt-2 space-y-1">
                 {outsideArea.slice(0, 12).map((candidate) => (
@@ -688,8 +730,37 @@ export function GenerateWorkbench({
                     <span className="font-semibold text-ink-700">{candidate.name}</span>
                     {" — "}
                     {[candidate.city, candidate.state].filter(Boolean).join(", ")}
-                    <span className="ml-1.5 text-ink-400">
-                      excluded: outside Nassau and Suffolk
+                    <span className="ml-1.5 text-ink-400">not in New York</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {/*
+            The list admitting what it does not know.
+            Separate from the section above because the answer is different: an
+            unrecognised New York place might be a hamlet we have never listed,
+            and the only way that gets found is if somebody sees it.
+          */}
+          {unrecognisedArea.length > 0 ? (
+            <div className="border-t border-line bg-amber-50/60 px-5 py-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-800">
+                New York, but we do not recognise the town ({unrecognisedArea.length})
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-500">
+                These are in New York and did not match our Nassau or Suffolk
+                town list — so they are either off the Island (a Queens or
+                Westchester address) or somewhere our list is missing. If one of
+                these belongs on Long Island, say so and it gets added.
+              </p>
+              <ul className="mt-2 space-y-1">
+                {unrecognisedArea.slice(0, 12).map((candidate) => (
+                  <li key={candidate.id} className="text-xs text-ink-500">
+                    <span className="font-semibold text-ink-700">{candidate.name}</span>
+                    {" — "}
+                    <span className="font-semibold text-amber-800">
+                      {[candidate.city, candidate.state].filter(Boolean).join(", ")}
                     </span>
                   </li>
                 ))}

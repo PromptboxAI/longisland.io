@@ -69,6 +69,21 @@ const NASSAU_TOWNS = new Set([
   "glen head", "bayville", "east norwich", "brookville", "old brookville",
   "muttontown", "wheatley heights", "north massapequa", "south hempstead",
   "roosevelt", "baldwin harbor", "merrick park", "salisbury",
+  // Added after a live sweep of eight Yelp searches turned them up as real
+  // results our list did not recognise.
+  "great neck plaza",
+  "south farmingdale",
+  "north new hyde park",
+  "east hills",
+  "roslyn estates",
+  "kensington",
+  "saddle rock",
+  "russell gardens",
+  "thomaston",
+  "harbor hills",
+  "flower hill",
+  "plandome manor",
+  "baxter estates",
 ]);
 
 /**
@@ -102,6 +117,57 @@ const SUFFOLK_TOWNS = new Set([
   "wheatley", "east farmingdale", "yaphank", "manorville", "ridge",
   "shoreham", "sound beach", "coram", "port jeff", "hampton",
   "new suffolk", "peconic", "laurel", "baiting hollow", "fishers island",
+  /*
+   * Fire Island. Every community on it is in Suffolk County, and the whole
+   * barrier island was missing — 45 businesses across one sweep, all silently
+   * dropped, which is how an allowlist fails: quietly, and only for the places
+   * nobody thought of.
+   */
+  "ocean beach",
+  "ocean bay park",
+  "fire island",
+  "fire island pines",
+  "cherry grove",
+  "kismet",
+  "fair harbor",
+  "davis park",
+  "saltaire",
+  "seaview",
+  "atlantique",
+  "dunewood",
+  "lonelyville",
+  "point o woods",
+  "water island",
+  "robbins rest",
+  // Mainland Suffolk hamlets the list had missed.
+  "middle island",
+  "speonk",
+  "islandia",
+  "upton",
+  "wainscott",
+  "westhampton dunes",
+  "napeague",
+  "east marion",
+  "northville",
+  "sagaponack",
+  "noyack",
+  "north sea",
+  "flanders",
+  "riverside",
+  "shinnecock hills",
+  "springs",
+  /*
+   * Variants and misspellings Yelp actually returns. They are the same places;
+   * refusing to recognise them loses real businesses over a full stop.
+   */
+  "mt sinai",
+  "port jefferson sta",
+  "bellport village",
+  "huntingtion",
+  "e setauket",
+  "s setauket",
+  "pt jefferson",
+  "cent islip",
 ]);
 
 /**
@@ -136,6 +202,30 @@ export function isOnLongIsland(
   state?: string | null,
 ): boolean {
   return inferCounty(city, state) !== null;
+}
+
+/**
+ * Why a candidate is or is not eligible — three answers, not two.
+ *
+ * A yes/no test on an allowlist has one failure mode and it is a bad one: a
+ * place the list has never heard of is indistinguishable from a place we know
+ * to be elsewhere, so both vanish together. A live sweep found 45 Fire Island
+ * businesses being dropped that way, and nothing on screen could have told an
+ * editor they existed.
+ *
+ * Splitting "not in New York" from "in New York, unrecognised" makes the gap
+ * visible. The first is a confident exclusion. The second is the list admitting
+ * what it does not know, and it belongs in front of a person.
+ */
+export type LocationVerdict = "long_island" | "outside_ny" | "unrecognised";
+
+export function classifyLocation(
+  city: string | null | undefined,
+  state?: string | null,
+): LocationVerdict {
+  if (state && state.trim().toUpperCase() !== "NY") return "outside_ny";
+  if (inferCounty(city, state)) return "long_island";
+  return "unrecognised";
 }
 
 export function resolveArea(value: string): { location: string; radius?: number } {
