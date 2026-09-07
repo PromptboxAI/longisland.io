@@ -139,3 +139,51 @@ export async function createBlankBusiness(): Promise<void> {
   revalidatePath("/admin/businesses");
   if (data) redirect(`/admin/businesses/${data.id}`);
 }
+
+/* -------------------------------------------------------------------------- */
+/* Private contact details                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Saves the private contact record for a business.
+ *
+ * Kept in `business_contacts`, which no public query can reach — every public
+ * select on `businesses` uses `*`, so an email column there would travel into
+ * the payload of every listing and profile page on the site. A separate
+ * admin-only table makes that impossible by construction rather than by
+ * everyone remembering.
+ *
+ * Upsert rather than update: most businesses have no contact row until the
+ * first time somebody writes one.
+ */
+export async function saveBusinessContact(
+  businessId: string,
+  values: { email: string; contactName: string; phone: string; notes: string },
+): Promise<BusinessActionState> {
+  const { supabase } = await requireAdmin();
+
+  const email = values.email.trim();
+  // Deliberately loose. This is a note to ourselves, not a login, and refusing
+  // "sales@ (ask for Dave)" helps nobody.
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "That does not look like an email address." };
+  }
+
+  const { error } = await supabase.from("business_contacts").upsert(
+    {
+      business_id: businessId,
+      email: email || null,
+      contact_name: values.contactName.trim() || null,
+      phone: values.phone.trim() || null,
+      notes: values.notes.trim() || null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "business_id" },
+  );
+
+  if (error) return { error: "Could not save those contact details." };
+
+  // Nothing public renders these, so only the admin view needs refreshing.
+  revalidatePath(`/admin/businesses/${businessId}`);
+  return { ok: true };
+}

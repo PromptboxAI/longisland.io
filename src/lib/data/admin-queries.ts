@@ -735,3 +735,41 @@ export async function listYelpReferencedBusinessIds(
 
   return ((data ?? []) as { business_id: string }[]).map((row) => row.business_id);
 }
+
+/**
+ * The private contact record for one business, if there is one.
+ *
+ * Returns null both when no row exists and when the table is not there yet, so
+ * the editor renders an empty card rather than an error on a database that has
+ * not had the migration applied.
+ */
+export async function getBusinessContact(businessId: string): Promise<{
+  email: string | null;
+  contactName: string | null;
+  phone: string | null;
+  notes: string | null;
+} | null> {
+  const { supabase } = await requireAdmin();
+
+  const { data, error } = await supabase
+    .from("business_contacts")
+    .select("email, contact_name, phone, notes")
+    .eq("business_id", businessId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const row = data as {
+    email: string | null;
+    contact_name: string | null;
+    phone: string | null;
+    notes: string | null;
+  };
+
+  return {
+    email: row.email,
+    contactName: row.contact_name,
+    phone: row.phone,
+    notes: row.notes,
+  };
+}

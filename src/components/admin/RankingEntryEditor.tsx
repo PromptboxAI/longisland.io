@@ -27,6 +27,7 @@ import {
 import {
   applyEntryChanges,
   discardEntryChanges,
+  setBusinessWebsite,
 } from "@/app/admin/rankings/actions";
 import { AiReviewPanel } from "@/components/admin/AiReviewPanel";
 import { PendingChangesBar } from "@/components/admin/PendingChangesBar";
@@ -115,6 +116,8 @@ export function RankingEntryEditor({
   const [draftNote, setDraftNote] = useState("");
 
   const [findingSite, startFindSite] = useTransition();
+  const [savingSite, startSaveSite] = useTransition();
+  const [siteNote, setSiteNote] = useState("");
   const [website, setWebsite] = useState(entry.business.website ?? "");
   const [confirmingDraft, setConfirmingDraft] = useState(false);
 
@@ -409,19 +412,59 @@ export function RankingEntryEditor({
           </div>
         ) : null}
 
-        {website.trim() ? (
-          <p className="mt-2 truncate text-[11px] text-ink-500">
-            Official site:{" "}
-            <a
-              href={website}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="font-semibold text-brand-600 hover:underline"
-            >
-              {website}
-            </a>
+        {/*
+          Typed as well as fetched.
+          Yelp has a website for most places but not all, and a URL an editor
+          found themselves is better evidence than one nobody could locate. It
+          saves to the business, so it drives the Visit website button on the
+          profile and travels to every ranking the business appears in.
+        */}
+        <div className="mt-2.5">
+          <label
+            htmlFor={`website-${entry.id}`}
+            className="block text-[11px] font-semibold text-navy-900"
+          >
+            Official website
+          </label>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <input
+              id={`website-${entry.id}`}
+              type="url"
+              inputMode="url"
+              value={website}
+              placeholder="stjamesbagels.com"
+              onChange={(event) => setWebsite(event.target.value)}
+              onBlur={() =>
+                startSaveSite(async () => {
+                  const result = await setBusinessWebsite(
+                    entry.business.id,
+                    website,
+                    rankingId,
+                  );
+                  setSiteNote(result.error ?? "");
+                })
+              }
+              className="min-w-0 flex-1 rounded-md border border-line px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            {savingSite ? (
+              <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-ink-400" />
+            ) : website.trim() ? (
+              <a
+                href={/^https?:\/\//i.test(website) ? website : `https://${website}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="shrink-0 text-[11px] font-semibold text-brand-600 hover:underline"
+              >
+                Open
+              </a>
+            ) : null}
+          </div>
+          <p className="mt-1 text-[11px] text-ink-400">
+            {siteNote
+              ? siteNote
+              : "Shows as Visit website on the business profile. Saved to the business, not just this ranking."}
           </p>
-        ) : null}
+        </div>
 
         {onLongIsland === false ? (
           <p className="mt-2 rounded border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-800">

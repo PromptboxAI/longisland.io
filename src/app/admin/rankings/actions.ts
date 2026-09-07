@@ -971,3 +971,54 @@ export async function discardRankingChanges(rankingId: string): Promise<ActionSt
   revalidatePath(`/admin/rankings/${rankingId}`);
   return { ok: true };
 }
+
+/**
+ * Sets a business's own website by hand.
+ *
+ * Yelp supplies one for most places and "Find website" fetches it, but not for
+ * all of them — and a URL an editor found themselves is better evidence than
+ * one nobody could locate. Saved to the business, so it drives the Visit
+ * website button on the profile and travels to every ranking the business
+ * appears in.
+ *
+ * An empty string clears it, which is the only way to remove a wrong one.
+ */
+export async function setBusinessWebsite(
+  businessId: string,
+  website: string,
+  rankingId: string,
+): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+
+  const trimmed = website.trim();
+
+  // A bare domain is what people paste; make it a link rather than refusing it.
+  const normalised = trimmed
+    ? /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`
+    : null;
+
+  if (normalised && !/^https?:\/\/[^\s.]+\.[^\s]{2,}$/i.test(normalised)) {
+    return { error: "That does not look like a web address." };
+  }
+
+  const { error } = await supabase
+    .from("businesses")
+    .update({ website: normalised })
+    .eq("id", businessId);
+
+  if (error) return { error: "Could not save that website." };
+
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("slug")
+    .eq("id", businessId)
+    .maybeSingle();
+
+  revalidatePath(`/admin/rankings/${rankingId}`);
+  if ((business as { slug?: string } | null)?.slug) {
+    revalidatePath(`/business/${(business as { slug: string }).slug}`);
+  }
+  return { ok: true };
+}

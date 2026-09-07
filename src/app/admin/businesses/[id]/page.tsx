@@ -4,8 +4,10 @@ import { notFound } from "next/navigation";
 
 import { BusinessForm } from "@/components/admin/BusinessForm";
 import { StatusPill } from "@/components/admin/StatusPill";
+import { BusinessContactCard } from "@/components/admin/BusinessContactCard";
 import {
   getAdminBusiness,
+  getBusinessContact,
   listAdminCategories,
   listMediaAssets,
 } from "@/lib/data/admin-queries";
@@ -17,10 +19,11 @@ type PageParams = { params: Promise<{ id: string }> };
 export default async function BusinessEditorPage({ params }: PageParams) {
   const { id } = await params;
 
-  const [business, categories, library] = await Promise.all([
+  const [business, categories, library, contact] = await Promise.all([
     getAdminBusiness(id),
     listAdminCategories(),
     listMediaAssets(),
+    getBusinessContact(id),
   ]);
 
   if (!business) notFound();
@@ -59,13 +62,17 @@ export default async function BusinessEditorPage({ params }: PageParams) {
         </Link>
       </div>
 
-      <div className="max-w-3xl">
+      <div className="max-w-3xl space-y-6">
         <BusinessForm
-        business={business}
-        categories={categories}
-        library={library}
-        primaryMedia={primaryMedia}
-      />
+          business={business}
+          categories={categories}
+          library={library}
+          primaryMedia={primaryMedia}
+        />
+
+        {/* Public details above, ours below. The line between them is the
+            point, so it is drawn on screen as well as in the schema. */}
+        <BusinessContactCard businessId={business.id} initial={contact} />
       </div>
     </div>
   );
