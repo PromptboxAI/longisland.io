@@ -100,9 +100,11 @@ export function MediaLibrary({
                     }}
                   />
                 </span>
+                {/* "No alt" names an HTML attribute. The badge is for an
+                    editor, so it names what is missing instead. */}
                 {!asset.alt_text ? (
                   <span className="absolute left-1 top-1 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                    No alt
+                    No description
                   </span>
                 ) : null}
               </button>
@@ -187,16 +189,23 @@ function MediaDetails({
 
       <div className="mt-4 space-y-3">
         <div>
+          {/* The same question the image control on every record asks, worded
+              the same way. Two names for one field is how a VA learns that
+              admin has a vocabulary they have to decode. */}
           <label htmlFor={`alt-${asset.id}`} className={LABEL}>
-            Alt text
+            What is in this photo?
           </label>
           <input
             id={`alt-${asset.id}`}
             name="altText"
             defaultValue={asset.alt_text ?? ""}
             className={`mt-1 ${INPUT}`}
-            placeholder="What is in the picture, for someone who cannot see it"
+            placeholder="A margherita pizza coming out of a wood-fired oven"
           />
+          <p className="mt-1 text-xs text-ink-400">
+            Read aloud to people using a screen reader, shown if the image fails
+            to load, and one of the few things Google can read about a picture.
+          </p>
         </div>
 
         <div>

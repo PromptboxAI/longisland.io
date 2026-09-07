@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { deletePlace } from "@/app/admin/places/actions";
 import { StatusPill } from "@/components/admin/StatusPill";
+import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
 import { TaxonomyForm } from "@/components/admin/TaxonomyForm";
 import { listAdminPlaces, listMediaAssets } from "@/lib/data/admin-queries";
 
@@ -49,14 +50,12 @@ export default async function PlaceEditorPage({ params }: PageParams) {
           >
             View page
           </Link>
-          <form action={remove}>
-            <button
-              type="submit"
-              className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-navy-900 hover:border-red-300 hover:text-red-600"
-            >
-              Delete
-            </button>
-          </form>
+          {/* Asks first: deleting is not undone by typing again. */}
+          <DeleteRowButton
+            name={place.name}
+            consequence="Rankings and businesses in it lose their place."
+            onDelete={remove}
+          />
         </div>
       </div>
 

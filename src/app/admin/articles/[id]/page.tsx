@@ -2,6 +2,7 @@ import { ArrowLeft, Eye } from "lucide-react";
 import Link from "next/link";
 
 import { ReturnToBanner } from "@/components/admin/ReturnToBanner";
+import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
 import { notFound } from "next/navigation";
 
 import { deleteArticle, setArticleStatus } from "@/app/admin/articles/actions";
@@ -105,14 +106,12 @@ export default async function ArticleEditorPage({
             </form>
           )}
 
-          <form action={remove}>
-            <button
-              type="submit"
-              className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-navy-900 hover:border-red-300 hover:text-red-600"
-            >
-              Delete
-            </button>
-          </form>
+          {/* Asks first: deleting is not undone by typing again. */}
+          <DeleteRowButton
+            name={article.title}
+            consequence="Every placement curating it loses the item too."
+            onDelete={remove}
+          />
         </div>
       </div>
 
