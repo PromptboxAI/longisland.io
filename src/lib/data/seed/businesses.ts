@@ -50,7 +50,10 @@ function biz(
     status: "published",
     featured: index % 9 === 0,
     claimed: false,
+    primary_media_id: null,
     primary_image_url: null,
+    seo_title: null,
+    seo_description: null,
     created_at: NOW,
     updated_at: NOW,
   };

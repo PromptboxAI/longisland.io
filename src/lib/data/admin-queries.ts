@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { OfferCore } from "@/lib/affiliate";
+import type { MediaAsset } from "@/types/media";
 
 import { requireAdmin } from "@/lib/auth";
 import type {
@@ -359,4 +360,83 @@ export async function listTargetCandidates(): Promise<TargetCandidates> {
     productRankings: (productRankings.data ?? []) as TargetCandidates["productRankings"],
     products: (products.data ?? []) as unknown as TargetCandidates["products"],
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Media library                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every asset an editor may choose from.
+ *
+ * Loaded whole and passed to the picker as a prop, the same way target
+ * candidates are: the library is small enough for a long while, and a
+ * server-rendered list keeps the picker a plain client component with no
+ * fetching of its own. Archived assets are excluded — that is what archiving
+ * is for — but they stay readable so a page already using one still renders.
+ */
+export async function listMediaAssets(): Promise<MediaAsset[]> {
+  const { supabase } = await requireAdmin();
+
+  const { data } = await supabase
+    .from("media_assets")
+    .select("*")
+    .eq("status", "active")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []) as MediaAsset[];
+}
+
+/** One asset, for the library detail editor. */
+export async function getMediaAsset(id: string): Promise<MediaAsset | null> {
+  const { supabase } = await requireAdmin();
+
+  const { data } = await supabase
+    .from("media_assets")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  return (data as MediaAsset) ?? null;
+}
+
+/**
+ * How many records use each asset, for the whole library at once.
+ *
+ * Eight queries total rather than eight per asset: the alternative counts once
+ * per image, which is 480 round trips for a library of sixty and gets slower
+ * with every upload. Shown before archiving, so an editor can see that the
+ * photo they are about to hide from the picker is on three live pages.
+ */
+export async function mediaUsageCounts(): Promise<Map<string, number>> {
+  const { supabase } = await requireAdmin();
+
+  const columns: [string, string][] = [
+    ["rankings", "hero_media_id"],
+    ["articles", "hero_media_id"],
+    ["product_rankings", "hero_media_id"],
+    ["businesses", "primary_media_id"],
+    ["categories", "hero_media_id"],
+    ["places", "hero_media_id"],
+    ["products", "image_media_id"],
+    ["editorial_section_items", "image_media_id"],
+  ];
+
+  const results = await Promise.all(
+    columns.map(([table, column]) =>
+      supabase.from(table).select(column).not(column, "is", null),
+    ),
+  );
+
+  const counts = new Map<string, number>();
+  results.forEach((result, index) => {
+    const column = columns[index][1];
+    const rows = (result.data ?? []) as unknown as Record<string, string | null>[];
+    for (const row of rows) {
+      const id = row[column];
+      if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  });
+
+  return counts;
 }

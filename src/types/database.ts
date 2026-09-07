@@ -36,6 +36,9 @@ export interface Business {
   primary_image_url: string | null;
   created_at: string;
   updated_at: string;
+  primary_media_id: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
 }
 
 export interface Category {
@@ -49,6 +52,11 @@ export interface Category {
   status: PublishStatus;
   created_at: string;
   updated_at: string;
+  hero_media_id: string | null;
+  featured: boolean;
+  sort_order: number;
+  seo_title: string | null;
+  seo_description: string | null;
 }
 
 export interface Place {
@@ -63,6 +71,11 @@ export interface Place {
   status: PublishStatus;
   created_at: string;
   updated_at: string;
+  hero_media_id: string | null;
+  featured: boolean;
+  sort_order: number;
+  seo_title: string | null;
+  seo_description: string | null;
 }
 
 export interface ExternalBusinessRef {
@@ -90,6 +103,11 @@ export interface Ranking {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  hero_media_id: string | null;
+  hero_image_url: string | null;
+  og_image_media_id: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
 }
 
 export interface RankingEntry {
@@ -281,6 +299,8 @@ export interface EditorialSectionItem {
   ends_at: string | null;
   created_at: string;
   updated_at: string;
+  image_media_id: string | null;
+  article_id: string | null;
 }
 
 /** An item with its target rows embedded, as the queries return it. */

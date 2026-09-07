@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth";
-import { slugify, uniqueSlug } from "@/lib/slug";
+import { businessSlug, slugify, uniqueSlug } from "@/lib/slug";
 
 /**
  * Ranking editor mutations.
@@ -26,6 +26,11 @@ const detailsSchema = z.object({
   intro: z.string().trim().max(5000),
   methodology: z.string().trim().max(5000),
   authorName: z.string().trim().max(120),
+  heroMediaId: z.string().uuid().nullable(),
+  heroImageUrl: z.string().trim().max(500),
+  ogImageMediaId: z.string().uuid().nullable(),
+  seoTitle: z.string().trim().max(70),
+  seoDescription: z.string().trim().max(200),
 });
 
 export type ActionState = { ok?: boolean; error?: string };
@@ -57,6 +62,11 @@ export async function saveRankingDetails(
     intro: readString(formData, "intro"),
     methodology: readString(formData, "methodology"),
     authorName: readString(formData, "authorName"),
+    heroMediaId: readUuidOrNull(formData, "heroMediaId"),
+    heroImageUrl: readString(formData, "heroImageUrl"),
+    ogImageMediaId: readUuidOrNull(formData, "ogImageMediaId"),
+    seoTitle: readString(formData, "seoTitle"),
+    seoDescription: readString(formData, "seoDescription"),
   });
 
   if (!parsed.success) {
@@ -77,6 +87,13 @@ export async function saveRankingDetails(
       intro: data.intro || null,
       methodology: data.methodology || null,
       author_name: data.authorName || null,
+      hero_media_id: data.heroMediaId,
+      // The uploaded asset wins; the pasted URL only survives when there is no
+      // asset, which is what the field itself enforces on the client too.
+      hero_image_url: data.heroMediaId ? null : data.heroImageUrl || null,
+      og_image_media_id: data.ogImageMediaId,
+      seo_title: data.seoTitle || null,
+      seo_description: data.seoDescription || null,
     })
     .eq("id", data.id);
 
@@ -91,6 +108,9 @@ export async function saveRankingDetails(
 
   revalidatePath(`/admin/rankings/${data.id}`);
   revalidatePath("/admin/rankings");
+  revalidatePath(`/best/${slugify(data.slug)}`);
+  revalidatePath("/best");
+  revalidatePath("/");
   return { ok: true };
 }
 
@@ -176,6 +196,117 @@ export async function saveEntry(
  * Positions are swapped through a temporary negative value because
  * (ranking_id, position) collisions would otherwise be possible mid-swap.
  */
+/* -------------------------------------------------------------------------- */
+/* Adding entries                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Puts a business into a ranking.
+ *
+ * Until now the only way a ranking gained entries was the Yelp workbench, which
+ * always creates a NEW ranking from whatever the search returned. That made
+ * three ordinary editorial acts impossible: adding a place Yelp does not list,
+ * swapping one entry for another, and reopening a draft to change who is on it.
+ * It also left `createBlankRanking` producing a ranking that could never gain a
+ * single entry.
+ *
+ * Yelp is candidate discovery. This is the door that makes that true rather
+ * than aspirational — nothing about the final list depends on what a third
+ * party returned.
+ *
+ * The entry is appended at the end and the editor reorders from there, so
+ * arrival order never quietly becomes the published order.
+ */
+export async function addEntry(
+  rankingId: string,
+  businessId: string,
+): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { data: existing } = await supabase
+    .from("ranking_entries")
+    .select("id, position, business_id")
+    .eq("ranking_id", rankingId)
+    .order("position");
+
+  const rows = (existing ?? []) as { id: string; position: number; business_id: string }[];
+
+  if (rows.some((row) => row.business_id === businessId)) {
+    return { error: "That business is already on this list." };
+  }
+
+  const nextPosition = rows.length > 0 ? rows[rows.length - 1].position + 1 : 1;
+
+  const { error } = await supabase.from("ranking_entries").insert({
+    ranking_id: rankingId,
+    business_id: businessId,
+    position: nextPosition,
+  });
+
+  if (error) return { error: "Could not add that business." };
+
+  revalidatePath(`/admin/rankings/${rankingId}`);
+  return { ok: true };
+}
+
+const newBusinessSchema = z.object({
+  name: z.string().trim().min(2).max(200),
+  city: z.string().trim().max(120),
+});
+
+/**
+ * Creates a business and adds it in one step.
+ *
+ * The case this exists for is specific: an editor knows a place belongs on the
+ * list and Yelp did not return it. Making them leave for /admin/businesses,
+ * create a record, come back and find it again is the kind of friction that
+ * ends with the list being published without it.
+ *
+ * The business is created as a draft with only a name and a town — enough to
+ * rank it — and the profile is filled in afterwards. Its own status still
+ * governs whether it appears publicly, so an unfinished profile cannot leak
+ * through a published ranking.
+ */
+export async function createBusinessAndAddEntry(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+
+  const rankingId = readString(formData, "rankingId");
+  const parsed = newBusinessSchema.safeParse({
+    name: readString(formData, "name"),
+    city: readString(formData, "city"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Give the business a name." };
+  }
+  const d = parsed.data;
+
+  const { data: taken } = await supabase.from("businesses").select("slug");
+  const takenSlugs = new Set((taken ?? []).map((row: { slug: string }) => row.slug));
+
+  const { data: business, error: businessError } = await supabase
+    .from("businesses")
+    .insert({
+      name: d.name,
+      slug: uniqueSlug(businessSlug(d.name, d.city || null), takenSlugs),
+      city: d.city || null,
+      status: "draft",
+    })
+    .select("id")
+    .single();
+
+  if (businessError || !business) return { error: "Could not create that business." };
+
+  const added = await addEntry(rankingId, business.id as string);
+  if (added.error) return added;
+
+  revalidatePath("/admin/businesses");
+  return { ok: true };
+}
+
 export async function moveEntry(
   entryId: string,
   rankingId: string,

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { setRankingStatus } from "@/app/admin/rankings/actions";
+import { AddRankingEntry } from "@/components/admin/AddRankingEntry";
 import { RankingDetailsForm } from "@/components/admin/RankingDetailsForm";
 import { RankingEntryEditor } from "@/components/admin/RankingEntryEditor";
 import { RecommendedProductsEditor } from "@/components/admin/RecommendedProductsEditor";
@@ -11,6 +12,8 @@ import {
   getAdminRanking,
   listAdminCategories,
   listAdminPlaces,
+  listMediaAssets,
+  listTargetCandidates,
 } from "@/lib/data/admin-queries";
 
 export const dynamic = "force-dynamic";
@@ -20,13 +23,18 @@ type PageParams = { params: Promise<{ id: string }> };
 export default async function RankingEditorPage({ params }: PageParams) {
   const { id } = await params;
 
-  const [ranking, categories, places] = await Promise.all([
+  const [ranking, categories, places, library, candidates] = await Promise.all([
     getAdminRanking(id),
     listAdminCategories(),
     listAdminPlaces(),
+    listMediaAssets(),
+    listTargetCandidates(),
   ]);
 
   if (!ranking) notFound();
+
+  const heroMedia = library.find((a) => a.id === ranking.hero_media_id) ?? null;
+  const ogMedia = library.find((a) => a.id === ranking.og_image_media_id) ?? null;
 
   const isPublished = ranking.status === "published";
 
@@ -117,6 +125,9 @@ export default async function RankingEditorPage({ params }: PageParams) {
               ranking={ranking}
               categories={categories}
               places={places}
+              library={library}
+              heroMedia={heroMedia}
+              ogMedia={ogMedia}
             />
           </div>
         </section>
@@ -131,15 +142,16 @@ export default async function RankingEditorPage({ params }: PageParams) {
           </h2>
 
           {ranking.entries.length === 0 ? (
-            <div className="rounded-card border border-line bg-white p-10 text-center">
+            <div className="rounded-card border border-line bg-white p-8 text-center">
               <p className="text-sm text-ink-500">
-                No entries yet. Research candidates and add them to this list.
+                Nothing on this list yet. Add businesses below, or start from a
+                Yelp search and pick from what it returns.
               </p>
               <Link
                 href="/admin/generate"
-                className="mt-4 inline-block rounded-full bg-navy-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy-800"
+                className="mt-4 inline-block rounded-full border border-navy-300 px-5 py-2 text-sm font-semibold text-navy-900 hover:border-navy-500 hover:bg-navy-50"
               >
-                Find candidates
+                Research candidates
               </Link>
             </div>
           ) : (
@@ -155,6 +167,14 @@ export default async function RankingEditorPage({ params }: PageParams) {
               ))}
             </div>
           )}
+
+          <div className="mt-4">
+            <AddRankingEntry
+              rankingId={ranking.id}
+              businesses={candidates.businesses}
+              usedBusinessIds={ranking.entries.map((entry) => entry.business_id)}
+            />
+          </div>
         </section>
       </div>
 

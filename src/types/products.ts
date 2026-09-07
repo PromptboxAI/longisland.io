@@ -60,6 +60,7 @@ export interface Product {
   featured: boolean;
   created_at: string;
   updated_at: string;
+  image_media_id: string | null;
 }
 
 export interface AffiliateMerchant {
@@ -110,6 +111,11 @@ export interface ProductRanking {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  hero_media_id: string | null;
+  hero_image_url: string | null;
+  og_image_media_id: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
 }
 
 export interface ProductRankingEntry {

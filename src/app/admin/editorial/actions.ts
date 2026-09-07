@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Editorial section mutations.
@@ -24,6 +25,51 @@ function readString(formData: FormData, key: string): string {
 function readNullableString(formData: FormData, key: string): string | null {
   const value = readString(formData, key);
   return value.length > 0 ? value : null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Public revalidation                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Refreshes the public pages a section actually appears on.
+ *
+ * Public routes sit on a one-hour ISR window, which is right for a site whose
+ * content changes rarely and wrong for the minutes after an editor curates
+ * something. Without this, placing a feature and then looking at the homepage
+ * shows the old one, and the natural conclusion is that the tool is broken.
+ *
+ * The scope columns say where a section renders, so the section row is read
+ * back rather than guessed at: a global section reaches the homepage, and a
+ * scoped one reaches its category or place page. ISR stays as the backstop.
+ */
+async function revalidateSectionSurfaces(
+  supabase: SupabaseClient,
+  sectionId: string,
+): Promise<void> {
+  const { data } = await supabase
+    .from("editorial_sections")
+    .select("scope_type, category:categories(slug), place:places(slug)")
+    .eq("id", sectionId)
+    .maybeSingle();
+
+  if (!data) return;
+
+  const section = data as unknown as {
+    scope_type: "global" | "category" | "place";
+    category: { slug: string } | null;
+    place: { slug: string } | null;
+  };
+
+  if (section.scope_type === "category" && section.category) {
+    revalidatePath(`/category/${section.category.slug}`);
+    return;
+  }
+  if (section.scope_type === "place" && section.place) {
+    revalidatePath(`/place/${section.place.slug}`);
+    return;
+  }
+  revalidatePath("/");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -112,7 +158,10 @@ export async function createSection(
   }
 
   revalidatePath("/admin/editorial");
-  if (data) redirect(`/admin/editorial/${data.id}`);
+  if (data) {
+    await revalidateSectionSurfaces(supabase, data.id);
+    redirect(`/admin/editorial/${data.id}`);
+  }
   return { ok: true };
 }
 
@@ -155,11 +204,17 @@ export async function updateSection(
 
   revalidatePath("/admin/editorial");
   revalidatePath(`/admin/editorial/${id}`);
+  await revalidateSectionSurfaces(supabase, id);
   return { ok: true };
 }
 
 export async function deleteSection(id: string): Promise<void> {
   const { supabase } = await requireAdmin();
+
+  // Read the scope BEFORE the delete: afterwards there is no row to say which
+  // public page just lost a section.
+  await revalidateSectionSurfaces(supabase, id);
+
   // Items cascade with the section.
   await supabase.from("editorial_sections").delete().eq("id", id);
   revalidatePath("/admin/editorial");
@@ -262,6 +317,7 @@ export async function addSectionItem(
 
   await renormalise(supabase, d.sectionId);
   revalidatePath(`/admin/editorial/${d.sectionId}`);
+  await revalidateSectionSurfaces(supabase, d.sectionId);
   return { ok: true };
 }
 
@@ -327,6 +383,7 @@ export async function updateSectionItem(
   }
 
   revalidatePath(`/admin/editorial/${d.sectionId}`);
+  await revalidateSectionSurfaces(supabase, d.sectionId);
   return { ok: true };
 }
 
@@ -338,6 +395,7 @@ export async function removeSectionItem(
   await supabase.from("editorial_section_items").delete().eq("id", itemId);
   await renormalise(supabase, sectionId);
   revalidatePath(`/admin/editorial/${sectionId}`);
+  await revalidateSectionSurfaces(supabase, sectionId);
 }
 
 /**
@@ -381,6 +439,7 @@ export async function moveSectionItem(
 
   await renormalise(supabase, sectionId);
   revalidatePath(`/admin/editorial/${sectionId}`);
+  await revalidateSectionSurfaces(supabase, sectionId);
 }
 
 /**
