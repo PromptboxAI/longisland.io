@@ -17,8 +17,11 @@ import {
  * an editor may have spent an afternoon on, so it is a distinct button that
  * says what it will do.
  *
- * Nothing here publishes. Drafts land in the same fields the editor types into,
- * autosave persists them, and the Publish button is where it always was.
+ * Nothing here writes an editorial field. A run produces PROPOSALS, which
+ * appear as review panels on the entries below — editable, applied one at a
+ * time or together, and discardable. That is the point: generated copy used to
+ * land straight in the fields, which on a published ranking meant readers saw
+ * it before anyone had read it.
  */
 
 export interface AiDraftPanelProps {
@@ -40,6 +43,7 @@ export function AiDraftPanel({
   const [running, startRun] = useTransition();
   const [state, setState] = useState<AiActionState>({});
   const [label, setLabel] = useState("");
+  const [confirmingRegenerate, setConfirmingRegenerate] = useState(false);
 
   function run(what: string, action: () => Promise<AiActionState>) {
     setLabel(what);
@@ -72,8 +76,9 @@ export function AiDraftPanel({
         Draft with AI
       </p>
       <p className="mt-1 text-xs leading-relaxed text-ink-700">
-        Drafts land in the normal fields for you to read and correct. Nothing is
-        published, and nothing you have already written is overwritten unless you
+        Drafts appear below as proposals for you to read, edit and apply.
+        Nothing reaches an editorial field, or the public page, until you apply
+        it — and nothing you have already written is proposed over unless you
         choose Regenerate.
       </p>
 
@@ -102,10 +107,8 @@ export function AiDraftPanel({
           type="button"
           disabled={running || entryCount === 0}
           className={BUTTON}
-          onClick={() =>
-            run("regen", () => generateAllEntryCopy(rankingId, "all"))
-          }
-          title="Rewrites every entry, replacing what is there"
+          onClick={() => setConfirmingRegenerate(true)}
+          title="Proposes new copy for every entry, including ones already written"
         >
           {running && label === "regen" ? (
             <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
@@ -126,6 +129,47 @@ export function AiDraftPanel({
         </button>
       </div>
 
+      {/*
+        Regenerating is the one destructive-feeling action here, even though it
+        writes nothing: it proposes over copy an editor may have spent an
+        afternoon on, and the proposals replace any earlier ones. Worth a
+        sentence and a second click.
+      */}
+      {confirmingRegenerate ? (
+        <div className="mt-3 rounded-card border border-amber-300 bg-amber-50 p-3">
+          <p className="text-sm font-semibold text-navy-900">
+            Regenerate all {entryCount} entr{entryCount === 1 ? "y" : "ies"}?
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-700">
+            This proposes new copy for every entry, including the ones you have
+            already written. Your existing copy is not touched — the proposals
+            wait for you to apply them — but any AI drafts already waiting for
+            review are replaced.
+          </p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={running}
+              onClick={() => {
+                setConfirmingRegenerate(false);
+                run("regen", () => generateAllEntryCopy(rankingId, "all"));
+              }}
+              className="rounded-full bg-navy-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-navy-800 disabled:opacity-60"
+            >
+              Regenerate all
+            </button>
+            <button
+              type="button"
+              disabled={running}
+              onClick={() => setConfirmingRegenerate(false)}
+              className="rounded-full border border-navy-300 px-4 py-1.5 text-xs font-semibold text-navy-900 hover:bg-navy-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {state.error ? (
         <p className="mt-3 flex items-start gap-1.5 text-xs font-semibold text-red-700">
           <AlertTriangle aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
@@ -144,8 +188,8 @@ export function AiDraftPanel({
             <li key={result.entryId} className="flex gap-2">
               <span
                 className={`shrink-0 font-mono font-semibold ${
-                  result.status === "written"
-                    ? "text-emerald-700"
+                  result.status === "staged"
+                    ? "text-brand-600"
                     : result.status === "failed"
                       ? "text-red-700"
                       : "text-ink-400"
@@ -164,9 +208,31 @@ export function AiDraftPanel({
         </ul>
       ) : null}
 
+      {/*
+        Counted before it is listed. "7 drafts ready, 3 skipped" is the shape of
+        the answer; the per-entry list underneath is for when one of them
+        failed.
+      */}
+      {state.results && state.results.length > 0 ? (
+        <p className="mt-3 text-xs font-semibold text-navy-900">
+          {state.results.filter((r) => r.status === "staged").length} AI draft
+          {state.results.filter((r) => r.status === "staged").length === 1
+            ? ""
+            : "s"}{" "}
+          ready for review
+          {state.results.some((r) => r.status === "skipped")
+            ? ` · ${state.results.filter((r) => r.status === "skipped").length} skipped — editorial copy already exists`
+            : ""}
+          {state.results.some((r) => r.status === "failed")
+            ? ` · ${state.results.filter((r) => r.status === "failed").length} failed`
+            : ""}
+          . Reload to review them on each entry.
+        </p>
+      ) : null}
+
       {state.ok && (state.results?.length ?? 0) === 0 && !state.error ? (
-        <p className="mt-3 text-xs font-semibold text-emerald-700">
-          Done. Reload to see the drafts in the fields below.
+        <p className="mt-3 text-xs font-semibold text-ink-700">
+          Nothing to draft — every entry already has editorial copy.
         </p>
       ) : null}
     </div>

@@ -18,9 +18,19 @@ import {
 } from "@/app/admin/rankings/actions";
 import { MediaField } from "@/components/admin/MediaField";
 import {
+  applyEntryDraft,
+  discardEntryDraft,
   fetchOfficialWebsite,
   generateEntryCopy,
+  type StagedEntryDraft,
 } from "@/app/admin/rankings/ai-actions";
+import {
+  applyEntryChanges,
+  discardEntryChanges,
+} from "@/app/admin/rankings/actions";
+import { AiReviewPanel } from "@/components/admin/AiReviewPanel";
+import { PendingChangesBar } from "@/components/admin/PendingChangesBar";
+import { displayValue, isLongForm } from "@/lib/editorial/field-policy";
 import { assessResearchContext } from "@/lib/ai/context";
 import { classifyLocation } from "@/lib/yelp/areas";
 import { SaveIndicator } from "@/components/admin/SaveIndicator";
@@ -72,12 +82,26 @@ export function RankingEntryEditor({
   const [isPending, startTransition] = useTransition();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
+  /*
+   * The editor sees the pending value when there is one.
+   *
+   * That is the whole trick behind staging: what you typed is what you see, and
+   * the live page keeps the previous text until you say otherwise. Reading the
+   * live value here instead would make an edit look lost on every reload.
+   */
+  const pending = (entry.pending_changes ?? null) as Record<string, string> | null;
+
   const [fields, setFields] = useState({
     bestFor: entry.best_for ?? "",
     badge: entry.badge ?? "",
-    editorialReason: entry.editorial_reason ?? "",
+    editorialReason: displayValue("editorial_reason", entry.editorial_reason, pending),
     editorNotes: entry.editor_notes ?? "",
   });
+
+  /** The AI's proposal, if one is waiting. Never an editorial field. */
+  const [aiDraft, setAiDraft] = useState<StagedEntryDraft | null>(
+    (entry.ai_draft ?? null) as StagedEntryDraft | null,
+  );
 
   const set = (key: keyof typeof fields) => (value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
@@ -130,19 +154,26 @@ export function RankingEntryEditor({
       setDraftNote("");
       setConfirmingDraft(false);
       const result = await generateEntryCopy(rankingId, entry.id);
-      setDraftNote(
-        result.error ?? result.results?.[0]?.detail ?? "Drafted. Reload to see it.",
-      );
+      const first = result.results?.[0];
+
+      // The proposal comes back to the panel. Nothing editorial has changed,
+      // and nothing will until the editor presses Apply.
+      if (first?.draft) setAiDraft(first.draft);
+      setDraftNote(result.error ?? (first?.draft ? "" : (first?.detail ?? "")));
     });
   }
 
-  const { status, error, saveNow } = useAutosave(fields, async (values) => {
-    const form = new FormData();
-    form.set("entryId", entry.id);
-    form.set("rankingId", rankingId);
-    for (const [key, value] of Object.entries(values)) form.set(key, value);
-    return saveEntry({}, form);
-  });
+  const { status, error, destination, saveNow } = useAutosave(
+    fields,
+    async (values) => {
+      const form = new FormData();
+      form.set("entryId", entry.id);
+      form.set("rankingId", rankingId);
+      for (const [key, value] of Object.entries(values)) form.set(key, value);
+      return saveEntry({}, form);
+    },
+    { published: rankingPublished },
+  );
 
   const inputClass =
     "w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500";
@@ -396,6 +427,96 @@ export function RankingEntryEditor({
         ) : null}
       </div>
 
+      {/*
+        AI proposes, a human approves, and only then does a field change. The
+        panel sits above the fields it would write into so the comparison is
+        one glance rather than a scroll.
+      */}
+      {aiDraft ? (
+        <AiReviewPanel
+          note={
+            aiDraft.basis
+              ? `${aiDraft.confidence} confidence · ${aiDraft.basis}`
+              : null
+          }
+          fields={[
+            ...(aiDraft.bestFor !== undefined
+              ? [
+                  {
+                    key: "bestFor",
+                    label: "Best for",
+                    value: aiDraft.bestFor,
+                    kind: "text" as const,
+                  },
+                ]
+              : []),
+            ...(aiDraft.whyWePickedIt !== undefined
+              ? [
+                  {
+                    key: "whyWePickedIt",
+                    label: "Why we picked it",
+                    value: aiDraft.whyWePickedIt,
+                    kind: "textarea" as const,
+                    staged: rankingPublished && isLongForm("ranking_entry", "editorial_reason"),
+                  },
+                ]
+              : []),
+            ...(aiDraft.badge !== undefined
+              ? [
+                  {
+                    key: "badge",
+                    label: "Badge",
+                    value: aiDraft.badge,
+                    kind: "select" as const,
+                    options: RANKING_BADGES,
+                  },
+                ]
+              : []),
+          ]}
+          onApply={async (values) => {
+            const result = await applyEntryDraft(rankingId, entry.id, values);
+            if (result.error) return { error: result.error };
+            setAiDraft(null);
+            // The applied text is now what the editor should be looking at.
+            setFields((current) => ({
+              ...current,
+              ...(values.bestFor !== undefined ? { bestFor: values.bestFor } : {}),
+              ...(values.badge !== undefined ? { badge: values.badge } : {}),
+              ...(values.whyWePickedIt !== undefined
+                ? { editorialReason: values.whyWePickedIt }
+                : {}),
+            }));
+            return {};
+          }}
+          onRegenerate={draftCopy}
+          onDiscard={() => {
+            setAiDraft(null);
+            void discardEntryDraft(rankingId, entry.id);
+          }}
+        />
+      ) : null}
+
+      {/*
+        Only on a published entry, and only when something is actually waiting.
+        On a draft there is no public page to protect and this would be a step
+        to forget.
+      */}
+      {rankingPublished ? (
+        <div className="mt-3">
+          <PendingChangesBar
+            fieldLabels={
+              pending && Object.keys(pending).length > 0
+                ? Object.keys(pending).map((key) =>
+                    key === "editorial_reason" ? "Why we picked it" : key,
+                  )
+                : []
+            }
+            onApply={() => applyEntryChanges(entry.id, rankingId)}
+            onDiscard={() => discardEntryChanges(entry.id, rankingId)}
+          />
+        </div>
+      ) : null}
+
       <div className="mt-3 space-y-3">
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -479,7 +600,7 @@ export function RankingEntryEditor({
         </div>
 
         <div className="flex items-center gap-3">
-          <SaveIndicator status={status} error={error} live={rankingPublished} />
+          <SaveIndicator status={status} error={error} destination={destination} />
         </div>
       </div>
     </div>

@@ -24,9 +24,21 @@ import { useCallback, useEffect, useState } from "react";
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
+/**
+ * Where the last save actually landed.
+ *
+ * "live" means readers can see it now. "pending" means it was staged and the
+ * public page is still on the previous text. The distinction cannot be derived
+ * on the client — only the action knows both the record's status and which
+ * fields the policy sent where — so the action reports it back.
+ */
+export type SaveDestination = "live" | "pending" | "draft";
+
 export interface AutosaveResult {
   status: SaveStatus;
   error: string;
+  /** Whether the last successful save reached the public page. */
+  destination: SaveDestination | null;
   /** Saves immediately, skipping the debounce. For blur, and for AI results. */
   saveNow: () => void;
 }
@@ -35,10 +47,10 @@ type Values = Record<string, string>;
 
 export function useAutosave(
   values: Values,
-  save: (values: Values) => Promise<{ ok?: boolean; error?: string }>,
-  options: { delay?: number; enabled?: boolean } = {},
+  save: (values: Values) => Promise<{ ok?: boolean; error?: string; pending?: boolean }>,
+  options: { delay?: number; enabled?: boolean; published?: boolean } = {},
 ): AutosaveResult {
-  const { delay = 900, enabled = true } = options;
+  const { delay = 900, enabled = true, published = false } = options;
 
   const signature = JSON.stringify(values);
 
@@ -49,6 +61,8 @@ export function useAutosave(
   const [savedSignature, setSavedSignature] = useState(signature);
   /** The signature a save has been requested for. */
   const [requested, setRequested] = useState<string | null>(null);
+  /** What the last accepted save did with the text. */
+  const [destination, setDestination] = useState<SaveDestination | null>(null);
 
   const saveNow = useCallback(() => setRequested(signature), [signature]);
 
@@ -83,6 +97,9 @@ export function useAutosave(
 
       setError("");
       setSavedSignature(requested);
+      setDestination(
+        result.pending ? "pending" : published ? "live" : "draft",
+      );
     });
 
     return () => {
@@ -91,7 +108,7 @@ export function useAutosave(
     // `save` is intentionally excluded: callers pass an inline closure, and
     // depending on it would re-fire the request on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requested, savedSignature]);
+  }, [requested, savedSignature, published]);
 
   /*
    * Derived rather than stored. A status that is set as well as computed has
@@ -107,13 +124,26 @@ export function useAutosave(
         ? "saved"
         : "idle";
 
-  return { status, error, saveNow };
+  return { status, error, destination, saveNow };
 }
 
-/** The one place the save indicator's wording lives. */
-export function saveStatusLabel(status: SaveStatus, error: string): string {
+/**
+ * The one place the save indicator's wording lives.
+ *
+ * "Saved" on its own is the wording that caused the trouble: it answered
+ * whether the work was safe and left the reader guessing about whether it was
+ * public, which are different questions with different answers.
+ */
+export function saveStatusLabel(
+  status: SaveStatus,
+  error: string,
+  destination: SaveDestination | null,
+): string {
   if (status === "saving") return "Saving…";
-  if (status === "saved") return "Saved";
   if (status === "error") return error || "Not saved";
-  return "";
+  if (status !== "saved") return "";
+
+  if (destination === "pending") return "Saved draft · Changes not live";
+  if (destination === "live") return "Saved — Live";
+  return "Saved — Draft";
 }

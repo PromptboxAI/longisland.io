@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth";
+import { prunePending, splitByPolicy } from "@/lib/editorial/field-policy";
 import { generateStructured } from "@/lib/ai/provider";
 import {
   entryCopyPrompt,
@@ -33,7 +34,38 @@ export type AiActionState = {
   ok?: boolean;
   error?: string;
   /** Per-entry outcome for the bulk run, so failures are visible individually. */
-  results?: { entryId: string; name: string; status: "written" | "skipped" | "failed"; detail?: string }[];
+  results?: {
+    entryId: string;
+    name: string;
+    status: "staged" | "skipped" | "failed";
+    detail?: string;
+    /**
+     * The proposal itself, for the review panel.
+     *
+     * It comes back to the browser rather than being written anywhere, because
+     * nothing generated may touch an editorial field before a person has read
+     * it. It is also persisted to `ai_draft` so a reload does not lose a
+     * batch of ten.
+     */
+    draft?: StagedEntryDraft;
+  }[];
+};
+
+/** One AI proposal for one entry, awaiting review. */
+export type StagedEntryDraft = {
+  bestFor?: string;
+  whyWePickedIt?: string;
+  badge?: string;
+  /** The model's own account of what it had to work with. */
+  basis: string;
+  confidence: string;
+};
+
+/** One AI proposal for the ranking itself. */
+export type StagedRankingDraft = {
+  dek?: string;
+  intro?: string;
+  methodology?: string;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -172,38 +204,61 @@ export async function generateEntryCopy(
   if (!result.ok) return { error: result.error };
 
   /*
-   * Never clobber an editor. A field with text in it is left alone unless the
-   * editor asked for a regenerate — which is the difference between "fill in
-   * the blanks" and "throw away my afternoon".
+   * Staged, never written.
+   *
+   * This function used to update the editorial fields directly, which on a
+   * published ranking put AI copy in front of readers before a human had read
+   * a word of it. Now it produces a proposal: stored in `ai_draft`, shown in a
+   * review panel, and moved into the real fields only by an editor pressing
+   * Apply.
+   *
+   * The overwrite rule survives the change and still matters — it decides what
+   * the proposal even covers. A field an editor has already written is left
+   * out of the draft entirely unless a regenerate was asked for, so "fill in
+   * the blanks" cannot quietly become "throw away my afternoon".
    */
-  const update: Record<string, string> = {};
+  const draft: StagedEntryDraft = {
+    basis: result.value.basis,
+    confidence: result.value.confidence,
+  };
+
   if (options.overwrite || !entry.best_for?.trim()) {
-    update.best_for = result.value.bestFor;
+    draft.bestFor = result.value.bestFor;
   }
   if (options.overwrite || !entry.editorial_reason?.trim()) {
-    update.editorial_reason = result.value.whyWePickedIt;
+    draft.whyWePickedIt = result.value.whyWePickedIt;
   }
-  // A badge is a stronger claim than a sentence; only ever suggested into an
+  // A badge is a stronger claim than a sentence; only ever proposed into an
   // empty field, never over an editor's choice.
   if (!entry.badge && result.value.badge) {
-    update.badge = result.value.badge;
+    draft.badge = result.value.badge;
   }
 
-  if (Object.keys(update).length === 0) {
+  const proposesSomething =
+    draft.bestFor !== undefined ||
+    draft.whyWePickedIt !== undefined ||
+    draft.badge !== undefined;
+
+  if (!proposesSomething) {
     return {
       ok: true,
       results: [
-        { entryId, name: entry.business.name, status: "skipped", detail: "already written" },
+        {
+          entryId,
+          name: entry.business.name,
+          status: "skipped",
+          detail: "editorial copy already exists",
+        },
       ],
     };
   }
 
   const { error } = await supabase
     .from("ranking_entries")
-    .update(update)
+    .update({ ai_draft: draft })
     .eq("id", entryId);
 
-  if (error) return { error: "The draft could not be saved." };
+  if (error) return { error: "The draft could not be saved for review." };
 
   revalidatePath(`/admin/rankings/${rankingId}`);
   return {
@@ -212,11 +267,96 @@ export async function generateEntryCopy(
       {
         entryId,
         name: entry.business.name,
-        status: "written",
+        status: "staged",
         detail: `${result.value.confidence} confidence · ${result.value.basis}`,
+        draft,
       },
     ],
   };
+}
+
+/**
+ * Moves a reviewed AI draft into the editorial fields.
+ *
+ * Takes the values from the panel rather than from `ai_draft`, because the
+ * editor may have corrected a phrase before applying and the corrected version
+ * is the one that matters.
+ *
+ * From here the ordinary field policy applies: on a published ranking the
+ * long-form reason becomes a pending change rather than going live, so AI copy
+ * passes two gates before a reader sees it — a person approving the text, and a
+ * person deciding to publish it.
+ */
+export async function applyEntryDraft(
+  rankingId: string,
+  entryId: string,
+  values: { bestFor?: string; whyWePickedIt?: string; badge?: string },
+): Promise<AiActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { data, error: readError } = await supabase
+    .from("ranking_entries")
+    .select("editorial_reason, pending_changes, ranking:rankings(status)")
+    .eq("id", entryId)
+    .single();
+
+  if (readError || !data) return { error: "That entry could not be loaded." };
+
+  const row = data as unknown as {
+    editorial_reason: string | null;
+    pending_changes: Record<string, string> | null;
+    ranking: { status: string } | null;
+  };
+
+  const isPublished = row.ranking?.status === "published";
+
+  const proposed: Record<string, string> = {};
+  if (values.bestFor !== undefined) proposed.best_for = values.bestFor;
+  if (values.badge !== undefined) proposed.badge = values.badge;
+  if (values.whyWePickedIt !== undefined) {
+    proposed.editorial_reason = values.whyWePickedIt;
+  }
+
+  const { live, pending } = splitByPolicy("ranking_entry", proposed, isPublished);
+
+  const update: Record<string, unknown> = { ai_draft: null };
+  for (const [field, value] of Object.entries(live)) update[field] = value || null;
+
+  if (isPublished) {
+    const merged = prunePending(
+      { ...(row.pending_changes ?? {}), ...pending },
+      { editorial_reason: row.editorial_reason },
+    );
+    update.pending_changes = Object.keys(merged).length > 0 ? merged : null;
+  }
+
+  const { error } = await supabase
+    .from("ranking_entries")
+    .update(update)
+    .eq("id", entryId);
+
+  if (error) return { error: "Could not apply that draft." };
+
+  revalidatePath(`/admin/rankings/${rankingId}`);
+  return { ok: true };
+}
+
+/** Throws a proposal away. Nothing editorial was ever touched. */
+export async function discardEntryDraft(
+  rankingId: string,
+  entryId: string,
+): Promise<AiActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { error } = await supabase
+    .from("ranking_entries")
+    .update({ ai_draft: null })
+    .eq("id", entryId);
+
+  if (error) return { error: "Could not discard that draft." };
+
+  revalidatePath(`/admin/rankings/${rankingId}`);
+  return { ok: true };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -340,23 +480,112 @@ export async function generateRankingCopy(
 
   if (!result.ok) return { error: result.error };
 
-  const update: Record<string, string> = {};
+  /*
+   * Staged, exactly as the per-entry drafting is.
+   *
+   * The dek, intro and methodology are the paragraphs a reader uses to decide
+   * whether to trust the list. They are the last three fields that should ever
+   * appear on a published page without a person having read them.
+   */
+  const draft: StagedRankingDraft = {};
   if (options.overwrite || !existing?.description?.trim()) {
-    update.description = result.value.dek;
+    draft.dek = result.value.dek;
   }
   if (options.overwrite || !existing?.intro?.trim()) {
-    update.intro = result.value.intro;
+    draft.intro = result.value.intro;
   }
   if (options.overwrite || !existing?.methodology?.trim()) {
-    update.methodology = result.value.methodology;
+    draft.methodology = result.value.methodology;
   }
 
-  if (Object.keys(update).length === 0) {
+  if (Object.keys(draft).length === 0) {
     return { ok: true, results: [] };
   }
 
+  const { error } = await supabase
+    .from("rankings")
+    .update({ ai_draft: draft })
+    .eq("id", rankingId);
+  if (error) return { error: "The draft could not be saved for review." };
+
+  revalidatePath(`/admin/rankings/${rankingId}`);
+  return { ok: true };
+}
+
+/**
+ * Moves a reviewed ranking-level draft into the editorial fields.
+ *
+ * As with an entry, the values come from the review panel rather than from
+ * `ai_draft`, so a phrase the editor corrected is the one that lands. And as
+ * with an entry, the field policy takes over from there: on a published ranking
+ * all three of these are long-form, so they become pending changes and wait for
+ * Update live page.
+ */
+export async function applyRankingDraft(
+  rankingId: string,
+  values: { dek?: string; intro?: string; methodology?: string },
+): Promise<AiActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { data, error: readError } = await supabase
+    .from("rankings")
+    .select("status, description, intro, methodology, pending_changes")
+    .eq("id", rankingId)
+    .single();
+
+  if (readError || !data) return { error: "That ranking could not be loaded." };
+
+  const row = data as unknown as {
+    status: string;
+    description: string | null;
+    intro: string | null;
+    methodology: string | null;
+    pending_changes: Record<string, string> | null;
+  };
+
+  const isPublished = row.status === "published";
+
+  const proposed: Record<string, string> = {};
+  if (values.dek !== undefined) proposed.description = values.dek;
+  if (values.intro !== undefined) proposed.intro = values.intro;
+  if (values.methodology !== undefined) proposed.methodology = values.methodology;
+
+  const { live, pending } = splitByPolicy("ranking", proposed, isPublished);
+
+  const update: Record<string, unknown> = { ai_draft: null };
+  for (const [field, value] of Object.entries(live)) update[field] = value || null;
+
+  if (isPublished) {
+    const merged = prunePending(
+      { ...(row.pending_changes ?? {}), ...pending },
+      {
+        description: row.description,
+        intro: row.intro,
+        methodology: row.methodology,
+      },
+    );
+    update.pending_changes = Object.keys(merged).length > 0 ? merged : null;
+  }
+
   const { error } = await supabase.from("rankings").update(update).eq("id", rankingId);
-  if (error) return { error: "The draft could not be saved." };
+  if (error) return { error: "Could not apply that draft." };
+
+  revalidatePath(`/admin/rankings/${rankingId}`);
+  return { ok: true };
+}
+
+/** Throws away the ranking-level proposal. Nothing editorial was touched. */
+export async function discardRankingDraft(
+  rankingId: string,
+): Promise<AiActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { error } = await supabase
+    .from("rankings")
+    .update({ ai_draft: null })
+    .eq("id", rankingId);
+
+  if (error) return { error: "Could not discard that draft." };
 
   revalidatePath(`/admin/rankings/${rankingId}`);
   return { ok: true };

@@ -236,6 +236,8 @@ export const SEED_RANKINGS: Ranking[] = SEEDS.map((seed) => ({
   published_at: seed.publishedAt,
   created_at: NOW,
   updated_at: seed.publishedAt,
+  pending_changes: null,
+  ai_draft: null,
 }));
 
 export const SEED_RANKING_ENTRIES: RankingEntry[] = SEEDS.flatMap((seed) =>
@@ -250,5 +252,7 @@ export const SEED_RANKING_ENTRIES: RankingEntry[] = SEEDS.flatMap((seed) =>
     editor_notes: null,
     created_at: NOW,
     updated_at: seed.publishedAt,
+    pending_changes: null,
+    ai_draft: null,
   })),
 );

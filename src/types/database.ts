@@ -110,6 +110,10 @@ export interface Ranking {
   og_image_media_id: string | null;
   seo_title: string | null;
   seo_description: string | null;
+  /** Long-form edits saved but not yet on the public page. */
+  pending_changes: Record<string, string> | null;
+  /** An AI proposal awaiting human review. Never rendered publicly. */
+  ai_draft: Record<string, unknown> | null;
 }
 
 export interface RankingEntry {
@@ -123,6 +127,16 @@ export interface RankingEntry {
   editor_notes: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Long-form edits saved but not yet on the public page.
+   *
+   * One value per field name, or null when nothing is waiting. Only ever
+   * populated on an entry of a PUBLISHED ranking: a draft has no public page
+   * to protect, so its edits write straight through.
+   */
+  pending_changes: Record<string, string> | null;
+  /** An AI proposal awaiting human review. Never rendered publicly. */
+  ai_draft: Record<string, unknown> | null;
 }
 
 export interface Nomination {

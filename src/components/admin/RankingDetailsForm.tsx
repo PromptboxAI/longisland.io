@@ -5,6 +5,19 @@ import { useState } from "react";
 import { MediaField } from "@/components/admin/MediaField";
 import { useRankingTitle } from "@/components/admin/RankingEditorContext";
 import { SaveIndicator } from "@/components/admin/SaveIndicator";
+import { AiReviewPanel } from "@/components/admin/AiReviewPanel";
+import { PendingChangesBar } from "@/components/admin/PendingChangesBar";
+import {
+  applyRankingChanges,
+  discardRankingChanges,
+} from "@/app/admin/rankings/actions";
+import {
+  applyRankingDraft,
+  discardRankingDraft,
+  generateRankingCopy,
+  type StagedRankingDraft,
+} from "@/app/admin/rankings/ai-actions";
+import { displayValue } from "@/lib/editorial/field-policy";
 import { useAutosave } from "@/components/admin/useAutosave";
 import { saveRankingDetails } from "@/app/admin/rankings/actions";
 import type { Category, Place, RankingWithEntries } from "@/types/database";
@@ -30,6 +43,24 @@ export function RankingDetailsForm({
   const { setTitle } = useRankingTitle();
   const isPublished = ranking.status === "published";
 
+  /*
+   * What the editor sees is the pending value when there is one.
+   *
+   * The live page keeps the previous text until Update live page is pressed,
+   * so reading the live value here would make an edit look lost on reload —
+   * which is the failure the staging model exists to prevent, arriving by
+   * another route.
+   */
+  const pendingChanges = (ranking.pending_changes ?? null) as Record<
+    string,
+    string
+  > | null;
+
+  /** The AI's proposal for the dek, intro and methodology. Never a field. */
+  const [aiDraft, setAiDraft] = useState<StagedRankingDraft | null>(
+    (ranking.ai_draft ?? null) as StagedRankingDraft | null,
+  );
+
   const [fields, setFields] = useState({
     title: ranking.title,
     slug: ranking.slug,
@@ -37,9 +68,9 @@ export function RankingDetailsForm({
     placeId: ranking.place_id ?? "",
     geography: ranking.geography ?? "",
     authorName: ranking.author_name ?? "",
-    description: ranking.description ?? "",
-    intro: ranking.intro ?? "",
-    methodology: ranking.methodology ?? "",
+    description: displayValue("description", ranking.description, pendingChanges),
+    intro: displayValue("intro", ranking.intro, pendingChanges),
+    methodology: displayValue("methodology", ranking.methodology, pendingChanges),
     seoTitle: ranking.seo_title ?? "",
     seoDescription: ranking.seo_description ?? "",
   });
@@ -55,18 +86,81 @@ export function RankingDetailsForm({
     if (key === "title") setTitle(value);
   };
 
-  const { status, error, saveNow } = useAutosave({ ...fields, ...media }, async (values) => {
+  const { status, error, destination, saveNow } = useAutosave({ ...fields, ...media }, async (values) => {
     const form = new FormData();
     form.set("id", ranking.id);
     for (const [key, value] of Object.entries(values)) form.set(key, value);
     return saveRankingDetails({}, form);
-  });
+  }, { published: isPublished });
 
   const inputClass =
     "w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500";
 
   return (
     <div className="space-y-4">
+
+      {/*
+        Both of these sit above the fields they concern: a proposal to compare
+        against what is there, and a statement of what readers are currently
+        seeing. Below the form they would be found after the decision.
+      */}
+      {aiDraft ? (
+        <AiReviewPanel
+          fields={[
+            ...(aiDraft.dek !== undefined
+              ? [{ key: "dek", label: "Dek", value: aiDraft.dek, kind: "textarea" as const, staged: isPublished }]
+              : []),
+            ...(aiDraft.intro !== undefined
+              ? [{ key: "intro", label: "Intro", value: aiDraft.intro, kind: "textarea" as const, staged: isPublished }]
+              : []),
+            ...(aiDraft.methodology !== undefined
+              ? [{ key: "methodology", label: "Methodology", value: aiDraft.methodology, kind: "textarea" as const, staged: isPublished }]
+              : []),
+          ]}
+          onApply={async (values) => {
+            const result = await applyRankingDraft(ranking.id, values);
+            if (result.error) return { error: result.error };
+            setAiDraft(null);
+            setFields((current) => ({
+              ...current,
+              ...(values.dek !== undefined ? { description: values.dek } : {}),
+              ...(values.intro !== undefined ? { intro: values.intro } : {}),
+              ...(values.methodology !== undefined
+                ? { methodology: values.methodology }
+                : {}),
+            }));
+            return {};
+          }}
+          onRegenerate={() => {
+            void generateRankingCopy(ranking.id).then((result) => {
+              if (!result.error) window.location.reload();
+            });
+          }}
+          onDiscard={() => {
+            setAiDraft(null);
+            void discardRankingDraft(ranking.id);
+          }}
+        />
+      ) : null}
+
+      {isPublished ? (
+        <div className="mb-4">
+          <PendingChangesBar
+            fieldLabels={
+              pendingChanges
+                ? Object.keys(pendingChanges).map(
+                    (key) =>
+                      ({ description: "Dek", intro: "Intro", methodology: "Methodology" })[
+                        key
+                      ] ?? key,
+                  )
+                : []
+            }
+            onApply={() => applyRankingChanges(ranking.id)}
+            onDiscard={() => discardRankingChanges(ranking.id)}
+          />
+        </div>
+      ) : null}
 
       <div>
         <label htmlFor="title" className="block text-sm font-semibold text-navy-900">
@@ -308,7 +402,7 @@ export function RankingDetailsForm({
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-        <SaveIndicator status={status} error={error} live={isPublished} />
+        <SaveIndicator status={status} error={error} destination={destination} />
         <p className="text-xs text-ink-400">
           Changes save as you type. Publishing and deleting stay explicit.
         </p>
