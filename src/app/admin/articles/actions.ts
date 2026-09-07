@@ -169,7 +169,7 @@ export async function createBlankArticle(formData?: FormData): Promise<void> {
   const { data: existing } = await supabase.from("articles").select("slug");
   const taken = new Set((existing ?? []).map((row: { slug: string }) => row.slug));
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("articles")
     .insert({
       title: "Untitled article",
@@ -179,8 +179,21 @@ export async function createBlankArticle(formData?: FormData): Promise<void> {
     .select("id")
     .single();
 
+  /*
+   * A failed insert used to return silently, leaving the editor on the list
+   * with a button that appeared to do nothing at all. Whatever went wrong —
+   * a policy, a constraint, a dropped connection — the one unacceptable
+   * outcome is saying nothing about it.
+   */
+  if (error || !data) {
+    console.error(`[admin] could not create article`, error);
+    throw new Error(
+      `Could not create a new article. ${error?.message ?? "The database did not return a row."}`,
+    );
+  }
+
   revalidatePath("/admin/articles");
-  if (data) {
+  {
     // Only an internal path travels onward; an absolute URL here would make a
     // shared admin link an open redirect.
     const path = typeof returnTo === "string" ? returnTo : null;

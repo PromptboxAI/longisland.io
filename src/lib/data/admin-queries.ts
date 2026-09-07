@@ -506,14 +506,14 @@ export async function listTargetCandidates(): Promise<TargetCandidates> {
       supabase
         .from("products")
         .select(
-          "id, name, brand, status, summary, image_url, " +
+          "id, name, brand, status, short_description, editorial_summary, image_url, " +
             "offers:product_offers(affiliate_url, direct_url, availability)",
         )
         .order("name"),
       supabase
         .from("articles")
         .select(
-          "id, title, slug, status, dek, kicker, hero_image_url, " +
+          "id, title, slug, status, dek, kind, hero_image_url, " +
             "hero_media:media_assets!articles_hero_media_id_fkey(*)",
         )
         .order("title"),
@@ -586,7 +586,7 @@ export async function listTargetCandidates(): Promise<TargetCandidates> {
 
     products: withPreview((products.data ?? []) as unknown as Row[], "Product", (p) => ({
       headline: [p.brand, p.name].filter(Boolean).join(" "),
-      dek: text(p, "summary"),
+      dek: text(p, "editorial_summary") ?? text(p, "short_description"),
       kicker: text(p, "brand"),
       imageUrl: text(p, "image_url"),
     })) as unknown as TargetCandidates["products"],
@@ -594,7 +594,7 @@ export async function listTargetCandidates(): Promise<TargetCandidates> {
     articles: withPreview((articles.data ?? []) as unknown as Row[], "Article", (a) => ({
       headline: String(a.title ?? ""),
       dek: text(a, "dek"),
-      kicker: text(a, "kicker"),
+      kicker: text(a, "kind"),
       imageUrl: image(a, "hero_media", "hero_image_url"),
     })) as unknown as TargetCandidates["articles"],
   };

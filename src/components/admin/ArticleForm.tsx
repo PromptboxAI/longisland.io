@@ -167,18 +167,29 @@ export function ArticleForm({
       />
 
       <div>
+        {/*
+          "Hero alt text override" is two pieces of jargon in four words. The
+          image control asks "What is in this photo?" and this asks the same
+          question, because it is the same question — only scoped to this one
+          article rather than to the photo everywhere it is used.
+        */}
         <label htmlFor="heroImageAlt" className={LABEL}>
-          Hero alt text override
+          Describe the photo differently here{" "}
+          <span className="font-normal text-ink-500">(optional)</span>
         </label>
         <input
           id="heroImageAlt"
           name="heroImageAlt"
           defaultValue={article.hero_image_alt ?? ""}
-          placeholder={article.hero_media?.alt_text ?? "Uses the library alt text"}
+          placeholder={
+            article.hero_media?.alt_text ??
+            "Leave empty to use the photo's own description"
+          }
           className={`mt-2 ${INPUT}`}
         />
         <p className="mt-1 text-xs text-ink-500">
-          Only needed when the library description is not the right one here.
+          The photo already carries a description, used everywhere it appears.
+          Fill this in only if it should read differently on this article.
         </p>
       </div>
 

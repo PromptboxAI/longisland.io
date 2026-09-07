@@ -142,7 +142,7 @@ const SPECS: Record<TargetKind, KindSpec> = {
   article: {
     table: "articles",
     select:
-      "id, title, slug, status, dek, kicker, hero_image_url, updated_at, " +
+      "id, title, slug, status, dek, kind, hero_image_url, updated_at, " +
       "category:categories(name), " +
       "hero_media:media_assets!articles_hero_media_id_fkey(*)",
     searchable: ["title", "slug"],
@@ -150,13 +150,15 @@ const SPECS: Record<TargetKind, KindSpec> = {
     toResult: (r) => ({
       id: String(r.id),
       title: String(r.title ?? ""),
-      context: str(r, "kicker"),
+      // Articles have no kicker column; `kind` is what separates a feature
+      // from a guide in a list of similarly titled pieces.
+      context: str(r, "kind"),
       categoryName: categoryName(r),
       status: String(r.status ?? "draft"),
       slug: str(r, "slug"),
       imageUrl: media(r, "hero_media", "hero_image_url"),
       dek: str(r, "dek"),
-      kicker: str(r, "kicker"),
+      kicker: str(r, "kind"),
       updatedAt: str(r, "updated_at"),
     }),
   },
@@ -165,7 +167,7 @@ const SPECS: Record<TargetKind, KindSpec> = {
     table: "product_rankings",
     select:
       "id, title, slug, status, description, hero_image_url, updated_at, " +
-      "category:categories(name), " +
+      "category:product_categories(name), " +
       "hero_media:media_assets!product_rankings_hero_media_id_fkey(*)",
     searchable: ["title", "slug"],
     alphaColumn: "title",
@@ -186,8 +188,10 @@ const SPECS: Record<TargetKind, KindSpec> = {
   product: {
     table: "products",
     select:
-      "id, name, brand, slug, status, summary, image_url, updated_at, " +
-      "category:categories!products_category_id_fkey(name)",
+      "id, name, brand, slug, status, short_description, editorial_summary, " +
+      "image_url, image_media_id, updated_at, " +
+      "category:product_categories(name), " +
+      "image_media:media_assets!products_image_media_id_fkey(*)",
     // Brand matters here: "Vertuo Pop" finds nothing if brand is not searched.
     searchable: ["name", "brand", "slug"],
     alphaColumn: "name",
@@ -198,8 +202,9 @@ const SPECS: Record<TargetKind, KindSpec> = {
       categoryName: categoryName(r),
       status: String(r.status ?? "draft"),
       slug: str(r, "slug"),
-      imageUrl: str(r, "image_url"),
-      dek: str(r, "summary"),
+      imageUrl: media(r, "image_media", "image_url"),
+      // Our own take first; the factual line only when there is no take yet.
+      dek: str(r, "editorial_summary") ?? str(r, "short_description"),
       kicker: str(r, "brand"),
       updatedAt: str(r, "updated_at"),
     }),
@@ -321,7 +326,17 @@ export async function searchTargets(
       }
 
       const { data, error } = await request.range(0, offset + limit);
-      if (error) return [] as TargetResult[];
+
+      /*
+       * A failed query used to return an empty array, which is indistinguishable
+       * from "nothing matched" — and that is exactly how a wrong foreign-key
+       * name in this select hid a completely broken product search behind a
+       * plausible "0 results". Logged now, so the next one is found in seconds.
+       */
+      if (error) {
+        console.error(`[target-search] ${spec.table} query failed`, error.message);
+        return [] as TargetResult[];
+      }
 
       return ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => ({
         kind,

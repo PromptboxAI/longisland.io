@@ -8,6 +8,7 @@ import {
   AddSectionItem,
   SectionItemEditor,
 } from "@/components/admin/SectionItemsEditor";
+import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { findPlacement } from "@/lib/editorial/placements";
 import { hasUsableOffer } from "@/lib/affiliate";
@@ -128,25 +129,34 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-mono text-2xl font-extrabold text-navy-900">
-              {section.key}
+            {/*
+              The placement's name, not its database key. The heading read
+              "homepage_primary", which is the one thing on this page an editor
+              has no reason to know and no way to act on — the key is fixed by
+              the code that asks for it.
+            */}
+            <h1 className="text-2xl font-extrabold text-navy-900">
+              {placement?.name ?? section.title ?? section.key}
             </h1>
             <StatusPill status={section.status} />
           </div>
           <p className="mt-1 text-sm text-ink-500">
+            {placement ? `${placement.location} · ` : null}
             {section.items.length} item{section.items.length === 1 ? "" : "s"} ·{" "}
-            {liveCount} published · layout {section.layout}
+            {liveCount} published
+          </p>
+          {/* Kept, but demoted: useful when something is wrong, noise otherwise. */}
+          <p className="mt-0.5 font-mono text-xs text-ink-400">
+            {section.key} · layout {section.layout}
           </p>
         </div>
 
-        <form action={removeSection}>
-          <button
-            type="submit"
-            className="rounded-full border border-line bg-white px-5 py-2.5 text-sm font-semibold text-navy-900 hover:border-red-300 hover:text-red-600"
-          >
-            Delete section
-          </button>
-        </form>
+        {/* Asks first: a placement removed here takes its curation with it. */}
+        <DeleteRowButton
+          name={placement?.name ?? section.key}
+          consequence="Everything curated into it is removed too."
+          onDelete={removeSection}
+        />
       </div>
 
       {section.status !== "published" ? (
