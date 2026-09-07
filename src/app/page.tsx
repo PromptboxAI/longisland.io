@@ -10,7 +10,7 @@ import { NewsletterSignup } from "@/components/cta/NewsletterSignup";
 import { NominationCTA } from "@/components/cta/NominationCTA";
 import { AffiliateDisclosure } from "@/components/products/AffiliateDisclosure";
 import { ProductCard } from "@/components/products/ProductCard";
-import { TopRail, rankingsToRailItems } from "@/components/rankings/TopRail";
+import { TopRail } from "@/components/rankings/TopRail";
 import { hasAffiliateLinks, merchantDisclosures } from "@/lib/affiliate";
 import { deriveRelatedFallback } from "@/lib/editorial/related-fallback";
 import { SearchBar } from "@/components/site/SearchBar";
@@ -26,12 +26,10 @@ import {
 import {
   pickedProducts,
   pickRankingSummaries,
-  rankingToFeature,
   toFeature,
   toPickCards,
   toRailItems,
   toRelatedLinks,
-  type SectionPick,
 } from "@/lib/editorial/section-adapters";
 import type { Category } from "@/types/database";
 
@@ -92,72 +90,83 @@ export default async function HomePage() {
   }
 
   /*
-   * Each slot prefers what an editor curated. The feed slices below survive
-   * only as a fallback for a section nobody has configured yet — configure the
-   * section and the slice stops being consulted. They are the last automatic
-   * selection left on this page and should go when curation is populated.
+   * HOMEPAGE COMPOSITION RULES
+   *
+   * One published ranking used to appear in Latest, Top Rankings, Top Picks and
+   * Trending at once, because every slot fell back to the same feed slice. That
+   * made an editorial homepage behave like an automatic feed with one item in
+   * it, repeated.
+   *
+   * So fallback is now a per-placement decision rather than a house default:
+   *
+   *   Primary Feature   curated only        · hidden when empty
+   *   Latest            automatic           · newest published, chronological
+   *   Top Rankings      curated only        · hidden when empty
+   *   Top Picks         curated, products   · hidden when empty
+   *   Trending          curated only        · hidden when empty
+   *   Related Content   curated, then derived from the feature
+   *
+   * Only Latest is designed as an automatic feed, because "the newest thing we
+   * published" is a fact. "Trending" and "Top" are claims, and a claim nobody
+   * made is not one worth printing.
    */
   const [feedLead, ...rest] = rankings;
 
   /*
-   * The feature well takes ANY curated target — a ranking, an article, a buying
-   * guide — because it renders from the resolved item rather than from a
-   * ranking record. Falls back to the newest ranking while nothing is curated.
+   * The feature takes ANY curated target — ranking, article or buying guide —
+   * because it renders from the resolved item rather than from a ranking. It
+   * has no automatic fallback: the lead story is the one editorial decision on
+   * the page that should never be made by a sort order.
    */
-  const lead =
-    toFeature(primarySection, rankings) ??
-    (feedLead ? rankingToFeature(feedLead) : null);
+  const lead = toFeature(primarySection, rankings);
 
+  /*
+   * Whatever the feature is showing does not repeat itself further down the
+   * page automatically. An editor who deliberately places it in another section
+   * still gets it there — this only governs the automatic path.
+   */
+  const featuredHref = lead?.href ?? null;
+  const notFeatured = <T extends { slug: string }>(items: T[], prefix: string) =>
+    featuredHref ? items.filter((item) => `${prefix}${item.slug}` !== featuredHref) : items;
+
+  // The one automatic feed on the page, and the only one whose claim is a date.
   const curatedLatest = pickRankingSummaries(latestSection, rankings);
-  const latest = curatedLatest.length > 0 ? curatedLatest : rest.slice(0, 5);
+  const latest =
+    curatedLatest.length > 0 ? curatedLatest : notFeatured(rest, "/best/").slice(0, 5);
 
-  // The rail takes any target type, so a product guide can sit here already.
-  const curatedRail = toRailItems(railSection);
-  const railItems =
-    curatedRail.length > 0 ? curatedRail : rankingsToRailItems(rankings.slice(0, 5));
+  // Curated only. An empty Top Rankings is honest; one filled with every
+  // ranking we have is a list of everything calling itself a selection.
+  const railItems = toRailItems(railSection);
 
   /*
-   * Five is the row's rhythm, enforced in the adapter as well as here so a
-   * section configured with a larger max cannot break the grid.
+   * Products only, curated only. The previous fallback filled a commerce row
+   * with local restaurant rankings — the exact thing this section is defined
+   * not to hold.
    */
-  /*
-   * Top Picks is a commerce row: curated non-product targets are skipped rather
-   * than rendered as editorial cards, so the five tiles agree on image ratio,
-   * height and where the button sits. Mixed targets remain supported in every
-   * other section.
-   */
-  const curatedPicks = toPickCards(picksSection, 5, { productsOnly: true });
-  const fallbackPicks: SectionPick[] = rankings.slice(0, 5).map((ranking) => ({
-    kind: "editorial",
-    key: ranking.id,
-    title: ranking.title,
-    subtitle: ranking.geography,
-    href: `/best/${ranking.slug}`,
-    imageUrl: ranking.hero_image_url,
-    imageSeed: ranking.slug,
-  }));
-  const topPicks = curatedPicks.length > 0 ? curatedPicks : fallbackPicks;
+  const topPicks = toPickCards(picksSection, 5, { productsOnly: true });
 
   /*
    * Disclosure follows the monetised links actually on the page, never the name
-   * of the section — a Top Picks row of rankings claims no commercial
-   * relationship, and one gaining a tagged product discloses without anyone
+   * of the section — a Top Picks row claims no commercial relationship it does
+   * not have, and one gaining a tagged product discloses without anyone
    * remembering to add a component.
    */
   const pickProducts = pickedProducts(topPicks);
   const picksNeedDisclosure = hasAffiliateLinks(pickProducts);
   const picksMerchantNotes = merchantDisclosures(pickProducts);
 
-  const curatedTrending = pickRankingSummaries(trendingSection, rankings);
-  const trending = curatedTrending.length > 0 ? curatedTrending : rankings.slice(0, 3);
+  // Curated only. Recency is not evidence of anything trending.
+  const trending = pickRankingSummaries(trendingSection, rankings);
 
   /*
-   * Curated related content wins; deriveRelatedFallback stays only until a
+   * Curated related content wins; the derived fallback stays only until a
    * related_content section is populated, then it can be deleted outright.
    */
   const curatedRelated = toRelatedLinks(relatedSection);
   const relatedToLead =
-    curatedRelated.length > 0 ? curatedRelated : deriveRelatedFallback(feedLead, rest);
+    curatedRelated.length > 0
+      ? curatedRelated
+      : deriveRelatedFallback(feedLead, notFeatured(rest, "/best/"));
 
   const regions = REGION_SLUGS.map((slug) =>
     places.find((place) => place.slug === slug),
@@ -223,46 +232,40 @@ export default async function HomePage() {
                 relatedItems={relatedToLead}
                 priority
               />
-            ) : (
-              <EditorialEmpty
-                variant="feature"
-                eyebrow="Featured"
-                title="The best of Long Island, ranked."
-                description="Our flagship list runs here — the top ten we send people to first, from pizza and bagels to the trades worth calling."
-              />
-            )}
+            ) : null}
           </div>
 
-          {/* RIGHT — configurable leaderboard: rankings now, deals later */}
-          <div className="order-3 lg:border-l lg:border-line lg:pl-8">
-            <TopRail id="top-rankings" mode="rankings" items={railItems} />
-          </div>
+          {/* RIGHT — curated leaderboard. Absent rather than automatic. */}
+          {railItems.length > 0 ? (
+            <div className="order-3 lg:border-l lg:border-line lg:pl-8">
+              <TopRail id="top-rankings" mode="rankings" items={railItems} />
+            </div>
+          ) : null}
         </div>
       </div>
 
       {/* ---------------------------------------------------------- Top picks */}
       {/*
-        * No band of its own: this shares the white ground of the editorial row
-        * above it so the two read as one continuous front page. Curated
-        * highlights only — deliberately no "all rankings" link, since this is
-        * not a directory block.
-        */}
-      <section
+        Products only, curated only. The section is absent when empty rather
+        than filled from the ranking feed — a commerce row of local restaurant
+        rankings is the one thing it is defined not to be.
+      */}
+      {topPicks.length > 0 ? (
+        <section
         aria-labelledby="top-picks"
         className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8"
       >
         <RuleHeading
           id="top-picks"
           title="Our Top Picks"
-          description="Rankings from across our categories."
+          description="Products our editors rate, with where to buy them."
         />
         {picksNeedDisclosure ? (
           <div className="mt-3">
             <AffiliateDisclosure variant="inline" merchantNotes={picksMerchantNotes} />
           </div>
         ) : null}
-        {topPicks.length > 0 ? (
-          <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-7 lg:grid-cols-5">
+        <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-7 lg:grid-cols-5">
             {topPicks.map((pick) =>
               pick.kind === "product" ? (
                 <ProductCard
@@ -282,22 +285,9 @@ export default async function HomePage() {
                 />
               ),
             )}
-          </div>
-        ) : (
-          /*
-           * Holds the five-card rhythm so the row keeps its shape unpublished.
-           *
-           * Two-up on mobile, unlike the populated grid: a real card earns a
-           * full-width row with its headline, but five wordless tiles at one per
-           * row is a screen and a half of nothing to scroll past.
-           */
-          <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-7 lg:grid-cols-5">
-            {[1, 2, 3, 4, 5].map((rank) => (
-              <EditorialEmpty key={rank} variant="card" index={rank} />
-            ))}
-          </div>
-        )}
+        </div>
       </section>
+      ) : null}
 
       {/* ------------------------------------------------------- Search band */}
       <section
@@ -322,6 +312,12 @@ export default async function HomePage() {
 
       {/* --------------------------------------------------------- Trending */}
       {/* Stays its own rail. Behaviour untouched; only the empty state is new. */}
+      {/*
+        Curated only. Nothing here is "trending" because it was published
+        recently — that is a claim, and until there are numbers behind it the
+        honest version is an editor deciding.
+      */}
+      {trending.length > 0 ? (
       <section
         aria-labelledby="trending"
         className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
@@ -329,23 +325,15 @@ export default async function HomePage() {
         <RuleHeading
           id="trending"
           title="What's Trending Now"
-          description="Recently published rankings."
+          description="Chosen by our editors."
         />
-        {trending.length > 0 ? (
-          <div className="mt-6 grid gap-8 md:grid-cols-3">
-            {trending.map((ranking) => (
-              <RankingCard key={ranking.id} ranking={ranking} />
-            ))}
-          </div>
-        ) : (
-          <div className="mt-6">
-            <EditorialEmpty
-              title="Nothing is trending yet."
-              description="Once readers start moving through our rankings, the week's most-read lists surface here."
-            />
-          </div>
-        )}
+        <div className="mt-6 grid gap-8 md:grid-cols-3">
+          {trending.map((ranking) => (
+            <RankingCard key={ranking.id} ranking={ranking} />
+          ))}
+        </div>
       </section>
+      ) : null}
 
       {/* ------------------------------------------------------- Newsletter */}
       <section aria-labelledby="newsletter" className="bg-navy-950">

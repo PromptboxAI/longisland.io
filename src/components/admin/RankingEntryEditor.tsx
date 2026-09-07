@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Loader2, Sparkles, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Globe,
+  Loader2,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useState, useTransition } from "react";
 
 import {
@@ -10,7 +17,11 @@ import {
   setBusinessMedia,
 } from "@/app/admin/rankings/actions";
 import { MediaField } from "@/components/admin/MediaField";
-import { generateEntryCopy } from "@/app/admin/rankings/ai-actions";
+import {
+  fetchOfficialWebsite,
+  generateEntryCopy,
+} from "@/app/admin/rankings/ai-actions";
+import { assessResearchContext } from "@/lib/ai/context";
 import { SaveIndicator } from "@/components/admin/SaveIndicator";
 import { useAutosave } from "@/components/admin/useAutosave";
 import { RANKING_BADGES, type RankingEntryWithBusiness } from "@/types/database";
@@ -23,6 +34,8 @@ export interface RankingEntryEditorProps {
   isLast: boolean;
   /** The media library, for setting this business's photo without leaving. */
   library: MediaAsset[];
+  /** Whether saves here reach the public page. */
+  rankingPublished?: boolean;
   /** The town this ranking is about, for the exact-area signal. */
   rankingPlaceName?: string | null;
   /** Whether a Yelp reference exists, so excerpts are obtainable. */
@@ -50,6 +63,7 @@ export function RankingEntryEditor({
   isFirst,
   isLast,
   library,
+  rankingPublished = false,
   rankingPlaceName = null,
   hasYelpReference = false,
   aiConfigured = false,
@@ -70,10 +84,14 @@ export function RankingEntryEditor({
   const [drafting, startDraft] = useTransition();
   const [draftNote, setDraftNote] = useState("");
 
+  const [findingSite, startFindSite] = useTransition();
+  const [website, setWebsite] = useState(entry.business.website ?? "");
+  const [confirmingDraft, setConfirmingDraft] = useState(false);
+
   /*
-   * Evidence, from what is already on this page — no extra requests. Ratings
-   * and review counts are absent because we deliberately never persist them,
-   * which is worth stating rather than leaving as a blank row.
+   * What a draft would be written from, worked out from what is already on this
+   * page — no extra requests. Ratings and review counts are absent because we
+   * deliberately never persist them.
    */
   const inArea =
     rankingPlaceName && entry.business.city
@@ -81,16 +99,28 @@ export function RankingEntryEditor({
         rankingPlaceName.trim().toLowerCase()
       : null;
 
-  const evidence = [
-    { label: "Editorial summary", ok: Boolean(entry.business.editorial_summary?.trim()) },
-    { label: "Business description", ok: Boolean(entry.business.description?.trim()) },
-    { label: "Editor notes", ok: Boolean(fields.editorNotes.trim()) },
-    { label: "Yelp review excerpts", ok: hasYelpReference },
-    ...(inArea === null
-      ? []
-      : [{ label: inArea ? "In the ranking's town" : "Outside the ranking's town", ok: inArea }]),
-  ];
-  const evidenceScore = evidence.filter((e) => e.ok).length;
+  const research = assessResearchContext({
+    hasLocation: Boolean(entry.business.city?.trim()),
+    hasAddress: Boolean(entry.business.address?.trim()),
+    hasPhone: Boolean(entry.business.phone?.trim()),
+    hasCategories: Boolean(entry.business.subcategory?.trim()),
+    hasWebsite: Boolean(website.trim()),
+    hasDescription: Boolean(entry.business.description?.trim()),
+    hasEditorialSummary: Boolean(entry.business.editorial_summary?.trim()),
+    hasEditorNotes: Boolean(fields.editorNotes.trim()),
+    hasReviewExcerpts: hasYelpReference,
+  });
+
+  function draftCopy() {
+    startDraft(async () => {
+      setDraftNote("");
+      setConfirmingDraft(false);
+      const result = await generateEntryCopy(rankingId, entry.id);
+      setDraftNote(
+        result.error ?? result.results?.[0]?.detail ?? "Drafted. Reload to see it.",
+      );
+    });
+  }
 
   const { status, error, saveNow } = useAutosave(fields, async (values) => {
     const form = new FormData();
@@ -202,64 +232,148 @@ export function RankingEntryEditor({
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-line bg-white px-3 py-2">
-        <button
-          type="button"
-          disabled={!aiConfigured || drafting}
-          title={
-            aiConfigured
-              ? "Fills Best for and Why we picked it if they are empty"
-              : "Add ANTHROPIC_API_KEY to enable drafting"
-          }
-          onClick={() =>
-            startDraft(async () => {
-              setDraftNote("");
-              const result = await generateEntryCopy(rankingId, entry.id);
-              setDraftNote(
-                result.error ??
-                  result.results?.[0]?.detail ??
-                  "Drafted. Reload to see it.",
-              );
-            })
-          }
-          className="inline-flex items-center gap-1.5 rounded-full border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-navy-900 hover:border-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {drafting ? (
-            <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
-          ) : (
-            <Sparkles aria-hidden="true" className="size-3.5 text-brand-600" />
-          )}
-          Draft copy
-        </button>
+      {/*
+        What a draft would be written from.
+
+        Two lists rather than one verdict. We almost always know who and where a
+        business is; what is usually missing is anything to base a judgement on,
+        and an editor needs to see which of the two is short before they trust a
+        paragraph about the food.
+      */}
+      <div className="mt-4 rounded-md border border-line bg-white px-3 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <p className="text-xs font-semibold text-navy-900">
+            AI research context:{" "}
+            <span
+              className={
+                research.level === "good"
+                  ? "text-emerald-700"
+                  : research.level === "limited"
+                    ? "text-amber-700"
+                    : "text-red-700"
+              }
+            >
+              {research.levelLabel}
+            </span>
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {hasYelpReference && !website.trim() ? (
+              <button
+                type="button"
+                disabled={findingSite}
+                onClick={() =>
+                  startFindSite(async () => {
+                    setDraftNote("");
+                    const result = await fetchOfficialWebsite(
+                      entry.business.id,
+                      rankingId,
+                    );
+                    if (result.website) setWebsite(result.website);
+                    setDraftNote(result.error ?? result.detail ?? "");
+                  })
+                }
+                className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-navy-900 hover:bg-sand-50 disabled:opacity-50"
+              >
+                {findingSite ? (
+                  <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+                ) : (
+                  <Globe aria-hidden="true" className="size-3.5 text-ink-500" />
+                )}
+                Find website
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              disabled={!aiConfigured || drafting}
+              title={
+                aiConfigured
+                  ? "Fills Best for and Why we picked it if they are empty"
+                  : "Add ANTHROPIC_API_KEY to enable drafting"
+              }
+              onClick={() =>
+                research.needsConfirmation ? setConfirmingDraft(true) : draftCopy()
+              }
+              className="inline-flex items-center gap-1.5 rounded-full border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-navy-900 hover:border-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {drafting ? (
+                <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+              ) : (
+                <Sparkles aria-hidden="true" className="size-3.5 text-brand-600" />
+              )}
+              Draft copy
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-2.5 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+          <ContextList
+            heading="What we know about the business"
+            items={research.identity}
+          />
+          <ContextList
+            heading="What a draft can reason from"
+            items={research.editorial}
+          />
+        </div>
 
         {/*
-          What the draft has to work with, so a VA can tell a grounded
-          paragraph from a fluent guess before trusting it.
+          The one case where drafting is a genuinely bad idea: nothing but a
+          name and an address. The button still works — an editor may want a
+          starting shape — but not by accident.
         */}
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
-          <span
-            className={`font-semibold ${
-              evidenceScore >= 3
-                ? "text-emerald-700"
-                : evidenceScore >= 2
-                  ? "text-amber-700"
-                  : "text-red-700"
-            }`}
-          >
-            Evidence: {evidenceScore >= 3 ? "good" : evidenceScore >= 2 ? "moderate" : "thin"}
-          </span>
-          {evidence.map((item) => (
-            <span
-              key={item.label}
-              className={item.ok ? "text-ink-500" : "text-ink-400 line-through"}
+        {confirmingDraft ? (
+          <div className="mt-2.5 rounded-md border border-amber-300 bg-amber-50 p-3">
+            <p className="text-xs font-semibold text-navy-900">
+              There is nothing here to write from.
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-ink-700">
+              We have {entry.business.name}&rsquo;s name and location and nothing
+              about what it is like. A draft made now is a guess dressed as a
+              judgement, and you will have to check every word of it.
+            </p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={draftCopy}
+                className="rounded-full bg-navy-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-navy-800"
+              >
+                Draft anyway
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDraft(false)}
+                className="rounded-full border border-navy-300 px-4 py-1.5 text-xs font-semibold text-navy-900 hover:bg-navy-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {website.trim() ? (
+          <p className="mt-2 truncate text-[11px] text-ink-500">
+            Official site:{" "}
+            <a
+              href={website}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="font-semibold text-brand-600 hover:underline"
             >
-              {item.label}
-            </span>
-          ))}
-        </span>
+              {website}
+            </a>
+          </p>
+        ) : null}
+
+        {inArea === false ? (
+          <p className="mt-2 text-[11px] font-semibold text-amber-700">
+            This business is in {entry.business.city}, not {rankingPlaceName}.
+          </p>
+        ) : null}
 
         {draftNote ? (
-          <span className="w-full text-[11px] text-ink-500">{draftNote}</span>
+          <p className="mt-2 text-[11px] text-ink-500">{draftNote}</p>
         ) : null}
       </div>
 
@@ -346,9 +460,50 @@ export function RankingEntryEditor({
         </div>
 
         <div className="flex items-center gap-3">
-          <SaveIndicator status={status} error={error} />
+          <SaveIndicator status={status} error={error} live={rankingPublished} />
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * One side of the research panel.
+ *
+ * Present items are ticked and plain; missing ones carry the fix rather than a
+ * strikethrough, because a VA reading this needs to know what to do about it,
+ * not just that something is absent.
+ */
+function ContextList({
+  heading,
+  items,
+}: {
+  heading: string;
+  items: { label: string; present: boolean; fix?: string }[];
+}) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+        {heading}
+      </p>
+      <ul className="mt-1 space-y-0.5">
+        {items.map((item) => (
+          <li key={item.label} className="flex gap-1.5 text-[11px] leading-snug">
+            <span
+              aria-hidden="true"
+              className={item.present ? "text-emerald-600" : "text-ink-300"}
+            >
+              {item.present ? "✓" : "○"}
+            </span>
+            <span className={item.present ? "text-ink-700" : "text-ink-400"}>
+              {item.label}
+              {!item.present && item.fix ? (
+                <span className="text-ink-400"> — {item.fix}</span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

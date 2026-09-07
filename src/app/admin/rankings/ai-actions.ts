@@ -12,6 +12,7 @@ import {
 } from "@/lib/ai/prompts";
 import {
   assessEvidence,
+  fetchBusinessDetail,
   fetchReviewExcerpts,
   type BusinessResearch,
 } from "@/lib/ai/research";
@@ -359,4 +360,52 @@ export async function generateRankingCopy(
 
   revalidatePath(`/admin/rankings/${rankingId}`);
   return { ok: true };
+}
+
+/**
+ * Fills in a business's own website from the Yelp detail record.
+ *
+ * Worth being precise about what this is. Yelp's `url` is a link to Yelp; the
+ * business's real site arrives separately, as `attributes.business_url`, and
+ * that is the only thing taken here. A web address is a fact about the
+ * business, not Yelp's writing, so unlike review excerpts it can be stored.
+ *
+ * The point of storing it is what it unlocks: an editor with the real site can
+ * check a menu, an opening time or a claim before publishing a judgement about
+ * the place. It does not by itself make the AI research context any better.
+ */
+export async function fetchOfficialWebsite(
+  businessId: string,
+  rankingId: string,
+): Promise<{ website?: string | null; error?: string; detail?: string }> {
+  const { supabase } = await requireAdmin();
+
+  const { data: ref } = await supabase
+    .from("external_business_refs")
+    .select("external_id")
+    .eq("business_id", businessId)
+    .eq("provider", "yelp")
+    .maybeSingle();
+
+  const externalId = (ref as { external_id: string } | null)?.external_id ?? null;
+  if (!externalId) {
+    return { detail: "No Yelp match on this business, so there is nothing to look up." };
+  }
+
+  const detail = await fetchBusinessDetail(externalId);
+  if (!detail) return { error: "Could not reach Yelp just now. Try again shortly." };
+
+  if (!detail.websiteUrl) {
+    return { detail: "Yelp has no website on file for this business." };
+  }
+
+  const { error } = await supabase
+    .from("businesses")
+    .update({ website: detail.websiteUrl })
+    .eq("id", businessId);
+
+  if (error) return { error: "Found the site but could not save it." };
+
+  revalidatePath(`/admin/rankings/${rankingId}`);
+  return { website: detail.websiteUrl, detail: `Saved ${detail.websiteUrl}` };
 }

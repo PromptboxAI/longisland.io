@@ -3,6 +3,24 @@ import Link from "next/link";
 
 import { EDITORIAL_INDEPENDENCE_NOTICE } from "@/lib/site";
 
+/**
+ * What we say when a ranking has not written its own methodology.
+ *
+ * The previous default claimed "our own on-the-ground research", which for a
+ * list assembled from public sources and editorial review is simply untrue —
+ * and it was the DEFAULT, so it appeared on every ranking nobody had written a
+ * methodology for. A claim about first-hand experience is the one thing a
+ * default must never make on our behalf.
+ *
+ * Visits, tasting, testing and interviews get claimed by an editor writing them
+ * into a specific ranking's methodology, for a ranking where they happened.
+ */
+export const DEFAULT_METHODOLOGY =
+  "We research local businesses using publicly available information, " +
+  "consumer reputation, review volume, local relevance and other available " +
+  "business information. Our editorial team then reviews the candidates and " +
+  "independently selects and orders the businesses included in each list.";
+
 export interface MethodologyNoticeProps {
   /** The ranking's own methodology text, when it has one. */
   methodology?: string | null;
@@ -58,8 +76,7 @@ export function MethodologyNotice({
       </h2>
       <div className="prose-editorial mt-3 text-sm">
         <p>
-          {methodology ??
-            "This list was independently researched and ranked by the LongIsland.io editorial team using consumer reputation, review volume, local relevance, longevity, uniqueness and our own on-the-ground research."}
+          {methodology ?? DEFAULT_METHODOLOGY}
         </p>
         <p>
           Rankings are editorial judgments, not objective guarantees. Lists are

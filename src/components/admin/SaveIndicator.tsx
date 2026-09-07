@@ -15,12 +15,25 @@ export function SaveIndicator({
   status,
   error,
   className = "",
+  live,
 }: {
   status: SaveStatus;
   error: string;
   className?: string;
+  /**
+   * Whether a save reaches the public page.
+   *
+   * "Saved" on its own leaves an editor wondering whether they still have to
+   * press Publish. On a published record they do not, and this is where that
+   * gets said.
+   */
+  live?: boolean;
 }) {
-  const label = saveStatusLabel(status, error);
+  const base = saveStatusLabel(status, error);
+  const label =
+    status === "saved" && live !== undefined
+      ? `${base} — ${live ? "Live" : "Draft"}`
+      : base;
   if (!label) return <span aria-live="polite" className={className} />;
 
   return (

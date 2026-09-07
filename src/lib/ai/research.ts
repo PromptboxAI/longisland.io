@@ -160,3 +160,70 @@ export async function fetchReviewExcerpts(
     clearTimeout(timeout);
   }
 }
+
+/**
+ * The Yelp business-detail record, for the fields the search does not return.
+ *
+ * The one that matters is `attributes.business_url` — the business's OWN
+ * website, which the search endpoint omits and which is the doorway to real
+ * facts about a place rather than inferences about it. Yelp's own `url` field
+ * is a link to Yelp and is deliberately not treated as a website.
+ *
+ * Nothing here is licensed content: a phone number, opening hours and a
+ * business's own address are facts about the business, not Yelp's writing.
+ */
+export interface YelpDetail {
+  websiteUrl: string | null;
+  priceBand: string | null;
+  isClaimed: boolean | null;
+  categories: string[];
+  hasHours: boolean;
+}
+
+export async function fetchBusinessDetail(
+  yelpBusinessId: string,
+): Promise<YelpDetail | null> {
+  if (!isYelpConfigured) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REVIEW_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(
+      `https://api.yelp.com/v3/businesses/${encodeURIComponent(yelpBusinessId)}`,
+      {
+        headers: { Authorization: `Bearer ${getYelpApiKey()}` },
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok) return null;
+
+    const body = (await response.json()) as {
+      attributes?: { business_url?: string | null };
+      price?: string | null;
+      is_claimed?: boolean;
+      categories?: { title?: string }[];
+      hours?: unknown[];
+    };
+
+    const website = body.attributes?.business_url?.trim() || null;
+
+    return {
+      // Only an http(s) address, and never Yelp's own page dressed as one.
+      websiteUrl:
+        website && /^https?:\/\//i.test(website) && !/yelp\.com/i.test(website)
+          ? website
+          : null,
+      priceBand: body.price ?? null,
+      isClaimed: typeof body.is_claimed === "boolean" ? body.is_claimed : null,
+      categories: (body.categories ?? [])
+        .map((c) => c.title ?? "")
+        .filter((title) => title.length > 0),
+      hasHours: Array.isArray(body.hours) && body.hours.length > 0,
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}

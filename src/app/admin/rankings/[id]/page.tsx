@@ -13,6 +13,7 @@ import {
   RankingLiveTitle,
 } from "@/components/admin/RankingEditorContext";
 import { AiDraftPanel } from "@/components/admin/AiDraftPanel";
+import { PublishRankingButton } from "@/components/admin/PublishRankingButton";
 import { RankingEntryList } from "@/components/admin/RankingEntryList";
 import { RecommendedProductsEditor } from "@/components/admin/RecommendedProductsEditor";
 import { StatusPill } from "@/components/admin/StatusPill";
@@ -78,11 +79,6 @@ export default async function RankingEditorPage({ params }: PageParams) {
   }
 
   // Server Actions must be bound here; the buttons below are inside forms.
-  async function publish() {
-    "use server";
-    await setRankingStatus(id, "published");
-  }
-
   async function unpublish() {
     "use server";
     await setRankingStatus(id, "draft");
@@ -100,6 +96,14 @@ export default async function RankingEditorPage({ params }: PageParams) {
           All rankings
         </Link>
       </div>
+
+      {isPublished ? (
+        <p className="rounded-card border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900">
+          <span className="font-semibold">Published — changes save live.</span>{" "}
+          Edits below reach the public page as they save. You do not need to
+          publish again.
+        </p>
+      ) : null}
 
       {draftBusinesses.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 rounded-card border border-amber-300 bg-amber-50 p-4">
@@ -158,14 +162,10 @@ export default async function RankingEditorPage({ params }: PageParams) {
               </button>
             </form>
           ) : (
-            <form action={publish}>
-              <button
-                type="submit"
-                className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
-              >
-                Publish
-              </button>
-            </form>
+            <PublishRankingButton
+              rankingId={ranking.id}
+              draftBusinessCount={draftBusinesses.length}
+            />
           )}
         </div>
       </div>
@@ -237,6 +237,7 @@ export default async function RankingEditorPage({ params }: PageParams) {
               rankingPlaceName={ranking.place?.name ?? null}
               yelpReferencedBusinessIds={yelpReferencedBusinessIds}
               aiConfigured={isAiConfigured}
+              rankingPublished={isPublished}
             />
           )}
 

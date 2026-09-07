@@ -13,7 +13,15 @@ import { primaryNav, site, type NavItem } from "@/lib/site";
  *
  * Row 1: wordmark, a prominent search field, and the two conversion actions.
  * Row 2: a navy category bar that is the site's primary browse surface, with
- * hover/click mega-menus on desktop and horizontal scroll on mobile.
+ * hover/click mega-menus.
+ *
+ * Row 2 is desktop-only. Ten top-level destinations cannot be squeezed into a
+ * phone's width, and the two ways of trying both fail: scrolling the strip
+ * sideways hides half the site behind a gesture nobody performs, and wrapping
+ * it turns the masthead into three navy lines before the page has begun. So
+ * below `lg` the bar is not rendered at all and the hamburger carries every one
+ * of its destinations. `lg` is the honest breakpoint because it is where the
+ * mega-menus already live — the row is only ever complete above it.
  */
 export function SiteHeader() {
   const pathname = usePathname();
@@ -93,13 +101,13 @@ export function SiteHeader() {
 
           <Link
             href="/nominate"
-            className="hidden rounded-full border border-navy-200 px-4 py-2 text-sm font-semibold text-navy-900 transition-colors hover:border-navy-400 hover:bg-navy-50 sm:inline-block"
+            className="hidden rounded-full border border-navy-200 px-4 py-2 text-sm font-semibold text-navy-900 transition-colors hover:border-navy-400 hover:bg-navy-50 lg:inline-block"
           >
             Nominate
           </Link>
           <Link
             href="/advertise"
-            className="hidden rounded-full bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-800 sm:inline-block"
+            className="hidden rounded-full bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-800 lg:inline-block"
           >
             Advertise
           </Link>
@@ -122,11 +130,11 @@ export function SiteHeader() {
         </div>
       ) : null}
 
-      {/* ------------------------------------------------------------ Row 2 */}
-      <div className="relative bg-navy-900">
+      {/* ---------------------------------------------- Row 2, desktop only */}
+      <div className="relative hidden bg-navy-900 lg:block">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <nav aria-label="Categories">
-            <ul className="no-scrollbar flex items-stretch gap-0 overflow-x-auto">
+            <ul className="flex items-stretch gap-0">
               {primaryNav.map((item) => {
                 const hasMenu = Boolean(item.columns?.length);
                 const expanded = openMenu === item.label;
@@ -144,7 +152,7 @@ export function SiteHeader() {
                     <div className="flex items-center">
                       <Link
                         href={item.href}
-                        className={`whitespace-nowrap py-3 pl-3 pr-1 text-[13px] font-semibold uppercase tracking-wide transition-colors ${
+                        className={`whitespace-nowrap py-3 pl-2 pr-1 text-[13px] font-semibold uppercase tracking-wide transition-colors xl:pl-3 ${
                           isActive(item)
                             ? "text-gold-400"
                             : "text-navy-100 hover:text-white"
@@ -158,7 +166,7 @@ export function SiteHeader() {
                           aria-expanded={expanded}
                           aria-label={`${expanded ? "Hide" : "Show"} ${item.label} subcategories`}
                           onClick={() => setOpenMenu(expanded ? null : item.label)}
-                          className="hidden py-3 pr-3 text-navy-300 transition-colors hover:text-white lg:block"
+                          className="py-3 pr-2 text-navy-300 transition-colors hover:text-white xl:pr-3"
                         >
                           <ChevronDown
                             aria-hidden="true"
@@ -166,23 +174,23 @@ export function SiteHeader() {
                           />
                         </button>
                       ) : (
-                        <span className="pr-3" />
+                        <span className="pr-2 xl:pr-3" />
                       )}
                     </div>
                   </li>
                 );
               })}
 
-              <li className="ml-auto hidden shrink-0 items-center gap-5 pl-6 lg:flex">
-                <Link
-                  href="/best"
-                  className="whitespace-nowrap text-[13px] font-semibold uppercase tracking-wide text-gold-400 transition-colors hover:text-gold-300"
-                >
-                  Best Of
-                </Link>
+              {/*
+                Only "All Categories" sits out here. "Best Of" used to as well,
+                which put the same destination on the bar twice — it is already
+                the first item — and those ~90px were part of why the row did
+                not fit at 1024 without being scrolled sideways.
+              */}
+              <li className="ml-auto flex shrink-0 items-center pl-4 xl:pl-6">
                 <Link
                   href="/categories"
-                  className="whitespace-nowrap text-[13px] font-semibold uppercase tracking-wide text-navy-100 transition-colors hover:text-white"
+                  className="whitespace-nowrap py-3 text-[13px] font-semibold uppercase tracking-wide text-navy-100 transition-colors hover:text-white"
                 >
                   All Categories
                 </Link>
@@ -196,7 +204,7 @@ export function SiteHeader() {
           <div
             onMouseEnter={cancelClose}
             onMouseLeave={scheduleClose}
-            className="absolute inset-x-0 top-full z-50 hidden border-b border-line bg-white shadow-lift lg:block"
+            className="absolute inset-x-0 top-full z-50 border-b border-line bg-white shadow-lift"
           >
             <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
               {primaryNav
@@ -351,6 +359,26 @@ function MobileNav({
                 </li>
               );
             })}
+
+            {/*
+              The category bar's right-hand link. It is not part of `primaryNav`
+              because on desktop it sits apart from the categories, but on a
+              phone the hamburger is the only door to it, so it has to be here
+              or the destination becomes unreachable below 1024px.
+            */}
+            <li>
+              <Link
+                href="/categories"
+                onClick={onClose}
+                className={`block py-3.5 text-[15px] font-semibold uppercase tracking-wide ${
+                  pathname.startsWith("/categories")
+                    ? "text-brand-600"
+                    : "text-navy-900"
+                }`}
+              >
+                All Categories
+              </Link>
+            </li>
           </ul>
         </nav>
       </div>

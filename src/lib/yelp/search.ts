@@ -115,7 +115,10 @@ export function normalizeYelpBusiness(raw: YelpApiBusiness): YelpBusiness {
     city: nullIfBlank(raw.location?.city),
     // Yelp has no county field; derive it so a candidate maps straight onto
     // `businesses.county`.
-    county: inferCounty(nullIfBlank(raw.location?.city)),
+    county: inferCounty(
+      nullIfBlank(raw.location?.city),
+      nullIfBlank(raw.location?.state),
+    ),
     state: nullIfBlank(raw.location?.state),
     zip: nullIfBlank(raw.location?.zip_code),
     latitude: raw.coordinates?.latitude ?? null,

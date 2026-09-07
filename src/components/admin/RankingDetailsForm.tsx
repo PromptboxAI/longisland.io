@@ -308,7 +308,7 @@ export function RankingDetailsForm({
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-        <SaveIndicator status={status} error={error} />
+        <SaveIndicator status={status} error={error} live={isPublished} />
         <p className="text-xs text-ink-400">
           Changes save as you type. Publishing and deleting stay explicit.
         </p>

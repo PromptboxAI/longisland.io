@@ -150,6 +150,49 @@ export async function saveRankingDetails(
   return { ok: true };
 }
 
+/**
+ * Publishes a ranking and everything it needs to actually be readable.
+ *
+ * Publishing a ranking whose businesses are all drafts produced a ranking
+ * marked PUBLISHED that rendered "no published entries" — technically correct
+ * under RLS and useless to an editor, who selected those businesses and then
+ * pressed Publish. A CMS must not present something as published while knowing
+ * it shows nothing.
+ *
+ * The draft gate on researched businesses still matters — nothing reaches the
+ * site straight from a third-party search — so this does not remove it. It
+ * makes clearing it part of the same deliberate act, named in the button.
+ */
+export async function publishRankingWithBusinesses(
+  id: string,
+): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { data: entries } = await supabase
+    .from("ranking_entries")
+    .select("business_id")
+    .eq("ranking_id", id);
+
+  const businessIds = ((entries ?? []) as { business_id: string }[]).map(
+    (entry) => entry.business_id,
+  );
+
+  if (businessIds.length > 0) {
+    const { error: businessError } = await supabase
+      .from("businesses")
+      .update({ status: "published" })
+      .in("id", businessIds)
+      .neq("status", "published");
+
+    if (businessError) {
+      return { error: "Could not publish the businesses on this list." };
+    }
+  }
+
+  await setRankingStatus(id, "published");
+  return { ok: true };
+}
+
 export async function setRankingStatus(
   id: string,
   status: "draft" | "published" | "archived",

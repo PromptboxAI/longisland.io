@@ -226,3 +226,48 @@ export async function setMediaStatus(
   await supabase.from("media_assets").update({ status }).eq("id", id);
   revalidatePath("/admin/media");
 }
+
+/**
+ * Edits an asset's descriptive fields from wherever the image is being used.
+ *
+ * Alt text is written by whoever is looking at the picture, and that person is
+ * in the ranking editor, not in the media library. Sending them elsewhere to
+ * add it is how images end up shipping without any — the label said "add it in
+ * the Media library" and the honest response to that is to not bother.
+ *
+ * The values still belong to the ASSET, so a correction here is a correction
+ * everywhere the image appears. That is the point of the library.
+ */
+export async function saveMediaMetadata(
+  id: string,
+  values: { altText: string; caption: string; credit: string },
+): Promise<MediaActionState> {
+  const { supabase } = await requireAdmin();
+
+  const parsed = z
+    .object({
+      id: z.string().uuid(),
+      altText: z.string().trim().max(300),
+      caption: z.string().trim().max(500),
+      credit: z.string().trim().max(200),
+    })
+    .safeParse({ id, ...values });
+
+  if (!parsed.success) return { error: "Check those details." };
+
+  const { error } = await supabase
+    .from("media_assets")
+    .update({
+      alt_text: parsed.data.altText || null,
+      caption: parsed.data.caption || null,
+      credit: parsed.data.credit || null,
+    })
+    .eq("id", parsed.data.id);
+
+  if (error) return { error: "Could not save those details." };
+
+  revalidatePath("/admin/media");
+  // Alt text and credit render wherever the asset does.
+  revalidatePath("/", "layout");
+  return { ok: true };
+}

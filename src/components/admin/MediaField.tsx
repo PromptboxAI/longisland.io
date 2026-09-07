@@ -1,11 +1,20 @@
 "use client";
 
-import { ImagePlus, Library, Loader2, Trash2, Upload, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import {
+  ImagePlus,
+  Library,
+  Loader2,
+  Pencil,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import { useMemo, useRef, useState, useTransition } from "react";
 
 import {
   createUploadTicket,
   registerUploadedAsset,
+  saveMediaMetadata,
 } from "@/app/admin/media/actions";
 import { mediaUrl } from "@/lib/media/resolve";
 import { createClient } from "@/lib/supabase/client";
@@ -223,14 +232,10 @@ export function MediaField({
           />
 
           {asset ? (
-            <p className="mt-2 truncate text-xs text-ink-500">
-              {asset.filename}
-              {asset.alt_text ? null : (
-                <span className="ml-2 font-semibold text-amber-700">
-                  No alt text — add it in the Media library
-                </span>
-              )}
-            </p>
+            <ImageDetails
+              asset={asset}
+              onSaved={(next) => setAsset(next)}
+            />
           ) : null}
 
           {urlName && !asset ? (
@@ -342,4 +347,145 @@ async function readDimensions(
   } catch {
     return null;
   }
+}
+
+/**
+ * The one-line description that goes with a photo, editable where the photo is.
+ *
+ * This used to say "No alt text — add it in the Media library", which asked an
+ * editor to know a piece of HTML vocabulary and then to leave the page they
+ * were working on to act on it. Both halves were wrong: the words are jargon,
+ * and sending someone away mid-task is how a field stays empty forever.
+ *
+ * So it is asked as a question — what is in the photo — and answered here.
+ */
+function ImageDetails({
+  asset,
+  onSaved,
+}: {
+  asset: MediaAsset;
+  onSaved: (asset: MediaAsset) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [description, setDescription] = useState(asset.alt_text ?? "");
+  const [credit, setCredit] = useState(asset.credit ?? "");
+  const [saving, startSave] = useTransition();
+  const [error, setError] = useState("");
+
+  const described = Boolean(asset.alt_text?.trim());
+
+  function save() {
+    startSave(async () => {
+      setError("");
+      const result = await saveMediaMetadata(asset.id, {
+        altText: description,
+        caption: asset.caption ?? "",
+        credit,
+      });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      onSaved({
+        ...asset,
+        alt_text: description.trim() || null,
+        credit: credit.trim() || null,
+      });
+      setEditing(false);
+    });
+  }
+
+  if (!editing) {
+    return (
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs">
+        <span className="truncate text-ink-500">{asset.filename}</span>
+        {described ? (
+          <span className="truncate text-ink-400">&ldquo;{asset.alt_text}&rdquo;</span>
+        ) : (
+          <span className="font-semibold text-amber-700">Not described yet</span>
+        )}
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="inline-flex items-center gap-1 font-semibold text-brand-600 hover:underline"
+        >
+          <Pencil aria-hidden="true" className="size-3" />
+          {described ? "Edit description" : "Describe this image"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-md border border-line bg-sand-50 p-3">
+      <label
+        htmlFor={`describe-${asset.id}`}
+        className="block text-xs font-semibold text-navy-900"
+      >
+        What is in this photo?
+      </label>
+      <p className="mt-0.5 text-xs leading-relaxed text-ink-400">
+        One plain sentence, as if describing it to someone on the phone. It is
+        read aloud to people using a screen reader, shown if the image fails to
+        load, and it is one of the few things Google can read about a picture.
+      </p>
+      <input
+        id={`describe-${asset.id}`}
+        type="text"
+        value={description}
+        onChange={(event) => setDescription(event.target.value)}
+        placeholder="A margherita pizza coming out of a wood-fired oven"
+        className="mt-1.5 w-full rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-brand-500"
+      />
+
+      <label
+        htmlFor={`credit-${asset.id}`}
+        className="mt-3 block text-xs font-semibold text-navy-900"
+      >
+        Photo credit <span className="font-normal text-ink-400">(if needed)</span>
+      </label>
+      <input
+        id={`credit-${asset.id}`}
+        type="text"
+        value={credit}
+        onChange={(event) => setCredit(event.target.value)}
+        placeholder="Who took it, or where it came from"
+        className="mt-1.5 w-full rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-brand-500"
+      />
+
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={save}
+          className="inline-flex items-center gap-1.5 rounded-full bg-navy-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-navy-800 disabled:opacity-60"
+        >
+          {saving ? (
+            <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+          ) : null}
+          Save
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => {
+            setDescription(asset.alt_text ?? "");
+            setCredit(asset.credit ?? "");
+            setEditing(false);
+          }}
+          className="rounded-full border border-navy-300 px-4 py-1.5 text-xs font-semibold text-navy-900 hover:bg-navy-50"
+        >
+          Cancel
+        </button>
+        {/* The photo is shared, so the consequence has to be said. */}
+        <span className="text-xs text-ink-400">
+          Applies everywhere this photo is used.
+        </span>
+      </div>
+
+      {error ? (
+        <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>
+      ) : null}
+    </div>
+  );
 }

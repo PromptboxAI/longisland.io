@@ -9,7 +9,12 @@ import {
   suggestRankingSlug,
   suggestRankingTitle,
 } from "@/lib/rankings/naming";
-import { SEARCH_AREAS, SEARCH_TOWNS, resolveArea } from "@/lib/yelp/areas";
+import {
+  SEARCH_AREAS,
+  SEARCH_TOWNS,
+  isOnLongIsland,
+  resolveArea,
+} from "@/lib/yelp/areas";
 import { YELP_SORT_OPTIONS, type YelpSortBy } from "@/lib/yelp/schema";
 import type { YelpBusiness } from "@/lib/yelp/types";
 import type { Category, Place } from "@/types/database";
@@ -78,6 +83,9 @@ export function GenerateWorkbench({
   const [loadingMore, setLoadingMore] = useState(false);
   const [nameQuery, setNameQuery] = useState("");
   const [nameSearching, setNameSearching] = useState(false);
+  const [displaySort, setDisplaySort] = useState<
+    "yelp" | "rating" | "reviews" | "distance"
+  >("yelp");
   // Empty means "use the suggestion". An editor who types here owns the value.
   const [titleOverride, setTitleOverride] = useState("");
   const [slugOverride, setSlugOverride] = useState("");
@@ -297,10 +305,50 @@ export function GenerateWorkbench({
 
   // The review floor is applied here rather than in the API so the route stays
   // a thin Yelp proxy — one contract, with no editorial policy baked into it.
-  const visible = candidates.filter(
-    (candidate) =>
-      !excludedIds.includes(candidate.id) && candidate.reviewCount >= minReviews,
-  );
+  /*
+   * Three groups, not one list.
+   *
+   * Yelp's location search is a radius, not a boundary: asking for Long Island
+   * returns New Haven and Sunnyside. Those are not Long Island in the sense
+   * this publication means, so they are separated out rather than silently
+   * mixed into the pool an editor is choosing from — and separated rather than
+   * dropped, because seeing what was excluded is how you notice a filter that
+   * is wrong.
+   */
+  const passesReviews = (candidate: YelpBusiness) =>
+    candidate.reviewCount >= minReviews;
+
+  const eligibleArea = (candidate: YelpBusiness) =>
+    // A specific town is its own test; a region check falls back to the county
+    // derivation, which is null for anywhere outside Nassau and Suffolk.
+    area === "long-island" || SEARCH_AREAS.some((a) => a.value === area)
+      ? isOnLongIsland(candidate.city, candidate.state)
+      : true;
+
+  const afterReviews = candidates.filter(passesReviews);
+  const outsideArea = afterReviews.filter((c) => !eligibleArea(c));
+  const filteredOutByReviews = candidates.length - afterReviews.length;
+
+  const eligible = afterReviews
+    .filter(eligibleArea)
+    .filter((candidate) => !excludedIds.includes(candidate.id));
+
+  /*
+   * Display order only. It reorders what the editor is looking at and never
+   * touches the ranking, which is always their selection order.
+   */
+  const visible = [...eligible].sort((a, b) => {
+    if (displaySort === "rating") {
+      const byRating = (b.rating ?? 0) - (a.rating ?? 0);
+      if (byRating !== 0) return byRating;
+      return b.reviewCount - a.reviewCount;
+    }
+    if (displaySort === "reviews") return b.reviewCount - a.reviewCount;
+    if (displaySort === "distance") {
+      return (a.distance ?? Number.MAX_SAFE_INTEGER) - (b.distance ?? Number.MAX_SAFE_INTEGER);
+    }
+    return 0;
+  });
 
   const inputClass =
     "w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500";
@@ -502,12 +550,40 @@ export function GenerateWorkbench({
               <p className="text-sm font-semibold text-navy-900">
                 Selected {selectedIds.length} / {rankingSize}
               </p>
+              {/*
+                Says what happened to the batch. "10 shown" after asking for 25
+                looks like the batch size was ignored; naming the filters shows
+                it was not.
+              */}
               <p className="text-xs text-ink-500">
-                {visible.length} shown of {candidates.length} researched
-                {minReviews > 0 ? ` · ${minReviews}+ reviews` : ""}
+                {candidates.length} fetched from Yelp · {visible.length} eligible
+                {filteredOutByReviews > 0
+                  ? ` · ${filteredOutByReviews} under ${minReviews} reviews`
+                  : ""}
+                {outsideArea.length > 0
+                  ? ` · ${outsideArea.length} outside the area`
+                  : ""}
                 {total > 0 ? ` · ${total.toLocaleString()} matched on Yelp` : ""}
               </p>
             </div>
+            <label className="flex items-center gap-2 text-xs text-ink-500">
+              Show by
+              <select
+                value={displaySort}
+                onChange={(event) =>
+                  setDisplaySort(
+                    event.target.value as "yelp" | "rating" | "reviews" | "distance",
+                  )
+                }
+                className="rounded-md border border-line px-2 py-1 text-xs"
+              >
+                <option value="yelp">Yelp order</option>
+                <option value="rating">Rating, high to low</option>
+                <option value="reviews">Review count, high to low</option>
+                <option value="distance">Distance, near to far</option>
+              </select>
+            </label>
+
             <button
               type="button"
               onClick={createRanking}
@@ -594,6 +670,30 @@ export function GenerateWorkbench({
                   /best/{slugOverride.trim() || suggestedSlug}
                 </p>
               </div>
+            </div>
+          ) : null}
+
+          {outsideArea.length > 0 ? (
+            <div className="border-t border-line px-5 py-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-ink-500">
+                Outside the selected area ({outsideArea.length})
+              </p>
+              <p className="mt-1 text-xs text-ink-400">
+                Yelp searches a radius, not a boundary. These are shown so a
+                wrong filter is visible, and cannot be selected.
+              </p>
+              <ul className="mt-2 space-y-1">
+                {outsideArea.slice(0, 12).map((candidate) => (
+                  <li key={candidate.id} className="text-xs text-ink-500">
+                    <span className="font-semibold text-ink-700">{candidate.name}</span>
+                    {" — "}
+                    {[candidate.city, candidate.state].filter(Boolean).join(", ")}
+                    <span className="ml-1.5 text-ink-400">
+                      excluded: outside Nassau and Suffolk
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
 

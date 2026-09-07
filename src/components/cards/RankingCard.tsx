@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { EditorialImage } from "@/components/ui/EditorialImage";
+import { resolveImage } from "@/lib/media/resolve";
 import type { RankingSummary } from "@/types/database";
 
 export interface RelatedLink {
@@ -35,6 +36,9 @@ export function RankingCard({
   priority = false,
 }: RankingCardProps) {
   const href = `/best/${ranking.slug}`;
+  // The ranking's own hero, at whatever crop this variant asks for. One upload
+  // feeds the feature, the cards and the rails.
+  const image = resolveImage(ranking.hero_media, ranking.hero_image_url, ranking.title);
   /*
    * Short month on cards. The shared formatDate spells the month out, which is
    * right in an article dateline and too long in a kicker sat above a headline.
@@ -82,9 +86,10 @@ export function RankingCard({
       <article className="group flex gap-3 border-b border-line py-3 last:border-0">
         <div className="relative size-16 shrink-0 overflow-hidden rounded">
           <EditorialImage
-            src={ranking.hero_image_url}
+            src={image?.url ?? null}
             alt=""
             seed={ranking.slug}
+            objectPosition={image?.objectPosition}
             sizes="64px"
           />
         </div>
@@ -113,9 +118,10 @@ export function RankingCard({
         }`}
       >
         <EditorialImage
-          src={ranking.hero_image_url}
+          src={image?.url ?? null}
           alt=""
           seed={ranking.slug}
+          objectPosition={image?.objectPosition}
           priority={priority}
           fallbackLabel={ranking.category?.name}
           sizes={

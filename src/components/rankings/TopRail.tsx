@@ -3,6 +3,7 @@ import Link from "next/link";
 import { EditorialImage } from "@/components/ui/EditorialImage";
 import { EditorialEmpty } from "@/components/ui/EditorialEmpty";
 import { RuleHeading } from "@/components/ui/RuleHeading";
+import { resolveImageUrl } from "@/lib/media/resolve";
 import type { RankingSummary } from "@/types/database";
 
 /**
@@ -61,7 +62,7 @@ export function rankingsToRailItems(
     id: ranking.id,
     title: ranking.title,
     href: `/best/${ranking.slug}`,
-    imageUrl: ranking.hero_image_url,
+    imageUrl: resolveImageUrl(ranking.hero_media, ranking.hero_image_url),
     imageSeed: ranking.slug,
     detail: [
       `${ranking.entry_count} ${ranking.entry_count === 1 ? "place" : "places"}`,

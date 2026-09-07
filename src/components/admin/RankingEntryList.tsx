@@ -31,6 +31,7 @@ export function RankingEntryList({
   rankingPlaceName = null,
   yelpReferencedBusinessIds = [],
   aiConfigured = false,
+  rankingPublished = false,
 }: {
   entries: RankingEntryWithBusiness[];
   rankingId: string;
@@ -38,6 +39,7 @@ export function RankingEntryList({
   rankingPlaceName?: string | null;
   yelpReferencedBusinessIds?: string[];
   aiConfigured?: boolean;
+  rankingPublished?: boolean;
 }) {
   const [order, setOrder] = useState(entries);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -151,6 +153,7 @@ export function RankingEntryList({
                     entry.business.id,
                   )}
                   aiConfigured={aiConfigured}
+                  rankingPublished={rankingPublished}
                 />
               </div>
             </div>
