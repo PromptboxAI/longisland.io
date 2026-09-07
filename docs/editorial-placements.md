@@ -1,7 +1,8 @@
 # Editorial placement render matrix
 
 What every placement accepts, shows, inherits and falls back to. Verified
-against the code on 7 September 2026.
+against the code AND against the running site on 7 September 2026 — each
+heading below was read off a live page, not off intent.
 
 A note on the count: the brief asked for nine placements. There are **eight**
 in `src/lib/editorial/placements.ts` — six on the homepage and two on the
@@ -65,8 +66,8 @@ miscount. They are all listed below.
 | | |
 |---|---|
 | **Location** | Homepage, commerce row |
-| **Accepts** | **Product, Buying guide only** |
-| **Section heading** | **Rendered.** From section `title`, defaulting to "Our Top Picks" |
+| **Accepts** | **Product, Buying guide only.** *Verified: the picker on this placement queries only those two tables — rankings, articles and businesses are not searched.* |
+| **Section heading** | **Rendered.** From section `title`, defaulting to "Our Top Picks". *Verified live: an edit to "Our Top Pick" rendered on the homepage.* |
 | **Description** | Rendered; defaults to "Products our editors rate, with where to buy them." |
 | **Image** | Product image, or guide hero |
 | **Headline / dek / kicker** | Item override, else product brand + name / summary / brand |
@@ -176,3 +177,22 @@ is the public heading, falling back to the default above only when it is blank.
 | Related Content | Automatic, derived from the feature | Hidden if nothing related |
 | Featured Module | Featured rankings in that category | Hidden |
 | Heading Links | None | Hidden |
+
+
+---
+
+## Verified on the running site
+
+Every row below was checked in a browser against a scratch published ranking
+and a scratch product, then the scratch content was deleted.
+
+| Behaviour | Result |
+|---|---|
+| Draft section hidden from the live homepage | PASS |
+| Draft section visible in `/preview/homepage` | PASS |
+| Draft item inside a published section hidden live | PASS |
+| Inherited image, headline, dek, kicker, type and status shown **before** Add | PASS |
+| Top Picks picker restricted to products and buying guides | PASS |
+| Section `title` drives the public heading | PASS |
+| Affiliate disclosure follows the monetised links, not the section name | PASS |
+| Publishing section + item puts the row live | PASS |
