@@ -22,6 +22,7 @@ import {
   generateEntryCopy,
 } from "@/app/admin/rankings/ai-actions";
 import { assessResearchContext } from "@/lib/ai/context";
+import { classifyLocation } from "@/lib/yelp/areas";
 import { SaveIndicator } from "@/components/admin/SaveIndicator";
 import { useAutosave } from "@/components/admin/useAutosave";
 import { RANKING_BADGES, type RankingEntryWithBusiness } from "@/types/database";
@@ -98,6 +99,19 @@ export function RankingEntryEditor({
       ? entry.business.city.trim().toLowerCase() ===
         rankingPlaceName.trim().toLowerCase()
       : null;
+
+  /*
+   * Whether this business is on Long Island at all.
+   *
+   * Separate from the town check above, and it fires on rankings that have no
+   * town — which is exactly where it was needed. A live "Best Bagel Shops in
+   * Long Island" went out with a New Haven, Connecticut business at number
+   * three, and nothing in this editor said a word about it. The town check
+   * could not have caught it: an island-wide ranking has no town to compare to.
+   */
+  const onLongIsland = entry.business.city
+    ? classifyLocation(entry.business.city, null) === "long_island"
+    : null;
 
   const research = assessResearchContext({
     hasLocation: Boolean(entry.business.city?.trim()),
@@ -366,7 +380,12 @@ export function RankingEntryEditor({
           </p>
         ) : null}
 
-        {inArea === false ? (
+        {onLongIsland === false ? (
+          <p className="mt-2 rounded border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-800">
+            {entry.business.city} is not a town we recognise on Long Island.
+            Check this belongs in the ranking before publishing.
+          </p>
+        ) : inArea === false ? (
           <p className="mt-2 text-[11px] font-semibold text-amber-700">
             This business is in {entry.business.city}, not {rankingPlaceName}.
           </p>

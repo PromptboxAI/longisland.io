@@ -234,7 +234,19 @@ export default async function RankingEditorPage({ params }: PageParams) {
               entries={ranking.entries}
               rankingId={ranking.id}
               library={library}
-              rankingPlaceName={ranking.place?.name ?? null}
+              rankingPlaceName={
+                /*
+                 * Only a town-shaped place is a fair comparison. A ranking
+                 * scoped to "Long Island" produced "This business is in North
+                 * Babylon, not Long Island" — nonsense, since North Babylon is
+                 * on Long Island. Region-scoped rankings are covered by the
+                 * Long Island check inside the editor instead.
+                 */
+                ranking.place &&
+                ["town", "village", "hamlet"].includes(ranking.place.type)
+                  ? ranking.place.name
+                  : null
+              }
               yelpReferencedBusinessIds={yelpReferencedBusinessIds}
               aiConfigured={isAiConfigured}
               rankingPublished={isPublished}

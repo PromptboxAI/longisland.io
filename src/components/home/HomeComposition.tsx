@@ -13,6 +13,7 @@ import { ProductCard } from "@/components/products/ProductCard";
 import { TopRail } from "@/components/rankings/TopRail";
 import { hasAffiliateLinks, merchantDisclosures } from "@/lib/affiliate";
 import { deriveRelatedFallback } from "@/lib/editorial/related-fallback";
+import { findPlacement } from "@/lib/editorial/placements";
 import { SearchBar } from "@/components/site/SearchBar";
 import { EditorialEmpty } from "@/components/ui/EditorialEmpty";
 import { RuleHeading } from "@/components/ui/RuleHeading";
@@ -122,6 +123,36 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
    * published" is a fact. "Trending" and "Top" are claims, and a claim nobody
    * made is not one worth printing.
    */
+  /*
+   * SECTION HEADINGS COME FROM THE SECTION.
+   *
+   * They used to be string literals here, which made the Title and Description
+   * fields in Section Settings look editable and do nothing — an editor
+   * changing "Our Top Picks" to "Our Top Pick" saw no change on the homepage
+   * and had no way to tell whether the save failed or the field was decorative.
+   *
+   * The placement table supplies the default, so a section that has never been
+   * touched still reads properly, and `showsHeading` is what decides whether a
+   * heading is drawn at all — the Primary Feature does not have one, because
+   * the item it holds supplies the headline.
+   */
+  const headingFor = (
+    key: string,
+    section: { title: string | null; description: string | null } | null,
+  ) => {
+    const placement = findPlacement(key);
+    if (!placement?.showsHeading) return null;
+    return {
+      title: section?.title?.trim() || placement.publicHeading || "",
+      description: section?.description?.trim() || null,
+    };
+  };
+
+  const latestHeading = headingFor("homepage_latest", latestSection);
+  const railHeading = headingFor("homepage_top_rail", railSection);
+  const picksHeading = headingFor("homepage_top_picks", picksSection);
+  const trendingHeading = headingFor("homepage_trending", trendingSection);
+
   const [feedLead, ...rest] = rankings;
 
   /*
@@ -210,7 +241,14 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
             aria-labelledby="the-latest"
             className="order-2 md:order-1 lg:border-r lg:border-line lg:pr-8"
           >
-            <RuleHeading id="the-latest" title="The Latest" size="sm" />
+            {latestHeading ? (
+              <RuleHeading
+                id="the-latest"
+                title={latestHeading.title}
+                description={latestHeading.description ?? undefined}
+                size="sm"
+              />
+            ) : null}
             {latest.length > 0 ? (
               <div className="mt-4 space-y-4">
                 {latest.map((ranking) => (
@@ -250,7 +288,12 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
           {/* RIGHT — curated leaderboard. Absent rather than automatic. */}
           {railItems.length > 0 ? (
             <div className="order-3 lg:border-l lg:border-line lg:pl-8">
-              <TopRail id="top-rankings" mode="rankings" items={railItems} />
+              <TopRail
+                id="top-rankings"
+                mode="rankings"
+                items={railItems}
+                title={railHeading?.title}
+              />
             </div>
           ) : null}
         </div>
@@ -267,11 +310,16 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
         aria-labelledby="top-picks"
         className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8"
       >
-        <RuleHeading
-          id="top-picks"
-          title="Our Top Picks"
-          description="Products our editors rate, with where to buy them."
-        />
+        {picksHeading ? (
+          <RuleHeading
+            id="top-picks"
+            title={picksHeading.title}
+            description={
+              picksHeading.description ??
+              "Products our editors rate, with where to buy them."
+            }
+          />
+        ) : null}
         {picksNeedDisclosure ? (
           <div className="mt-3">
             <AffiliateDisclosure variant="inline" merchantNotes={picksMerchantNotes} />
@@ -334,11 +382,13 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
         aria-labelledby="trending"
         className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
       >
-        <RuleHeading
-          id="trending"
-          title="What's Trending Now"
-          description="Chosen by our editors."
-        />
+        {trendingHeading ? (
+          <RuleHeading
+            id="trending"
+            title={trendingHeading.title}
+            description={trendingHeading.description ?? "Chosen by our editors."}
+          />
+        ) : null}
         <div className="mt-6 grid gap-8 md:grid-cols-3">
           {trending.map((ranking) => (
             <RankingCard key={ranking.id} ranking={ranking} />

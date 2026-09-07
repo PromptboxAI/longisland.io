@@ -81,6 +81,9 @@ export interface PickOptions {
  * A product with no usable offer is dropped rather than rendered without a
  * button; `hasUsableOffer` is the same predicate the admin picker warns with.
  */
+/** What a commerce row may hold. Nothing else is ever substituted in. */
+const COMMERCE_TARGETS = new Set(["product", "product_ranking"]);
+
 export function toPickCards(
   section: ResolvedSection | null,
   max = 5,
@@ -93,7 +96,14 @@ export function toPickCards(
   for (const item of section.items) {
     if (picks.length >= max) break;
 
-    if (productsOnly && item.targetType !== "product") continue;
+    /*
+     * Commerce-eligible means a product or a buying guide — the two things a
+     * "Top Picks" row can honestly hold. Everything else is skipped rather
+     * than rendered as a mismatched card, because a local restaurant ranking
+     * in a commerce row is the exact substitution this section exists not to
+     * make. If nothing qualifies, the caller hides the section.
+     */
+    if (productsOnly && !COMMERCE_TARGETS.has(item.targetType)) continue;
 
     if (item.targetType === "product") {
       // resolveItem only ever sets commerce on a product target.

@@ -88,13 +88,13 @@ export const PLACEMENTS: Placement[] = [
     name: "Top Picks",
     location: "Homepage",
     purpose:
-      "The commerce row. Products only — anything else is skipped rather than shown as a mismatched card.",
+      "The commerce row. Products and buying guides only — anything else is skipped rather than shown as a mismatched card.",
     scope: "global",
     layout: "grid",
     showsHeading: true,
     publicHeading: "Our Top Picks",
     maxItems: 5,
-    restrictedTo: ["product"],
+    restrictedTo: ["product", "product_ranking"],
     previewPath: "/",
   },
   {
