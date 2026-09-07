@@ -41,11 +41,18 @@ const SORTS: { value: TargetSort; label: string }[] = [
   { value: "alpha", label: "A–Z" },
 ];
 
-/** Where an editor goes to make the thing that does not exist yet. */
+/**
+ * Where an editor goes to make the thing that does not exist yet.
+ *
+ * These are the LIST pages, not a `/new` route — there isn't one. A record is
+ * created by a POST to a server action, so the list page, which carries that
+ * button, is the honest destination. It receives `returnTo` and hands it to
+ * the action, which threads it to the new record's editor.
+ */
 const CREATE_ROUTES: Partial<Record<TargetKind, { href: string; label: string }>> = {
-  product: { href: "/admin/products/new", label: "Create product" },
-  product_ranking: { href: "/admin/product-rankings/new", label: "Create buying guide" },
-  article: { href: "/admin/articles/new", label: "Create article" },
+  product: { href: "/admin/products", label: "Create product" },
+  product_ranking: { href: "/admin/product-rankings", label: "Create buying guide" },
+  article: { href: "/admin/articles", label: "Create article" },
   ranking: { href: "/admin/generate", label: "Create ranking" },
 };
 

@@ -8,7 +8,12 @@ import { articleKindLabel } from "@/types/articles";
 
 export const dynamic = "force-dynamic";
 
-export default async function ArticlesPage() {
+export default async function ArticlesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
+  const params = await searchParams;
   const articles = await listAdminArticles();
   const live = articles.filter((a) => a.status === "published").length;
 
@@ -24,6 +29,7 @@ export default async function ArticlesPage() {
           </p>
         </div>
         <form action={createBlankArticle}>
+          <input type="hidden" name="returnTo" value={params.returnTo ?? ""} />
           <button
             type="submit"
             className="inline-flex items-center gap-1.5 rounded-full bg-navy-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy-800"

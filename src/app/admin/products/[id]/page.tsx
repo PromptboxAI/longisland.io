@@ -1,5 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+
+import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
+import { ReturnToBanner } from "@/components/admin/ReturnToBanner";
 import { notFound } from "next/navigation";
 
 import { deleteProduct } from "@/app/admin/products/actions";
@@ -17,7 +20,13 @@ export const dynamic = "force-dynamic";
 
 type PageParams = { params: Promise<{ id: string }> };
 
-export default async function ProductEditorPage({ params }: PageParams) {
+export default async function ProductEditorPage({
+  params,
+  searchParams,
+}: PageParams & { searchParams: Promise<{ returnTo?: string }> }) {
+  // Set when an editor came here from an editorial placement to make something
+  // that did not exist yet. It is the only record of that trip.
+  const { returnTo } = await searchParams;
   const { id } = await params;
 
   const [product, categories, merchants, library] = await Promise.all([
@@ -48,6 +57,7 @@ export default async function ProductEditorPage({ params }: PageParams) {
           <ArrowLeft aria-hidden="true" className="size-4" />
           All products
         </Link>
+        <ReturnToBanner returnTo={returnTo} label="Back to the placement" />
       </div>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -62,14 +72,16 @@ export default async function ProductEditorPage({ params }: PageParams) {
           </p>
         </div>
 
-        <form action={remove}>
-          <button
-            type="submit"
-            className="rounded-full border border-line bg-white px-5 py-2.5 text-sm font-semibold text-navy-900 hover:border-red-300 hover:text-red-600"
-          >
-            Delete product
-          </button>
-        </form>
+        {/*
+          Asks before doing something no amount of retyping undoes. It used to
+          delete on the first click, which is a poor match for an action that
+          also strips the product out of every guide it appears in.
+        */}
+        <DeleteRowButton
+          name={product.name}
+          consequence="It is removed from every guide and recommendation too."
+          onDelete={remove}
+        />
       </div>
 
       {product.status !== "published" ? (

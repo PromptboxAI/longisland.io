@@ -1,5 +1,7 @@
 import { ArrowLeft, Eye } from "lucide-react";
 import Link from "next/link";
+
+import { ReturnToBanner } from "@/components/admin/ReturnToBanner";
 import { notFound } from "next/navigation";
 
 import { deleteArticle, setArticleStatus } from "@/app/admin/articles/actions";
@@ -16,7 +18,13 @@ export const dynamic = "force-dynamic";
 
 type PageParams = { params: Promise<{ id: string }> };
 
-export default async function ArticleEditorPage({ params }: PageParams) {
+export default async function ArticleEditorPage({
+  params,
+  searchParams,
+}: PageParams & { searchParams: Promise<{ returnTo?: string }> }) {
+  // Set when an editor came here from an editorial placement to make something
+  // that did not exist yet. It is the only record of that trip.
+  const { returnTo } = await searchParams;
   const { id } = await params;
 
   const [article, categories, places, library] = await Promise.all([
@@ -54,6 +62,7 @@ export default async function ArticleEditorPage({ params }: PageParams) {
         <ArrowLeft aria-hidden="true" className="size-4" />
         All articles
       </Link>
+      <ReturnToBanner returnTo={returnTo} label="Back to the placement" />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">

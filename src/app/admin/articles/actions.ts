@@ -152,7 +152,18 @@ export async function setArticleStatus(
   revalidatePath("/");
 }
 
-export async function createBlankArticle(): Promise<void> {
+/**
+ * Creates a blank record and opens it.
+ *
+ * `returnTo` is threaded through so an editor who came here from an editorial
+ * placement — because the thing they wanted to curate did not exist yet — gets
+ * a way back to that placement once they have made it. Without it the trip is
+ * one-way and they land on a list with no memory of why.
+ */
+export async function createBlankArticle(formData?: FormData): Promise<void> {
+  // Read from the form rather than an argument: these are used directly as
+  // `<form action={...}>`, which hands the action FormData and nothing else.
+  const returnTo = formData?.get("returnTo");
   const { supabase } = await requireAdmin();
 
   const { data: existing } = await supabase.from("articles").select("slug");
@@ -169,7 +180,17 @@ export async function createBlankArticle(): Promise<void> {
     .single();
 
   revalidatePath("/admin/articles");
-  if (data) redirect(`/admin/articles/${data.id}`);
+  if (data) {
+    // Only an internal path travels onward; an absolute URL here would make a
+    // shared admin link an open redirect.
+    const path = typeof returnTo === "string" ? returnTo : null;
+    const safe = path?.startsWith("/") && !path.startsWith("//") ? path : null;
+    redirect(
+      safe
+        ? `/admin/articles/${data.id}?returnTo=${encodeURIComponent(safe)}`
+        : `/admin/articles/${data.id}`,
+    );
+  }
 }
 
 export async function deleteArticle(id: string): Promise<void> {

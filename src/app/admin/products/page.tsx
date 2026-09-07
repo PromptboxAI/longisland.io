@@ -1,7 +1,8 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 
-import { createBlankProduct } from "@/app/admin/products/actions";
+import { createBlankProduct, deleteProduct } from "@/app/admin/products/actions";
+import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { listAdminProducts } from "@/lib/data/admin-product-queries";
 
@@ -15,7 +16,9 @@ const STATUS_FILTERS = [
   { value: "archived", label: "Archived" },
 ];
 
-type PageProps = { searchParams: Promise<{ status?: string; q?: string }> };
+type PageProps = {
+  searchParams: Promise<{ status?: string; q?: string; returnTo?: string }>;
+};
 
 export default async function AdminProductsPage({ searchParams }: PageProps) {
   const params = await searchParams;
@@ -35,6 +38,9 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
         </div>
 
         <form action={createBlankProduct}>
+          {/* Carries the placement an editor came from through to the new
+              record, so the trip back is not lost. */}
+          <input type="hidden" name="returnTo" value={params.returnTo ?? ""} />
           <button
             type="submit"
             className="inline-flex items-center gap-2 rounded-full bg-navy-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy-800"
@@ -99,11 +105,23 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                 <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
                   Category
                 </th>
-                <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
-                  Offers
+                {/*
+                  "Offers" was read as a metric sitting at zero. It is a count
+                  of the merchant links attached to the product — configuration,
+                  not traffic — and nothing on this page measures clicks.
+                */}
+                <th
+                  scope="col"
+                  className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400"
+                  title="How many merchant buy-links are attached. Not a click count."
+                >
+                  Buy links
                 </th>
                 <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
                   Status
+                </th>
+                <th scope="col" className="px-5 py-3">
+                  <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
@@ -127,13 +145,28 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                   </td>
                   <td className="px-5 py-3 tabular-nums">
                     {product.offer_count === 0 ? (
-                      <span className="font-semibold text-red-600">0</span>
+                      <span
+                        className="font-semibold text-amber-700"
+                        title="No merchant link yet, so this product will not render in a commerce row"
+                      >
+                        None
+                      </span>
                     ) : (
                       <span className="text-ink-700">{product.offer_count}</span>
                     )}
                   </td>
                   <td className="px-5 py-3">
                     <StatusPill status={product.status} />
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <DeleteRowButton
+                      name={product.name}
+                      consequence="It is removed from every guide and recommendation too."
+                      onDelete={async () => {
+                        "use server";
+                        await deleteProduct(product.id);
+                      }}
+                    />
                   </td>
                 </tr>
               ))}
