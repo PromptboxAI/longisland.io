@@ -6,6 +6,7 @@ import { deleteProduct } from "@/app/admin/products/actions";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { ProductOfferEditor } from "@/components/admin/ProductOfferEditor";
 import { StatusPill } from "@/components/admin/StatusPill";
+import { listMediaAssets } from "@/lib/data/admin-queries";
 import {
   getAdminProduct,
   listAdminMerchants,
@@ -19,13 +20,17 @@ type PageParams = { params: Promise<{ id: string }> };
 export default async function ProductEditorPage({ params }: PageParams) {
   const { id } = await params;
 
-  const [product, categories, merchants] = await Promise.all([
+  const [product, categories, merchants, library] = await Promise.all([
     getAdminProduct(id),
     listAdminProductCategories(),
     listAdminMerchants(),
+    listMediaAssets(),
   ]);
 
   if (!product) notFound();
+
+  const imageMedia =
+    library.find((asset) => asset.id === product.image_media_id) ?? null;
 
   // Server Actions must be bound here; the button below is inside a form.
   async function remove() {
@@ -82,7 +87,12 @@ export default async function ProductEditorPage({ params }: PageParams) {
           >
             Details
           </h2>
-          <ProductForm product={product} categories={categories} />
+          <ProductForm
+        product={product}
+        categories={categories}
+        library={library}
+        imageMedia={imageMedia}
+      />
         </section>
 
         <section aria-labelledby="product-offers">

@@ -5,17 +5,26 @@ import { useActionState } from "react";
 
 import { saveProduct, type ActionState } from "@/app/admin/products/actions";
 import { FormError } from "@/components/forms/Field";
+import { MediaField } from "@/components/admin/MediaField";
+import type { MediaAsset } from "@/types/media";
 import type { Product, ProductCategory } from "@/types/products";
 
 export interface ProductFormProps {
   product: Product;
   categories: ProductCategory[];
+  library: MediaAsset[];
+  imageMedia: MediaAsset | null;
 }
 
 const inputClass =
   "w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500";
 
-export function ProductForm({ product, categories }: ProductFormProps) {
+export function ProductForm({
+  product,
+  categories,
+  library,
+  imageMedia,
+}: ProductFormProps) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     saveProduct,
     {},
@@ -158,27 +167,15 @@ export function ProductForm({ product, categories }: ProductFormProps) {
             </p>
           </div>
 
-          <div>
-            <label
-              htmlFor="imageUrl"
-              className="block text-sm font-semibold text-navy-900"
-            >
-              Image URL
-            </label>
-            <input
-              id="imageUrl"
-              name="imageUrl"
-              type="url"
-              placeholder="https://"
-              defaultValue={product.image_url ?? ""}
-              className={`mt-2 ${inputClass}`}
-            />
-            <p className="mt-1 text-xs text-ink-500">
-              Owned, licensed or manufacturer-provided imagery only. Remote hosts
-              must be added to `images.remotePatterns` in next.config.ts. Left
-              blank, a branded placeholder renders instead.
-            </p>
-          </div>
+          <MediaField
+            name="imageMediaId"
+            urlName="imageUrl"
+            value={imageMedia}
+            urlValue={product.image_url ?? null}
+            library={library}
+            label="Product image"
+            hint="Owned, licensed or manufacturer-supplied only. Blank renders a branded placeholder."
+          />
         </div>
       </section>
 

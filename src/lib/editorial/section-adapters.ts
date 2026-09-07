@@ -1,6 +1,7 @@
 import type { RelatedLink } from "@/components/cards/RankingCard";
 import type { TopRailItem } from "@/components/rankings/TopRail";
 import { hasUsableOffer } from "@/lib/affiliate";
+import { resolveImageUrl } from "@/lib/media/resolve";
 import type { RankingSummary, ResolvedSection } from "@/types/database";
 import type { ProductWithOffers } from "@/types/products";
 
@@ -174,4 +175,76 @@ export function pickRankingSummaries(
 /** True when a section exists and an editor has put something live in it. */
 export function isCurated(section: ResolvedSection | null): boolean {
   return Boolean(section && section.items.length > 0);
+}
+
+/* -------------------------------------------------------------------------- */
+/* The feature well                                                            */
+/* -------------------------------------------------------------------------- */
+
+export interface FeatureProps {
+  href: string;
+  headline: string;
+  kicker: string | null;
+  dek: string | null;
+  imageUrl: string | null;
+  imageSeed: string;
+  objectPosition: string | null;
+  meta: string | null;
+}
+
+/**
+ * The first curated item, as the generic feature card wants it.
+ *
+ * Deliberately makes no attempt to describe what the target IS. The old feature
+ * slot rendered a RankingCard, which prints "N places" — true of a ranking and
+ * meaningless over a seasonal guide. `meta` is therefore filled in only where
+ * the caller can look the target up and say something factual; otherwise it is
+ * null and the line does not render.
+ */
+export function toFeature(
+  section: ResolvedSection | null,
+  rankings: RankingSummary[],
+): FeatureProps | null {
+  const item = section?.items[0];
+  if (!item) return null;
+
+  // The one fact worth adding, and only when we can actually count it.
+  let meta: string | null = null;
+  if (item.targetType === "ranking") {
+    const ranking = rankings.find((r) => `/best/${r.slug}` === item.href);
+    if (ranking) {
+      meta =
+        `${ranking.entry_count} ${ranking.entry_count === 1 ? "place" : "places"}` +
+        (ranking.geography ? ` · ${ranking.geography}` : "");
+    }
+  }
+
+  return {
+    href: item.href,
+    headline: item.headline,
+    kicker: item.kicker,
+    dek: item.dek,
+    imageUrl: item.imageUrl,
+    imageSeed: item.id,
+    objectPosition: item.objectPosition,
+    meta,
+  };
+}
+
+/** The same shape from a ranking, for the uncurated fallback. */
+export function rankingToFeature(ranking: RankingSummary): FeatureProps {
+  return {
+    href: `/best/${ranking.slug}`,
+    headline: ranking.title,
+    kicker: ranking.category?.name ?? ranking.geography,
+    dek: ranking.description,
+    imageUrl: resolveImageUrl(ranking.hero_media, ranking.hero_image_url),
+    imageSeed: ranking.slug,
+    objectPosition: ranking.hero_media
+      ? `${ranking.hero_media.focal_x * 100}% ${ranking.hero_media.focal_y * 100}%`
+      : null,
+    meta:
+      `${ranking.entry_count} ${ranking.entry_count === 1 ? "place" : "places"}` +
+      (ranking.geography ? ` · ${ranking.geography}` : ""),
+  };
 }

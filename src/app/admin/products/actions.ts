@@ -57,6 +57,7 @@ const productSchema = z.object({
   shortDescription: z.string().trim().max(600),
   editorialSummary: z.string().trim().max(2000),
   imageUrl: outboundUrl,
+  imageMediaId: z.string().uuid().nullable(),
   status: z.enum(["draft", "review", "published", "archived"]),
   featured: z.boolean(),
 });
@@ -76,6 +77,7 @@ export async function saveProduct(
     shortDescription: readString(formData, "shortDescription"),
     editorialSummary: readString(formData, "editorialSummary"),
     imageUrl: readString(formData, "imageUrl"),
+    imageMediaId: readString(formData, "imageMediaId") || null,
     status: readString(formData, "status"),
     featured: formData.get("featured") === "on",
   });
@@ -95,7 +97,8 @@ export async function saveProduct(
       category_id: data.categoryId,
       short_description: data.shortDescription || null,
       editorial_summary: data.editorialSummary || null,
-      image_url: data.imageUrl || null,
+      image_media_id: data.imageMediaId,
+      image_url: data.imageMediaId ? null : data.imageUrl || null,
       status: data.status,
       featured: data.featured,
     })

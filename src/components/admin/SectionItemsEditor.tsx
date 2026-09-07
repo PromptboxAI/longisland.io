@@ -23,6 +23,7 @@ const INPUT =
 
 const TARGET_TYPES: { value: SectionTargetType; label: string }[] = [
   { value: "ranking", label: "Ranking" },
+  { value: "article", label: "Article" },
   { value: "business", label: "Business" },
   { value: "category", label: "Category" },
   { value: "place", label: "Place" },
@@ -92,6 +93,18 @@ function inherited(item: EditorialSectionItemWithTargets) {
       headline: item.product.name,
       dek: item.product.short_description,
       image: item.product.image_url,
+    };
+  }
+  if (item.article) {
+    return {
+      type: "Article" as const,
+      name: item.article.title,
+      href: `/articles/${item.article.slug}`,
+      status: item.article.status,
+      kicker: null,
+      headline: item.article.title,
+      dek: item.article.dek,
+      image: item.article.hero_image_url,
     };
   }
   if (item.product_ranking) {
@@ -165,6 +178,11 @@ export function AddSectionItem({
       return candidates.places
         .filter((p) => match(p.name))
         .map((p) => ({ id: p.id, label: p.name, note: p.status }));
+    }
+    if (targetType === "article") {
+      return candidates.articles
+        .filter((a) => match(a.title))
+        .map((a) => ({ id: a.id, label: a.title, note: a.status }));
     }
     if (targetType === "product_ranking") {
       return candidates.productRankings

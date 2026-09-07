@@ -24,10 +24,18 @@ const businessSchema = z.object({
   description: z.string().trim().max(2000),
   editorialSummary: z.string().trim().max(2000),
   primaryImageUrl: z.string().trim().max(500),
+  primaryMediaId: z.string().uuid().nullable(),
+  seoTitle: z.string().trim().max(70),
+  seoDescription: z.string().trim().max(200),
   status: z.enum(["draft", "review", "published", "archived"]),
   featured: z.boolean(),
   claimed: z.boolean(),
 });
+
+function readUuidOrNull(formData: FormData, key: string): string | null {
+  const value = readString(formData, key).trim();
+  return value.length > 0 ? value : null;
+}
 
 function readString(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -57,6 +65,9 @@ export async function saveBusiness(
     description: readString(formData, "description"),
     editorialSummary: readString(formData, "editorialSummary"),
     primaryImageUrl: readString(formData, "primaryImageUrl"),
+    primaryMediaId: readUuidOrNull(formData, "primaryMediaId"),
+    seoTitle: readString(formData, "seoTitle"),
+    seoDescription: readString(formData, "seoDescription"),
     status: readString(formData, "status") || "draft",
     featured: formData.get("featured") === "on",
     claimed: formData.get("claimed") === "on",
@@ -83,7 +94,11 @@ export async function saveBusiness(
       subcategory: data.subcategory || null,
       description: data.description || null,
       editorial_summary: data.editorialSummary || null,
-      primary_image_url: data.primaryImageUrl || null,
+      primary_media_id: data.primaryMediaId,
+      // The uploaded asset wins; a pasted URL only survives without one.
+      primary_image_url: data.primaryMediaId ? null : data.primaryImageUrl || null,
+      seo_title: data.seoTitle || null,
+      seo_description: data.seoDescription || null,
       status: data.status,
       featured: data.featured,
       claimed: data.claimed,

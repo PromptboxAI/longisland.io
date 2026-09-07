@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BusinessCard } from "@/components/cards/BusinessCard";
 import { PickCard } from "@/components/cards/PickCard";
 import { PlaceCard } from "@/components/cards/PlaceCard";
+import { FeatureCard } from "@/components/cards/FeatureCard";
 import { RankingCard } from "@/components/cards/RankingCard";
 import { AdvertiseCTA } from "@/components/cta/AdvertiseCTA";
 import { NewsletterSignup } from "@/components/cta/NewsletterSignup";
@@ -25,6 +26,8 @@ import {
 import {
   pickedProducts,
   pickRankingSummaries,
+  rankingToFeature,
+  toFeature,
   toPickCards,
   toRailItems,
   toRelatedLinks,
@@ -96,7 +99,14 @@ export default async function HomePage() {
    */
   const [feedLead, ...rest] = rankings;
 
-  const lead = pickRankingSummaries(primarySection, rankings)[0] ?? feedLead;
+  /*
+   * The feature well takes ANY curated target — a ranking, an article, a buying
+   * guide — because it renders from the resolved item rather than from a
+   * ranking record. Falls back to the newest ranking while nothing is curated.
+   */
+  const lead =
+    toFeature(primarySection, rankings) ??
+    (feedLead ? rankingToFeature(feedLead) : null);
 
   const curatedLatest = pickRankingSummaries(latestSection, rankings);
   const latest = curatedLatest.length > 0 ? curatedLatest : rest.slice(0, 5);
@@ -201,10 +211,16 @@ export default async function HomePage() {
           {/* CENTER — the dominant slot on the page */}
           <div className="order-1 md:order-2">
             {lead ? (
-              <RankingCard
-                ranking={lead}
+              <FeatureCard
+                href={lead.href}
+                headline={lead.headline}
+                kicker={lead.kicker}
+                dek={lead.dek}
+                imageUrl={lead.imageUrl}
+                imageSeed={lead.imageSeed}
+                objectPosition={lead.objectPosition ?? undefined}
+                meta={lead.meta}
                 relatedItems={relatedToLead}
-                variant="feature"
                 priority
               />
             ) : (

@@ -1,4 +1,5 @@
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { listMediaAssets } from "@/lib/data/admin-queries";
+import { ArrowLeft, Eye, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -24,11 +25,12 @@ type PageParams = { params: Promise<{ id: string }> };
 export default async function ProductGuideEditorPage({ params }: PageParams) {
   const { id } = await params;
 
-  const [guide, categories, localCategories, candidates] = await Promise.all([
+  const [guide, categories, localCategories, candidates, library] = await Promise.all([
     getAdminProductGuide(id),
     listAdminProductCategories(),
     listAdminLocalCategories(),
     searchAdminProducts("", 200),
+    listMediaAssets(),
   ]);
 
   if (!guide) notFound();
@@ -86,6 +88,15 @@ export default async function ProductGuideEditorPage({ params }: PageParams) {
             <ExternalLink aria-hidden="true" className="size-3.5" />
           </Link>
 
+          <Link
+            href={`/preview/guide/${guide.id}`}
+            target="_blank"
+            className="inline-flex items-center gap-1.5 rounded-full border border-navy-300 px-4 py-2 text-sm font-semibold text-navy-900 hover:border-navy-500 hover:bg-navy-50"
+          >
+            <Eye aria-hidden="true" className="size-4" />
+            Preview
+          </Link>
+
           {isPublished ? (
             <form action={unpublish}>
               <button
@@ -137,6 +148,9 @@ export default async function ProductGuideEditorPage({ params }: PageParams) {
           </h2>
           <div className="rounded-card border border-line bg-white p-5">
             <ProductGuideDetailsForm
+              library={library}
+              heroMedia={library.find((a) => a.id === guide.hero_media_id) ?? null}
+              ogMedia={library.find((a) => a.id === guide.og_image_media_id) ?? null}
               guide={guide}
               categories={categories}
               localCategories={localCategories}

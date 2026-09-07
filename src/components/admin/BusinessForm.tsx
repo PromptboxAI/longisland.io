@@ -5,14 +5,23 @@ import { useActionState } from "react";
 
 import { saveBusiness, type BusinessActionState } from "@/app/admin/businesses/actions";
 import { FormError } from "@/components/forms/Field";
+import { MediaField } from "@/components/admin/MediaField";
+import type { MediaAsset } from "@/types/media";
 import type { Business, Category } from "@/types/database";
 
 export interface BusinessFormProps {
   business: Business;
   categories: Category[];
+  library: MediaAsset[];
+  primaryMedia: MediaAsset | null;
 }
 
-export function BusinessForm({ business, categories }: BusinessFormProps) {
+export function BusinessForm({
+  business,
+  categories,
+  library,
+  primaryMedia,
+}: BusinessFormProps) {
   const [state, formAction, pending] = useActionState<BusinessActionState, FormData>(
     saveBusiness,
     {},
@@ -240,26 +249,15 @@ export function BusinessForm({ business, categories }: BusinessFormProps) {
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="primaryImageUrl"
-              className="block text-sm font-semibold text-navy-900"
-            >
-              Primary image URL
-            </label>
-            <input
-              id="primaryImageUrl"
-              name="primaryImageUrl"
-              type="url"
-              placeholder="https://"
-              defaultValue={business.primary_image_url ?? ""}
-              className={`mt-2 ${inputClass}`}
-            />
-            <p className="mt-1 text-xs text-ink-500">
-              Use owned, licensed or business-provided photography only. Remote
-              hosts must be added to `images.remotePatterns` in next.config.ts.
-            </p>
-          </div>
+          <MediaField
+            name="primaryMediaId"
+            urlName="primaryImageUrl"
+            value={primaryMedia}
+            urlValue={business.primary_image_url ?? null}
+            library={library}
+            label="Primary image"
+            hint="Owned, licensed or business-provided photography only. Never a third-party listing photo."
+          />
         </div>
       </section>
 
@@ -312,6 +310,44 @@ export function BusinessForm({ business, categories }: BusinessFormProps) {
           </div>
         </div>
       </section>
+
+      <fieldset className="rounded-card border border-line bg-sand-50 p-4">
+        <legend className="px-1 text-xs font-bold uppercase tracking-wider text-ink-500">
+          Search &amp; sharing
+        </legend>
+        <div className="space-y-3">
+          <div>
+            <label htmlFor="seoTitle" className="block text-sm font-semibold text-navy-900">
+              SEO title
+            </label>
+            <input
+              id="seoTitle"
+              name="seoTitle"
+              maxLength={70}
+              defaultValue={business.seo_title ?? ""}
+              placeholder={business.name}
+              className={`mt-2 ${inputClass}`}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="seoDescription"
+              className="block text-sm font-semibold text-navy-900"
+            >
+              SEO description
+            </label>
+            <textarea
+              id="seoDescription"
+              name="seoDescription"
+              rows={2}
+              maxLength={200}
+              defaultValue={business.seo_description ?? ""}
+              placeholder={business.description ?? "Falls back to the description."}
+              className={`mt-2 ${inputClass}`}
+            />
+          </div>
+        </div>
+      </fieldset>
 
       <FormError message={state.error} />
 

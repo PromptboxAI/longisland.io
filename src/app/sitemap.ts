@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { listArticles } from "@/lib/data/article-queries";
 import { listProductGuides } from "@/lib/data/product-queries";
 import {
   listBusinessSlugs,
@@ -18,6 +19,7 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: "daily" 
   { path: "/methodology", priority: 0.6, changeFrequency: "monthly" },
   { path: "/about", priority: 0.5, changeFrequency: "monthly" },
   { path: "/products", priority: 0.8, changeFrequency: "daily" },
+  { path: "/articles", priority: 0.8, changeFrequency: "daily" },
   { path: "/nominate", priority: 0.5, changeFrequency: "monthly" },
   { path: "/affiliate-disclosure", priority: 0.3, changeFrequency: "yearly" },
   { path: "/advertise", priority: 0.5, changeFrequency: "monthly" },
@@ -27,13 +29,14 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: "daily" 
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [rankings, categories, places, businessSlugs, productGuides] =
+  const [rankings, categories, places, businessSlugs, productGuides, articles] =
     await Promise.all([
       listRankings({}),
       listCategories(),
       listPlaces(),
       listBusinessSlugs(),
       listProductGuides({}),
+      listArticles({}),
     ]);
 
   const now = new Date();
@@ -61,6 +64,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(guide.updated_at),
       changeFrequency: "weekly" as const,
       priority: 0.8,
+    })),
+    ...articles.map((article) => ({
+      url: `${site.url}/articles/${article.slug}`,
+      lastModified: new Date(article.updated_at),
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
     })),
 
     ...categories.map((category) => ({

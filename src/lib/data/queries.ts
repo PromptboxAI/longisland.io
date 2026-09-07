@@ -2,6 +2,7 @@ import "server-only";
 
 import { isSeedContentAllowed } from "@/lib/env";
 import { createPublicClient } from "@/lib/supabase/public";
+import { resolveImageUrl } from "@/lib/media/resolve";
 import {
   SEED_BUSINESSES,
   SEED_CATEGORIES,
@@ -24,6 +25,7 @@ import type {
   RankingSummary,
   RankingWithEntries,
 } from "@/types/database";
+import type { MediaAsset } from "@/types/media";
 import type {
   AffiliateMerchant,
   OfferWithMerchant,
@@ -163,6 +165,7 @@ function seedSummary(ranking: Ranking): RankingSummary {
     entry_count: seedEntriesFor(ranking.id).length,
     category: category ? { name: category.name, slug: category.slug } : null,
     place: place ? { name: place.name, slug: place.slug } : null,
+    hero_media: null,
     hero_image_url: null,
   };
 }
@@ -342,7 +345,9 @@ export async function listRankings(
   let request = supabase
     .from("rankings")
     .select(
-      "*, category:categories(name, slug), place:places(name, slug), ranking_entries(count)",
+      "*, category:categories(name, slug), place:places(name, slug), " +
+        "ranking_entries(count), " +
+        "hero_media:media_assets!rankings_hero_media_id_fkey(*)",
     );
 
   if (categorySlug) {
@@ -377,9 +382,10 @@ export async function listRankings(
     category: { name: string; slug: string } | null;
     place: { name: string; slug: string } | null;
     ranking_entries: { count: number }[];
+    hero_media: MediaAsset | null;
   };
 
-  return (data as Row[]).map((row) => ({
+  return (data as unknown as Row[]).map((row) => ({
     id: row.id,
     title: row.title,
     slug: row.slug,
@@ -391,7 +397,8 @@ export async function listRankings(
     entry_count: row.ranking_entries?.[0]?.count ?? 0,
     category: row.category,
     place: row.place,
-    hero_image_url: null,
+    hero_media: row.hero_media,
+    hero_image_url: row.hero_image_url,
   }));
 }
 
@@ -438,13 +445,18 @@ export async function getRankingBySlug(
         : null,
       place: ranking.place_id ? (seedPlaceById.get(ranking.place_id) ?? null) : null,
       entries,
+      hero_media: null,
+      og_media: null,
     };
   }
 
   const { data, error } = await supabase
     .from("rankings")
     .select(
-      "*, category:categories(*), place:places(*), entries:ranking_entries(*, business:businesses(*))",
+      "*, category:categories(*), place:places(*), " +
+        "entries:ranking_entries(*, business:businesses(*)), " +
+        "hero_media:media_assets!rankings_hero_media_id_fkey(*), " +
+        "og_media:media_assets!rankings_og_image_media_id_fkey(*)",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -777,8 +789,14 @@ export async function searchAll(query: string): Promise<SearchResults> {
  */
 const SECTION_SELECT =
   "*, items:editorial_section_items(" +
-  "*, ranking:rankings(*), business:businesses(*), category:categories(*), " +
-  "place:places(*), product_ranking:product_rankings(*), " +
+  "*, " +
+  "image_media:media_assets!editorial_section_items_image_media_id_fkey(*), " +
+  "ranking:rankings(*, hero_media:media_assets!rankings_hero_media_id_fkey(*)), " +
+  "article:articles(*, hero_media:media_assets!articles_hero_media_id_fkey(*)), " +
+  "business:businesses(*, primary_media:media_assets!businesses_primary_media_id_fkey(*)), " +
+  "category:categories(*, hero_media:media_assets!categories_hero_media_id_fkey(*)), " +
+  "place:places(*, hero_media:media_assets!places_hero_media_id_fkey(*)), " +
+  "product_ranking:product_rankings(*, hero_media:media_assets!product_rankings_hero_media_id_fkey(*)), " +
   "product:products(*, offers:product_offers(*))" +
   ")";
 
@@ -813,6 +831,7 @@ function resolveItem(
   merchants: Map<string, AffiliateMerchant>,
 ): ResolvedSectionItem | null {
   let commerce: ProductWithOffers | null = null;
+  let inheritedMedia: MediaAsset | null = null;
   let targetType: SectionTargetType;
   let href: string;
   let inheritedKicker: string | null = null;
@@ -827,6 +846,8 @@ function resolveItem(
     inheritedKicker = item.ranking.geography;
     inheritedHeadline = item.ranking.title;
     inheritedDek = item.ranking.description;
+    inheritedImage = item.ranking.hero_image_url;
+    inheritedMedia = item.ranking.hero_media;
   } else if (item.business_id) {
     if (!item.business) return null;
     targetType = "business";
@@ -835,6 +856,7 @@ function resolveItem(
     inheritedHeadline = item.business.name;
     inheritedDek = item.business.description;
     inheritedImage = item.business.primary_image_url;
+    inheritedMedia = item.business.primary_media;
   } else if (item.category_id) {
     if (!item.category) return null;
     targetType = "category";
@@ -842,6 +864,7 @@ function resolveItem(
     inheritedHeadline = item.category.name;
     inheritedDek = item.category.description;
     inheritedImage = item.category.hero_image_url;
+    inheritedMedia = item.category.hero_media;
   } else if (item.place_id) {
     if (!item.place) return null;
     targetType = "place";
@@ -850,12 +873,15 @@ function resolveItem(
     inheritedHeadline = item.place.name;
     inheritedDek = item.place.description;
     inheritedImage = item.place.hero_image_url;
+    inheritedMedia = item.place.hero_media;
   } else if (item.product_ranking_id) {
     if (!item.product_ranking) return null;
     targetType = "product_ranking";
     href = `/products/${item.product_ranking.slug}`;
     inheritedHeadline = item.product_ranking.title;
     inheritedDek = item.product_ranking.description;
+    inheritedImage = item.product_ranking.hero_image_url;
+    inheritedMedia = item.product_ranking.hero_media;
   } else if (item.product_id) {
     if (!item.product) return null;
     targetType = "product";
@@ -879,6 +905,14 @@ function resolveItem(
         }),
       ),
     };
+  } else if (item.article_id) {
+    if (!item.article) return null;
+    targetType = "article";
+    href = `/articles/${item.article.slug}`;
+    inheritedHeadline = item.article.title;
+    inheritedDek = item.article.dek;
+    inheritedImage = item.article.hero_image_url;
+    inheritedMedia = item.article.hero_media;
   } else if (item.external_url) {
     targetType = "external_url";
     href = item.external_url;
@@ -900,7 +934,14 @@ function resolveItem(
     kicker: item.kicker ?? inheritedKicker,
     headline,
     dek: item.dek ?? inheritedDek,
-    imageUrl: item.image_url ?? inheritedImage,
+    imageUrl:
+      resolveImageUrl(item.image_media, item.image_url) ??
+      resolveImageUrl(inheritedMedia, inheritedImage),
+    objectPosition:
+      (item.image_media ?? inheritedMedia)
+        ? `${((item.image_media ?? inheritedMedia) as MediaAsset).focal_x * 100}% ` +
+          `${((item.image_media ?? inheritedMedia) as MediaAsset).focal_y * 100}%`
+        : null,
     badge: item.badge,
     isSponsored: item.is_sponsored,
     commerce,

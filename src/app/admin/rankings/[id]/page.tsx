@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, Eye, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -80,6 +80,15 @@ export default async function RankingEditorPage({ params }: PageParams) {
           >
             Preview
             <ExternalLink aria-hidden="true" className="size-3.5" />
+          </Link>
+
+          <Link
+            href={`/preview/ranking/${ranking.id}`}
+            target="_blank"
+            className="inline-flex items-center gap-1.5 rounded-full border border-navy-300 px-4 py-2 text-sm font-semibold text-navy-900 hover:border-navy-500 hover:bg-navy-50"
+          >
+            <Eye aria-hidden="true" className="size-4" />
+            Preview
           </Link>
 
           {isPublished ? (

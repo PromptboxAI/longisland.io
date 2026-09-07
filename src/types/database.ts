@@ -1,4 +1,6 @@
 import type { ProductRanking, ProductWithOffers } from "@/types/products";
+import type { MediaAsset } from "@/types/media";
+import type { Article } from "@/types/articles";
 
 /**
  * Hand-written database types.
@@ -187,6 +189,8 @@ export interface RankingWithEntries extends Ranking {
   category: Category | null;
   place: Place | null;
   entries: RankingEntryWithBusiness[];
+  hero_media: MediaAsset | null;
+  og_media: MediaAsset | null;
 }
 
 /** Where a business appears across published rankings. */
@@ -209,6 +213,8 @@ export interface RankingSummary {
   entry_count: number;
   category: Pick<Category, "name" | "slug"> | null;
   place: Pick<Place, "name" | "slug"> | null;
+  /** The library asset, when one is set. Wins over hero_image_url. */
+  hero_media: MediaAsset | null;
   hero_image_url: string | null;
 }
 
@@ -234,6 +240,7 @@ export type SectionLayout = "feature" | "rail" | "grid" | "link_row";
 /** Destination kinds an editorial item may point at. */
 export type SectionTargetType =
   | "ranking"
+  | "article"
   | "business"
   | "category"
   | "place"
@@ -250,6 +257,7 @@ export type SectionTargetType =
  */
 export const EDITORIAL_TARGET_TYPES: SectionTargetType[] = [
   "ranking",
+  "article",
   "business",
   "category",
   "place",
@@ -305,12 +313,14 @@ export interface EditorialSectionItem {
 
 /** An item with its target rows embedded, as the queries return it. */
 export interface EditorialSectionItemWithTargets extends EditorialSectionItem {
-  ranking: Ranking | null;
-  business: Business | null;
-  category: Category | null;
-  place: Place | null;
-  product_ranking: ProductRanking | null;
+  ranking: (Ranking & { hero_media: MediaAsset | null }) | null;
+  business: (Business & { primary_media: MediaAsset | null }) | null;
+  category: (Category & { hero_media: MediaAsset | null }) | null;
+  place: (Place & { hero_media: MediaAsset | null }) | null;
+  product_ranking: (ProductRanking & { hero_media: MediaAsset | null }) | null;
   product: ProductWithOffers | null;
+  article: (Article & { hero_media: MediaAsset | null }) | null;
+  image_media: MediaAsset | null;
 }
 
 /**
@@ -342,6 +352,8 @@ export interface ResolvedSectionItem {
    * article" true by construction rather than by remembering.
    */
   commerce: ProductWithOffers | null;
+  /** Focal point from the resolved media asset, as CSS object-position. */
+  objectPosition: string | null;
   /** True when the field came from an override rather than the target. */
   overrides: {
     kicker: boolean;

@@ -4,7 +4,11 @@ import { notFound } from "next/navigation";
 
 import { BusinessForm } from "@/components/admin/BusinessForm";
 import { StatusPill } from "@/components/admin/StatusPill";
-import { getAdminBusiness, listAdminCategories } from "@/lib/data/admin-queries";
+import {
+  getAdminBusiness,
+  listAdminCategories,
+  listMediaAssets,
+} from "@/lib/data/admin-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +17,16 @@ type PageParams = { params: Promise<{ id: string }> };
 export default async function BusinessEditorPage({ params }: PageParams) {
   const { id } = await params;
 
-  const [business, categories] = await Promise.all([
+  const [business, categories, library] = await Promise.all([
     getAdminBusiness(id),
     listAdminCategories(),
+    listMediaAssets(),
   ]);
 
   if (!business) notFound();
+
+  const primaryMedia =
+    library.find((asset) => asset.id === business.primary_media_id) ?? null;
 
   return (
     <div className="space-y-6">
@@ -52,7 +60,12 @@ export default async function BusinessEditorPage({ params }: PageParams) {
       </div>
 
       <div className="max-w-3xl">
-        <BusinessForm business={business} categories={categories} />
+        <BusinessForm
+        business={business}
+        categories={categories}
+        library={library}
+        primaryMedia={primaryMedia}
+      />
       </div>
     </div>
   );

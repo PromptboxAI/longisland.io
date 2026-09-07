@@ -56,6 +56,11 @@ const detailsSchema = z.object({
   intro: z.string().trim().max(5000),
   methodology: z.string().trim().max(5000),
   authorName: z.string().trim().max(120),
+  heroMediaId: z.string().uuid().nullable(),
+  heroImageUrl: z.string().trim().max(500),
+  ogImageMediaId: z.string().uuid().nullable(),
+  seoTitle: z.string().trim().max(70),
+  seoDescription: z.string().trim().max(200),
 });
 
 export async function saveGuideDetails(
@@ -74,6 +79,11 @@ export async function saveGuideDetails(
     intro: readString(formData, "intro"),
     methodology: readString(formData, "methodology"),
     authorName: readString(formData, "authorName"),
+    heroMediaId: readString(formData, "heroMediaId") || null,
+    heroImageUrl: readString(formData, "heroImageUrl"),
+    ogImageMediaId: readString(formData, "ogImageMediaId") || null,
+    seoTitle: readString(formData, "seoTitle"),
+    seoDescription: readString(formData, "seoDescription"),
   });
 
   if (!parsed.success) {
@@ -93,6 +103,11 @@ export async function saveGuideDetails(
       intro: data.intro || null,
       methodology: data.methodology || null,
       author_name: data.authorName || null,
+      hero_media_id: data.heroMediaId,
+      hero_image_url: data.heroMediaId ? null : data.heroImageUrl || null,
+      og_image_media_id: data.ogImageMediaId,
+      seo_title: data.seoTitle || null,
+      seo_description: data.seoDescription || null,
     })
     .eq("id", data.id);
 

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { OfferCore } from "@/lib/affiliate";
 import type { MediaAsset } from "@/types/media";
+import type { Article, ArticleWithRelations } from "@/types/articles";
 
 import { requireAdmin } from "@/lib/auth";
 import type {
@@ -293,6 +294,7 @@ export async function getEditorialSection(
       "*, items:editorial_section_items(" +
         "*, ranking:rankings(*), business:businesses(*), category:categories(*), " +
         "place:places(*), product_ranking:product_rankings(*), " +
+        "article:articles(*), " +
         "product:products(*, offers:product_offers(*))" +
         ")",
     )
@@ -322,6 +324,7 @@ export interface TargetCandidates {
    * Products carry their offers so the picker can warn about one that has
    * nothing buyable behind it — that product is curatable but will not render.
    */
+  articles: { id: string; title: string; slug: string; status: string }[];
   products: {
     id: string;
     name: string;
@@ -334,7 +337,7 @@ export interface TargetCandidates {
 export async function listTargetCandidates(): Promise<TargetCandidates> {
   const { supabase } = await requireAdmin();
 
-  const [rankings, businesses, categories, places, productRankings, products] =
+  const [rankings, businesses, categories, places, productRankings, products, articles] =
     await Promise.all([
       supabase.from("rankings").select("id, title, slug, status").order("title"),
       supabase.from("businesses").select("id, name, city, status").order("name"),
@@ -350,6 +353,7 @@ export async function listTargetCandidates(): Promise<TargetCandidates> {
           "id, name, brand, status, offers:product_offers(affiliate_url, direct_url, availability)",
         )
         .order("name"),
+      supabase.from("articles").select("id, title, slug, status").order("title"),
     ]);
 
   return {
@@ -359,6 +363,7 @@ export async function listTargetCandidates(): Promise<TargetCandidates> {
     places: (places.data ?? []) as TargetCandidates["places"],
     productRankings: (productRankings.data ?? []) as TargetCandidates["productRankings"],
     products: (products.data ?? []) as unknown as TargetCandidates["products"],
+    articles: (articles.data ?? []) as TargetCandidates["articles"],
   };
 }
 
@@ -439,4 +444,38 @@ export async function mediaUsageCounts(): Promise<Map<string, number>> {
   });
 
   return counts;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Articles                                                                    */
+/* -------------------------------------------------------------------------- */
+
+export async function listAdminArticles(): Promise<Article[]> {
+  const { supabase } = await requireAdmin();
+
+  const { data } = await supabase
+    .from("articles")
+    .select("*")
+    .order("updated_at", { ascending: false });
+
+  return (data ?? []) as Article[];
+}
+
+/** One article with everything the editor needs, drafts included. */
+export async function getAdminArticle(
+  id: string,
+): Promise<ArticleWithRelations | null> {
+  const { supabase } = await requireAdmin();
+
+  const { data } = await supabase
+    .from("articles")
+    .select(
+      "*, category:categories(id, name, slug), place:places(id, name, slug), " +
+        "hero_media:media_assets!articles_hero_media_id_fkey(*), " +
+        "og_media:media_assets!articles_og_image_media_id_fkey(*)",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  return (data as unknown as ArticleWithRelations) ?? null;
 }

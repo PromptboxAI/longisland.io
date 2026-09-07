@@ -45,6 +45,14 @@ export interface EditorialImageProps {
    * subject inside the frame, for product cutouts that must not be cropped.
    */
   fit?: "cover" | "contain";
+  /**
+   * CSS object-position from the media asset's focal point.
+   *
+   * The same photo is cropped to 16:9, 16:10, 4:3 and 1:1 across the site, and
+   * without this the crop is always centred — which is how a face ends up
+   * outside the frame on the one card that matters.
+   */
+  objectPosition?: string;
 }
 
 export function EditorialImage({
@@ -56,6 +64,7 @@ export function EditorialImage({
   priority = false,
   fallbackLabel,
   fit = "cover",
+  objectPosition,
 }: EditorialImageProps) {
   if (src) {
     return (
@@ -66,6 +75,7 @@ export function EditorialImage({
         sizes={sizes}
         priority={priority}
         className={`${fit === "contain" ? "object-contain" : "object-cover"} ${className}`}
+        style={objectPosition ? { objectPosition } : undefined}
       />
     );
   }

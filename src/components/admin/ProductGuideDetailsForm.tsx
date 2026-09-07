@@ -8,12 +8,17 @@ import {
   type ActionState,
 } from "@/app/admin/product-rankings/actions";
 import { FormError } from "@/components/forms/Field";
+import { MediaField } from "@/components/admin/MediaField";
+import type { MediaAsset } from "@/types/media";
 import { PRODUCT_RESEARCH_NOTICE } from "@/lib/affiliate";
 import type { Category } from "@/types/database";
 import type { ProductCategory, ProductRankingWithEntries } from "@/types/products";
 
 export interface ProductGuideDetailsFormProps {
   guide: ProductRankingWithEntries;
+  library: MediaAsset[];
+  heroMedia: MediaAsset | null;
+  ogMedia: MediaAsset | null;
   categories: ProductCategory[];
   localCategories: Category[];
 }
@@ -23,6 +28,9 @@ const inputClass =
 
 export function ProductGuideDetailsForm({
   guide,
+  library,
+  heroMedia,
+  ogMedia,
   categories,
   localCategories,
 }: ProductGuideDetailsFormProps) {
@@ -189,6 +197,61 @@ export function ProductGuideDetailsForm({
           className={`mt-2 ${inputClass}`}
         />
       </div>
+
+      <MediaField
+        name="heroMediaId"
+        urlName="heroImageUrl"
+        value={heroMedia}
+        urlValue={guide.hero_image_url ?? null}
+        library={library}
+        label="Hero image"
+        hint="Shown on the guide and on its cards. A guide is an article, so this is editorial art rather than a product shot."
+      />
+
+      <fieldset className="rounded-card border border-line bg-sand-50 p-4">
+        <legend className="px-1 text-xs font-bold uppercase tracking-wider text-ink-500">
+          Search &amp; sharing
+        </legend>
+        <div className="space-y-3">
+          <div>
+            <label htmlFor="seoTitle" className="block text-sm font-semibold text-navy-900">
+              SEO title
+            </label>
+            <input
+              id="seoTitle"
+              name="seoTitle"
+              maxLength={70}
+              defaultValue={guide.seo_title ?? ""}
+              placeholder={guide.title}
+              className={`mt-2 ${inputClass}`}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="seoDescription"
+              className="block text-sm font-semibold text-navy-900"
+            >
+              SEO description
+            </label>
+            <textarea
+              id="seoDescription"
+              name="seoDescription"
+              rows={2}
+              maxLength={200}
+              defaultValue={guide.seo_description ?? ""}
+              placeholder={guide.description ?? "Falls back to the dek."}
+              className={`mt-2 ${inputClass}`}
+            />
+          </div>
+          <MediaField
+            name="ogImageMediaId"
+            value={ogMedia}
+            library={library}
+            label="Social share image"
+            hint="Optional. Falls back to the hero image."
+          />
+        </div>
+      </fieldset>
 
       <FormError message={state.error} />
 

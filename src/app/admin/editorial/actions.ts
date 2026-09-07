@@ -235,6 +235,7 @@ const itemSchema = z
       "place",
       "product_ranking",
       "product",
+      "article",
       "external_url",
     ]),
     targetId: z.string().uuid().nullable(),
@@ -289,6 +290,7 @@ export async function addSectionItem(
     place_id: null,
     product_ranking_id: null,
     product_id: null,
+    article_id: null,
     external_url: null,
   };
   if (d.targetType === "external_url") destination.external_url = d.externalUrl;
