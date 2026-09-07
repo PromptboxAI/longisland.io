@@ -18,6 +18,13 @@ import {
   type StagedRankingDraft,
 } from "@/app/admin/rankings/ai-actions";
 import { displayValue } from "@/lib/editorial/field-policy";
+
+/** Column name to the words on the form. */
+const RANKING_FIELD_LABELS: Record<string, string> = {
+  description: "Dek",
+  intro: "Intro",
+  methodology: "Methodology",
+};
 import { useAutosave } from "@/components/admin/useAutosave";
 import { saveRankingDetails } from "@/app/admin/rankings/actions";
 import type { Category, Place, RankingWithEntries } from "@/types/database";
@@ -86,7 +93,14 @@ export function RankingDetailsForm({
     if (key === "title") setTitle(value);
   };
 
-  const { status, error, destination, saveNow } = useAutosave({ ...fields, ...media }, async (values) => {
+  const {
+    status,
+    error,
+    destination,
+    stagedFields,
+    setStagedFields,
+    saveNow,
+  } = useAutosave({ ...fields, ...media }, async (values) => {
     const form = new FormData();
     form.set("id", ranking.id);
     for (const [key, value] of Object.entries(values)) form.set(key, value);
@@ -146,18 +160,19 @@ export function RankingDetailsForm({
       {isPublished ? (
         <div className="mb-4">
           <PendingChangesBar
-            fieldLabels={
-              pendingChanges
-                ? Object.keys(pendingChanges).map(
-                    (key) =>
-                      ({ description: "Dek", intro: "Intro", methodology: "Methodology" })[
-                        key
-                      ] ?? key,
-                  )
-                : []
-            }
-            onApply={() => applyRankingChanges(ranking.id)}
-            onDiscard={() => discardRankingChanges(ranking.id)}
+            fieldLabels={(
+              stagedFields ?? Object.keys(pendingChanges ?? {})
+            ).map((key) => RANKING_FIELD_LABELS[key] ?? key)}
+            onApply={async () => {
+              const result = await applyRankingChanges(ranking.id);
+              if (!result.error) setStagedFields([]);
+              return result;
+            }}
+            onDiscard={async () => {
+              const result = await discardRankingChanges(ranking.id);
+              if (!result.error) setStagedFields([]);
+              return result;
+            }}
           />
         </div>
       ) : null}

@@ -45,6 +45,15 @@ export type ActionState = {
    * the record's status and which fields the policy sent where.
    */
   pending?: boolean;
+  /**
+   * Which fields are staged after this save, by column name.
+   *
+   * Returned rather than re-read from the server because a Server Action called
+   * as a plain function does not refresh the router — so the pending bar would
+   * otherwise not appear until the editor reloaded, which is exactly when they
+   * would assume their edit had gone live.
+   */
+  stagedFields?: string[];
 };
 
 function readString(formData: FormData, key: string): string {
@@ -141,10 +150,13 @@ export async function saveRankingDetails(
 
   for (const [field, value] of Object.entries(live)) update[field] = value || null;
 
+  // Pruned, for the same reason as an entry: every save carries every field.
+  let staged: Record<string, string> = {};
+
   if (isPublished) {
     // Merged, not replaced: an intro staged a minute ago is still waiting when
     // the methodology is staged now.
-    const merged = prunePending(
+    staged = prunePending(
       { ...(previous?.pending_changes ?? {}), ...pending },
       {
         description: previous?.description ?? null,
@@ -152,7 +164,7 @@ export async function saveRankingDetails(
         methodology: previous?.methodology ?? null,
       },
     );
-    update.pending_changes = Object.keys(merged).length > 0 ? merged : null;
+    update.pending_changes = Object.keys(staged).length > 0 ? staged : null;
   } else {
     update.pending_changes = null;
   }
@@ -200,7 +212,11 @@ export async function saveRankingDetails(
   if (scoped?.category) revalidatePath(`/category/${scoped.category.slug}`);
   if (scoped?.place) revalidatePath(`/place/${scoped.place.slug}`);
 
-  return { ok: true, pending: Object.keys(pending).length > 0 && isPublished };
+  return {
+    ok: true,
+    pending: Object.keys(staged).length > 0,
+    stagedFields: Object.keys(staged),
+  };
 }
 
 /**
@@ -378,14 +394,25 @@ export async function saveEntry(
   const update: Record<string, unknown> = {};
   for (const [field, value] of Object.entries(live)) update[field] = value || null;
 
+  /*
+   * `staged` is the PRUNED set, not the split one.
+   *
+   * The autosave sends every field on every save, so the long-form ones are
+   * always in the pending half whether or not they were touched. Reporting on
+   * that told an editor changing a badge that their changes were not live —
+   * true of nothing, and alarming about a field they had not typed in.
+   * Pruning against the live values is what makes it mean "actually different".
+   */
+  let staged: Record<string, string> = {};
+
   if (isPublished) {
     // Merge rather than replace: two fields staged at different moments are
     // both still waiting, and a save carrying only one must not drop the other.
-    const merged = prunePending(
+    staged = prunePending(
       { ...(row.pending_changes ?? {}), ...pending },
       { editorial_reason: row.editorial_reason },
     );
-    update.pending_changes = Object.keys(merged).length > 0 ? merged : null;
+    update.pending_changes = Object.keys(staged).length > 0 ? staged : null;
   } else {
     // Leaving a draft record cannot leave anything staged behind it.
     update.pending_changes = null;
@@ -399,7 +426,11 @@ export async function saveEntry(
   if (error) return { error: "Could not save that entry." };
 
   revalidatePath(`/admin/rankings/${rankingId}`);
-  return { ok: true, pending: Object.keys(pending).length > 0 && isPublished };
+  return {
+    ok: true,
+    pending: Object.keys(staged).length > 0,
+    stagedFields: Object.keys(staged),
+  };
 }
 
 /**
@@ -441,7 +472,7 @@ export async function applyEntryChanges(
   if (error) return { error: "Could not update the live page." };
 
   await revalidateRankingPaths(supabase, rankingId);
-  return { ok: true };
+  return { ok: true, stagedFields: [] };
 }
 
 /** Throws away this entry's staged text, leaving the live page untouched. */
@@ -868,7 +899,7 @@ export async function applyRankingChanges(rankingId: string): Promise<ActionStat
   if (error) return { error: "Could not update the live page." };
 
   await revalidateRankingPaths(supabase, rankingId);
-  return { ok: true };
+  return { ok: true, stagedFields: [] };
 }
 
 /** Throws away the ranking's staged text. The live page never changed. */

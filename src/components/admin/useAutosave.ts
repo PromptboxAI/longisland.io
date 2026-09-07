@@ -39,6 +39,20 @@ export interface AutosaveResult {
   error: string;
   /** Whether the last successful save reached the public page. */
   destination: SaveDestination | null;
+  /**
+   * Column names currently staged, as of the last save.
+   *
+   * The pending bar reads this rather than the server row, because a Server
+   * Action called as a plain function does not refresh the router — the bar
+   * would otherwise stay hidden until a reload, which is precisely when an
+   * editor would assume the edit had gone live.
+   */
+  stagedFields: string[] | null;
+  /**
+   * Overrides the staged list — for Update live page and Discard, which change
+   * what is staged without going through a save.
+   */
+  setStagedFields: (fields: string[]) => void;
   /** Saves immediately, skipping the debounce. For blur, and for AI results. */
   saveNow: () => void;
 }
@@ -47,7 +61,14 @@ type Values = Record<string, string>;
 
 export function useAutosave(
   values: Values,
-  save: (values: Values) => Promise<{ ok?: boolean; error?: string; pending?: boolean }>,
+  save: (
+    values: Values,
+  ) => Promise<{
+    ok?: boolean;
+    error?: string;
+    pending?: boolean;
+    stagedFields?: string[];
+  }>,
   options: { delay?: number; enabled?: boolean; published?: boolean } = {},
 ): AutosaveResult {
   const { delay = 900, enabled = true, published = false } = options;
@@ -63,6 +84,7 @@ export function useAutosave(
   const [requested, setRequested] = useState<string | null>(null);
   /** What the last accepted save did with the text. */
   const [destination, setDestination] = useState<SaveDestination | null>(null);
+  const [stagedFields, setStagedFields] = useState<string[] | null>(null);
 
   const saveNow = useCallback(() => setRequested(signature), [signature]);
 
@@ -100,6 +122,7 @@ export function useAutosave(
       setDestination(
         result.pending ? "pending" : published ? "live" : "draft",
       );
+      if (result.stagedFields) setStagedFields(result.stagedFields);
     });
 
     return () => {
@@ -124,7 +147,7 @@ export function useAutosave(
         ? "saved"
         : "idle";
 
-  return { status, error, destination, saveNow };
+  return { status, error, destination, stagedFields, setStagedFields, saveNow };
 }
 
 /**

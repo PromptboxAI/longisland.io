@@ -38,6 +38,11 @@ import { useAutosave } from "@/components/admin/useAutosave";
 import { RANKING_BADGES, type RankingEntryWithBusiness } from "@/types/database";
 import type { MediaAsset } from "@/types/media";
 
+/** Column name to the words on the form. */
+const ENTRY_FIELD_LABELS: Record<string, string> = {
+  editorial_reason: "Why we picked it",
+};
+
 export interface RankingEntryEditorProps {
   entry: RankingEntryWithBusiness;
   rankingId: string;
@@ -163,7 +168,14 @@ export function RankingEntryEditor({
     });
   }
 
-  const { status, error, destination, saveNow } = useAutosave(
+  const {
+    status,
+    error,
+    destination,
+    stagedFields,
+    setStagedFields,
+    saveNow,
+  } = useAutosave(
     fields,
     async (values) => {
       const form = new FormData();
@@ -504,15 +516,25 @@ export function RankingEntryEditor({
       {rankingPublished ? (
         <div className="mt-3">
           <PendingChangesBar
-            fieldLabels={
-              pending && Object.keys(pending).length > 0
-                ? Object.keys(pending).map((key) =>
-                    key === "editorial_reason" ? "Why we picked it" : key,
-                  )
-                : []
-            }
-            onApply={() => applyEntryChanges(entry.id, rankingId)}
-            onDiscard={() => discardEntryChanges(entry.id, rankingId)}
+            /*
+             * The latest save wins over the server row. Both are correct at
+             * different moments: the row is right on load, the save result is
+             * right from then on, and preferring the row would hide the bar
+             * for the whole session in which the edit was made.
+             */
+            fieldLabels={(stagedFields ?? Object.keys(pending ?? {})).map(
+              (key) => ENTRY_FIELD_LABELS[key] ?? key,
+            )}
+            onApply={async () => {
+              const result = await applyEntryChanges(entry.id, rankingId);
+              if (!result.error) setStagedFields([]);
+              return result;
+            }}
+            onDiscard={async () => {
+              const result = await discardEntryChanges(entry.id, rankingId);
+              if (!result.error) setStagedFields([]);
+              return result;
+            }}
           />
         </div>
       ) : null}
