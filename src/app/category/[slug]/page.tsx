@@ -179,10 +179,21 @@ export default async function CategoryPage({ params }: PageParams) {
         {/* Featured rankings — curated via category_module when configured */}
         {moduleRankings.length > 0 ? (
           <section aria-labelledby="category-rankings">
+            {/*
+              The heading comes from the placement, like every other one.
+              It was two string literals here, which made the Title and
+              Description fields on the Featured Module editable and inert —
+              the same dead-field problem the homepage had. The category's own
+              name remains the default, so an untouched placement reads exactly
+              as it did.
+            */}
             <RuleHeading
               id="category-rankings"
-              title={`${category.name} Rankings`}
-              description="Independently researched lists, editorially ordered."
+              title={moduleSection?.title?.trim() || `${category.name} Rankings`}
+              description={
+                moduleSection?.description?.trim() ||
+                "Independently researched lists, editorially ordered."
+              }
               href={`/best?category=${category.slug}`}
               linkLabel="All rankings"
               uppercase
