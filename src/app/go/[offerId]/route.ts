@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createPublicClient } from "@/lib/supabase/public";
