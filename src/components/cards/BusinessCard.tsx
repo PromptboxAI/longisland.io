@@ -31,12 +31,34 @@ export function BusinessCard({
             {position}
           </span>
         ) : null}
+
+        {/*
+          A 48px thumbnail, the same as the ranking quick list.
+
+          The compact row had no picture at all, so the only way to show a
+          business with its photograph was the full card — four 4:3 photographs
+          for what is a see-also list. This carries the picture at a size that
+          says "another one of these" rather than competing with the page it is
+          attached to.
+        */}
+        <span className="relative size-12 shrink-0 overflow-hidden rounded border border-line">
+          <EditorialImage
+            src={resolveImageUrl(
+              business.primary_media ?? null,
+              business.primary_image_url,
+            )}
+            alt=""
+            seed={business.slug}
+            sizes="48px"
+          />
+        </span>
+
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-navy-900 group-hover:text-brand-600">
             {business.name}
           </p>
-          {business.city ? (
-            <p className="truncate text-xs text-ink-500">{business.city}</p>
+          {location ? (
+            <p className="truncate text-xs text-ink-500">{location}</p>
           ) : null}
         </div>
       </Link>

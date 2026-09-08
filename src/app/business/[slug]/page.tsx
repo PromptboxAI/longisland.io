@@ -154,6 +154,12 @@ export default async function BusinessPage({ params }: PageParams) {
           </div>
         ) : null}
 
+        {/*
+          The details panel comes first until there are two columns to put it
+          beside. Stacked, the source order buried the address under the
+          rankings, the see-also grid and the claim box — so the one fact a
+          reader most often arrives for was the last thing on the page.
+        */}
         <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-10">
             {/* Editorial */}
@@ -227,9 +233,9 @@ export default async function BusinessPage({ params }: PageParams) {
                   linkLabel="Browse all"
                   uppercase
                 />
-                <div className="mt-6 grid gap-6 sm:grid-cols-2">
-                  {nearby.slice(0, 4).map((item) => (
-                    <BusinessCard key={item.id} business={item} />
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  {nearby.slice(0, 6).map((item) => (
+                    <BusinessCard key={item.id} business={item} variant="compact" />
                   ))}
                 </div>
               </section>
@@ -237,7 +243,7 @@ export default async function BusinessPage({ params }: PageParams) {
           </div>
 
           {/* Sidebar */}
-          <aside className="space-y-6">
+          <aside className="order-first space-y-6 lg:order-none">
             <div className="rounded-card border border-line p-5">
               <h2 className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
                 Business details

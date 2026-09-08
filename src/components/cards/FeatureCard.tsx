@@ -125,22 +125,32 @@ export function FeatureCard({
           send the reader somewhere the card cannot.
         */}
         {relatedItems && relatedItems.length > 0 ? (
-          <p className="mt-3 text-sm leading-[22px]">
-            <span className="text-base font-bold text-navy-900">Related Reviews: </span>
-            {relatedItems.map((item, index) => (
-              <span key={item.href}>
-                <Link
-                  href={item.href}
-                  className="relative z-10 font-semibold text-brand-600 hover:underline"
-                >
-                  {item.title}
-                </Link>
-                {index < relatedItems.length - 1 ? (
-                  <span className="text-ink-400">, </span>
-                ) : null}
-              </span>
-            ))}
-          </p>
+          /*
+            A box rather than a run-on sentence.
+            
+            As a bare line of comma-separated links it read as the last clause
+            of the standfirst, and the feature ran straight into the rail below
+            it with nothing marking where one ended and the next began. Given an
+            edge and a ground of its own it does the job it was always meant to
+            do — close the lead story and hold the two sections apart.
+          */
+          <div className="mt-5 rounded-card border border-line bg-sand-50 px-4 py-3.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
+              Related Reviews
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {relatedItems.map((item) => (
+                <li key={item.href} className="text-sm leading-snug">
+                  <Link
+                    href={item.href}
+                    className="relative z-10 font-semibold text-brand-600 hover:underline"
+                  >
+                    {item.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
       </div>
     </article>
