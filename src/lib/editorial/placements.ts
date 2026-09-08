@@ -201,3 +201,24 @@ export function isSingleSlot(key: string): boolean {
   const placement = findPlacement(key);
   return placement?.maxItems === 1;
 }
+
+/**
+ * The heading a placement draws when the editor has not written one.
+ *
+ * This existed twice and disagreed with itself. The category page fell back to
+ * "Pizza Rankings"; the admin form told the editor that leaving the field empty
+ * would give them "Featured". Whichever an editor trusted, the other one was
+ * what readers got.
+ *
+ * A scoped placement names its scope, because "Featured" on a page that is
+ * already headed Pizza says nothing a reader did not know.
+ */
+export function defaultPublicHeading(
+  placement: Placement | null,
+  scopeName?: string | null,
+): string {
+  if (placement?.scope === "category" && scopeName) {
+    return `${scopeName} Rankings`;
+  }
+  return placement?.publicHeading ?? placement?.name ?? "";
+}

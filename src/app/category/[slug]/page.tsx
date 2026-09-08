@@ -10,6 +10,10 @@ import { NominationCTA } from "@/components/cta/NominationCTA";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { RuleHeading } from "@/components/ui/RuleHeading";
 import {
+  defaultPublicHeading,
+  findPlacement,
+} from "@/lib/editorial/placements";
+import {
   pickRankingSummaries,
   toRelatedLinks,
 } from "@/lib/editorial/section-adapters";
@@ -189,7 +193,10 @@ export default async function CategoryPage({ params }: PageParams) {
             */}
             <RuleHeading
               id="category-rankings"
-              title={moduleSection?.title?.trim() || `${category.name} Rankings`}
+              title={
+                moduleSection?.title?.trim() ||
+                defaultPublicHeading(findPlacement("category_module"), category.name)
+              }
               description={
                 moduleSection?.description?.trim() ||
                 "Independently researched lists, editorially ordered."

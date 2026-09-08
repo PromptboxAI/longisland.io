@@ -7,7 +7,7 @@ import { PlacementBoard } from "@/components/admin/PlacementBoard";
 import { PlacementHeadingForm } from "@/components/admin/PlacementHeadingForm";
 import { SectionForm } from "@/components/admin/SectionForm";
 import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
-import { findPlacement, isSingleSlot } from "@/lib/editorial/placements";
+import { defaultPublicHeading, findPlacement, isSingleSlot } from "@/lib/editorial/placements";
 import { readPlacementState } from "@/lib/editorial/placement-state";
 import { resolveImageUrl } from "@/lib/media/resolve";
 import { hasUsableOffer } from "@/lib/affiliate";
@@ -50,6 +50,26 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
       ? (categories.find((row) => row.id === section.category_id)?.name ?? null)
       : section.scope_type === "place"
         ? (places.find((row) => row.id === section.place_id)?.name ?? null)
+        : null;
+
+  /*
+   * Only the homepage has a draft-aware preview, so only homepage placements
+   * are offered one. Everything else links to its real page, which is honest
+   * about what it is showing.
+   */
+  const scopeSlug =
+    section.scope_type === "category"
+      ? (categories.find((row) => row.id === section.category_id)?.slug ?? null)
+      : null;
+
+  const preview =
+    placement?.previewPath === "/"
+      ? { href: "/preview/homepage", label: "Preview the homepage with these changes" }
+      : scopeSlug
+        ? {
+            href: `/category/${scopeSlug}`,
+            label: `Open the ${scopeName ?? "category"} page`,
+          }
         : null;
 
   const surfaceLabel = placement
@@ -333,7 +353,7 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
             sectionKey={section.key}
             title={section.title}
             description={section.description}
-            defaultHeading={placement.publicHeading ?? placementName}
+            defaultHeading={defaultPublicHeading(placement, scopeName)}
             scopeType={section.scope_type}
             categoryId={section.category_id}
             placeId={section.place_id}
@@ -366,6 +386,7 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
         returnTo={`/admin/editorial/${section.id}`}
         placementKey={section.key}
         surfaceName={surfaceLabel}
+        preview={preview}
       />
 
     </div>

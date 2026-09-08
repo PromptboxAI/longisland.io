@@ -88,7 +88,7 @@ export function PlacementUpdateBar({
               ? `Readers are seeing ${status.liveCount} item${status.liveCount === 1 ? "" : "s"} in ${placementName}.`
               : empty
                 ? `${placementName} is empty, so the ${surfaceName} hides it.`
-                : `${status.pendingCount} of ${itemCount} ${status.pendingCount === 1 ? "item is" : "items are"} not visible to readers yet.`}
+                : `${status.pendingCount} of ${itemCount} item${itemCount === 1 ? "" : "s"} ${status.pendingCount === 1 ? "is" : "are"} not visible to readers yet.`}
           </p>
 
           {/*

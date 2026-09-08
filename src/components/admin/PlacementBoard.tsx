@@ -37,6 +37,7 @@ export function PlacementBoard({
   returnTo,
   placementKey,
   surfaceName,
+  preview,
 }: {
   sectionId: string;
   placementName: string;
@@ -52,6 +53,8 @@ export function PlacementBoard({
   placementKey: string;
   /** The page this placement renders on, for wording. */
   surfaceName: string;
+  /** Where to go and look at the result. Null when there is nowhere useful. */
+  preview: { href: string; label: string } | null;
 }) {
   /*
    * Which row has its overrides open. One at a time and closed by default: the
@@ -137,17 +140,24 @@ export function PlacementBoard({
       ) : null}
 
       {/*
-        The homepage as it will be, before committing to it. A card preview
-        answers a different question from "does the page work with this on it".
+        The page as it will be, before committing to it. A card preview answers
+        a different question from "does the page work with this on it".
+
+        This used to link to the homepage from every placement, including the
+        category ones — sending an editor to preview a page their work does not
+        appear on. Only the homepage has a draft-aware preview, so a category
+        placement gets a plain link to its real page and says so.
       */}
-      <Link
-        href="/preview/homepage"
-        target="_blank"
-        className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:underline"
-      >
-        Preview the homepage with these changes
-        <ExternalLink aria-hidden="true" className="size-3.5" />
-      </Link>
+      {preview ? (
+        <Link
+          href={preview.href}
+          target="_blank"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:underline"
+        >
+          {preview.label}
+          <ExternalLink aria-hidden="true" className="size-3.5" />
+        </Link>
+      ) : null}
 
       <section className="space-y-3">
         <h2 className="text-sm font-bold uppercase tracking-wider text-navy-900">
