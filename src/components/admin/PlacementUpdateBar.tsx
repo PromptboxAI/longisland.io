@@ -29,9 +29,18 @@ export function PlacementUpdateBar({
   placementName,
   status,
   itemCount,
+  surfaceName = "homepage",
 }: {
   sectionId: string;
   placementName: string;
+  /**
+   * The page this placement sits on, in an editor's words.
+   *
+   * A category placement was telling people "the homepage hides it" while they
+   * stood on a category page. Wrong, and the kind of wrong that makes someone
+   * doubt everything else on the screen.
+   */
+  surfaceName?: string;
   status: PlacementStatus;
   itemCount: number;
 }) {
@@ -78,7 +87,7 @@ export function PlacementUpdateBar({
             {live
               ? `Readers are seeing ${status.liveCount} item${status.liveCount === 1 ? "" : "s"} in ${placementName}.`
               : empty
-                ? `${placementName} is empty, so the homepage hides it.`
+                ? `${placementName} is empty, so the ${surfaceName} hides it.`
                 : `${status.pendingCount} of ${itemCount} ${status.pendingCount === 1 ? "item is" : "items are"} not visible to readers yet.`}
           </p>
 

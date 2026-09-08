@@ -39,6 +39,26 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
   const placementName = placement?.name ?? section.title ?? section.key;
 
   /*
+   * Which page this is, and — when the placement is scoped — which one of them.
+   *
+   * "Category page" alone is not an answer when there are 98 category pages.
+   * An editor arriving from a link, or with two tabs open, has nothing on the
+   * screen telling them whether they are editing Pizza or Bagels.
+   */
+  const scopeName =
+    section.scope_type === "category"
+      ? (categories.find((row) => row.id === section.category_id)?.name ?? null)
+      : section.scope_type === "place"
+        ? (places.find((row) => row.id === section.place_id)?.name ?? null)
+        : null;
+
+  const surfaceLabel = placement
+    ? scopeName
+      ? `${scopeName} ${placement.location.toLowerCase()}`
+      : placement.location.toLowerCase()
+    : "page";
+
+  /*
    * One reading of the placement's state, built from the three the database
    * keeps. Everything on screen below works from this rather than from the raw
    * statuses, which is what stops the editor being handed the reconciliation
@@ -239,6 +259,12 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
           </div>
           <p className="mt-1 text-sm text-ink-500">
             {placement ? placement.location : "Custom section"}
+            {scopeName ? (
+              <>
+                {" · "}
+                <span className="font-semibold text-navy-900">{scopeName}</span>
+              </>
+            ) : null}
           </p>
           {/*
             The old subtitle read "1 item · 0 published", which was the single
@@ -339,6 +365,7 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
         library={library}
         returnTo={`/admin/editorial/${section.id}`}
         placementKey={section.key}
+        surfaceName={surfaceLabel}
       />
 
     </div>

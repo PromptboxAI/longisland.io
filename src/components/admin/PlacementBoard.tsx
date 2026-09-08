@@ -36,6 +36,7 @@ export function PlacementBoard({
   library,
   returnTo,
   placementKey,
+  surfaceName,
 }: {
   sectionId: string;
   placementName: string;
@@ -49,6 +50,8 @@ export function PlacementBoard({
   returnTo: string;
   /** Scopes the picker to what this placement accepts. */
   placementKey: string;
+  /** The page this placement renders on, for wording. */
+  surfaceName: string;
 }) {
   /*
    * Which row has its overrides open. One at a time and closed by default: the
@@ -78,6 +81,7 @@ export function PlacementBoard({
         placementName={placementName}
         status={status}
         itemCount={rows.length}
+        surfaceName={surfaceName}
       />
 
       <section className="space-y-3">
