@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState, useTransition } from "react";
+import { MAX_UPLOAD_LABEL } from "@/lib/media/limits";
 
 import {
   createUploadTicket,
@@ -36,7 +37,7 @@ import type { MediaAsset } from "@/types/media";
  *
  * The file never passes through our server: `createUploadTicket` mints a signed
  * URL for a server-chosen path and the browser PUTs straight to Storage, which
- * is what allows an 8 MB photo at all.
+ * is what allows a large photo at all.
  */
 
 export interface MediaFieldProps {
@@ -111,7 +112,7 @@ export function MediaField({
         });
 
       if (uploadError) {
-        setError("The upload was refused. Images only, 8 MB maximum.");
+        setError(`The upload was refused. Images only, ${MAX_UPLOAD_LABEL} maximum.`);
         return;
       }
 

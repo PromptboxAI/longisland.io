@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "@/lib/media/limits";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth";
@@ -9,7 +10,7 @@ import type { MediaAsset, UploadTicket } from "@/types/media";
 /**
  * Media library mutations.
  *
- * Uploads never pass through this server. A browser posting an 8 MB photo to a
+ * Uploads never pass through this server. A browser posting a large photo to a
  * Server Action would fail — Next caps action bodies at 1 MB by default and
  * Vercel caps request bodies at 4.5 MB — so instead `createUploadTicket` mints
  * a signed upload URL and the browser PUTs the bytes straight to Storage.
@@ -17,8 +18,9 @@ import type { MediaAsset, UploadTicket } from "@/types/media";
  * That makes the browser the one choosing what to send, so the guards that
  * matter are not here: the path is chosen by this server and never accepted
  * from the client, and the bucket itself refuses anything that is not an image
- * under 8 MB regardless of what the upload claimed. No privileged credential is
- * ever handed to the browser — a signed URL is scoped to one path and expires.
+ * under the size limit regardless of what the upload claimed. No privileged
+ * credential is ever handed to the browser — a signed URL is scoped to one path
+ * and expires.
  *
  * Every action re-checks the session through requireAdmin(): a Server Action is
  * a public HTTP endpoint and cannot rely on the page around it.
@@ -28,6 +30,8 @@ export type MediaActionState = { ok?: boolean; error?: string };
 
 const BUCKET = "media";
 
+const MAX_BYTES = MAX_UPLOAD_BYTES;
+
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 const EXTENSION: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -35,7 +39,7 @@ const EXTENSION: Record<string, string> = {
   "image/webp": "webp",
   "image/avif": "avif",
 };
-const MAX_BYTES = 8 * 1024 * 1024;
+
 
 function readString(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -71,7 +75,11 @@ export async function createUploadTicket(
     return { path: "", token: "", error: "Images only — JPEG, PNG, WebP or AVIF." };
   }
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_BYTES) {
-    return { path: "", token: "", error: "Images must be 8 MB or smaller." };
+    return {
+      path: "",
+      token: "",
+      error: `Images must be ${MAX_UPLOAD_LABEL} or smaller.`,
+    };
   }
 
   const now = new Date();

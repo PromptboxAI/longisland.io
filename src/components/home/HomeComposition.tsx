@@ -11,7 +11,7 @@ import { NominationCTA } from "@/components/cta/NominationCTA";
 import { AffiliateDisclosure } from "@/components/products/AffiliateDisclosure";
 import { ProductCard } from "@/components/products/ProductCard";
 import { TopRail } from "@/components/rankings/TopRail";
-import { hasAffiliateLinks } from "@/lib/affiliate";
+import { hasAffiliateLinks, merchantDisclosures } from "@/lib/affiliate";
 import { deriveRelatedFallback } from "@/lib/editorial/related-fallback";
 import { findPlacement } from "@/lib/editorial/placements";
 import { SearchBar } from "@/components/site/SearchBar";
@@ -377,19 +377,10 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
         */}
         {picksNeedDisclosure ? (
           <div className="mb-4 mt-7">
-            {/*
-              The commission line only, at the editor's request — the Amazon
-              Associates sentence is dropped from this module.
-
-              Worth being clear about what that gives up: the Associates
-              Operating Agreement asks for that statement where the links are,
-              and this is now a page with Amazon links and no such statement. It
-              is still carried on the buying guides, the products index and
-              /affiliate-disclosure, so the site has not stopped saying it — but
-              if the Associates account is ever queried, this module is why.
-              Restore with `merchantNotes={merchantDisclosures(pickProducts)}`.
-            */}
-            <AffiliateDisclosure variant="inline" />
+            <AffiliateDisclosure
+              variant="inline"
+              merchantNotes={merchantDisclosures(pickProducts)}
+            />
           </div>
         ) : null}
       </section>

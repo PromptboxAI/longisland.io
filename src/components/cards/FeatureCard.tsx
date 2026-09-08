@@ -101,8 +101,16 @@ export function FeatureCard({
           </Link>
         </h3>
 
+        {/*
+          13px at 1.62, which is the reference's own standfirst. Smaller than
+          the 15px this was set at — a standfirst is a caption for the headline
+          above it, and at 15px it competed with the body copy further down the
+          page instead of introducing it.
+        */}
         {dek ? (
-          <p className="mt-2 max-w-2xl text-[15px] leading-[25px] text-ink-700">{dek}</p>
+          <p className="mt-2 max-w-2xl text-[13px] leading-[1.62] text-ink-700">
+            {dek}
+          </p>
         ) : null}
 
         {meta ? <p className="mt-2 text-xs text-ink-500">{meta}</p> : null}

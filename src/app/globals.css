@@ -56,10 +56,10 @@
    * Kept as its own ramp so changing the CTA never drags the rest of the
    * interface with it.
    */
-  --color-cta-400: #6274d4;
-  --color-cta-500: #4658c4;
-  --color-cta-600: #3a4aa8;
-  --color-cta-700: #2f3d8c;
+  --color-cta-400: #6d83d0;
+  --color-cta-500: #4b65bf;
+  --color-cta-600: #3e55a4;
+  --color-cta-700: #334687;
 
   /* Gold — the single highlight cue (#FAB700) */
   --color-gold-50: #fff8e5;

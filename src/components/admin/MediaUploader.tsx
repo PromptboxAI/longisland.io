@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Upload } from "lucide-react";
+import { MAX_UPLOAD_LABEL } from "@/lib/media/limits";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
@@ -21,7 +22,7 @@ import { createClient } from "@/lib/supabase/client";
  *
  * Several at once, because that is how photographs arrive. Each is uploaded in
  * turn rather than in parallel: the failures worth reporting are per-file, and
- * eight simultaneous uploads of 8 MB is a worse experience than eight quick
+ * eight simultaneous full-size uploads is a worse experience than eight quick
  * ones on any connection that would struggle.
  *
  * The file never passes through our server — a signed token authorises exactly
@@ -57,7 +58,9 @@ export function MediaUploader() {
           });
 
         if (uploadError) {
-          failed.push(`${file.name}: refused — images only, 8 MB maximum`);
+          failed.push(
+            `${file.name}: refused — images only, ${MAX_UPLOAD_LABEL} maximum`,
+          );
           continue;
         }
 

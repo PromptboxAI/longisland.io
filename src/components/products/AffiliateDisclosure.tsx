@@ -28,7 +28,12 @@ export function AffiliateDisclosure({
 }: AffiliateDisclosureProps) {
   if (variant === "inline") {
     return (
-      <div className="text-xs leading-relaxed text-ink-500">
+      /*
+        Set tight on purpose: this is two short sentences of small print, and
+        relaxed leading spread them far enough apart to read as two separate
+        notices rather than one disclosure.
+      */
+      <div className="text-xs leading-snug text-ink-500">
         <p>
           {AFFILIATE_DISCLOSURE}{" "}
           <Link
@@ -45,7 +50,7 @@ export function AffiliateDisclosure({
           used — the one place the network requires it is beside the links.
         */}
         {merchantNotes.length > 0 ? (
-          <p className="mt-1">{merchantNotes.join(" ")}</p>
+          <p className="mt-0.5">{merchantNotes.join(" ")}</p>
         ) : null}
       </div>
     );

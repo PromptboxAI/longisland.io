@@ -154,13 +154,19 @@ export function ProductOfferButton({
       : "border border-navy-300 text-navy-900 hover:border-navy-500 hover:bg-navy-50";
 
   /*
-   * The card button is the page's one call to action, and at 13px in a shallow
-   * pill it read as a footnote next to the product name above it.
+   * Card size is the reference's own: 40px tall, capped at 135px wide, 16px at
+   * weight 500. Width is a cap rather than a padding sum, so the pill is the
+   * same size under every label instead of growing with the words — which is
+   * what keeps a row of five looking like one control repeated.
+   *
+   * Weight lives here rather than on the shared class, because the two sizes
+   * genuinely differ and two competing font-weight utilities in one string
+   * resolve by stylesheet order, not by the order they are written.
    */
   const sizing =
     size === "compact"
-      ? "gap-1 px-8 py-3 text-base whitespace-nowrap"
-      : "gap-1.5 px-5 py-2.5 text-[15px]";
+      ? "h-10 w-full max-w-[135px] gap-1 text-base font-medium whitespace-nowrap"
+      : "gap-1.5 px-5 py-2.5 text-[15px] font-semibold";
 
   return (
     <a
@@ -172,7 +178,7 @@ export function ProductOfferButton({
       // carries the product and merchant that make this one distinct.
       aria-label={`${label} for ${productName} at ${merchant} (opens in a new tab)`}
       aria-disabled={unavailable || undefined}
-      className={`inline-flex items-center justify-center rounded-full font-semibold transition-colors ${sizing} ${styles} ${
+      className={`inline-flex items-center justify-center rounded-full transition-colors ${sizing} ${styles} ${
         unavailable ? "opacity-60" : ""
       } ${className}`}
     >
