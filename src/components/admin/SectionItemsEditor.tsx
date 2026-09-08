@@ -629,25 +629,17 @@ export function SectionItemEditor({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label
-              htmlFor={`status-${item.id}`}
-              className="block text-xs font-semibold text-navy-900"
-            >
-              Status
-            </label>
-            <select
-              id={`status-${item.id}`}
-              name="status"
-              defaultValue={item.status}
-              className={`mt-1.5 ${INPUT} bg-white`}
-            >
-              <option value="draft">Draft</option>
-              <option value="review">In review</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
+          {/*
+            The item's own status is carried, not asked for.
+
+            It was a second publishing system sitting inside a card-appearance
+            form: an editor could set a placement live, set the product live,
+            and still have nothing render because a dropdown three scrolls down
+            said Draft. That is the trap this overhaul exists to remove, so the
+            value travels as a hidden field and the placement's own Update
+            button is the one thing that changes it.
+          */}
+          <input type="hidden" name="status" value={item.status} />
 
           <div>
             <label
