@@ -181,3 +181,23 @@ export function placementsByLocation(): { location: string; placements: Placemen
   }
   return [...groups].map(([location, placements]) => ({ location, placements }));
 }
+
+/**
+ * Whether a key belongs to the site's fixed structure.
+ *
+ * A system placement is part of the page, not a piece of content. The homepage
+ * asks for `homepage_primary` by name in its own code, so deleting that row
+ * does not remove a section from the site — it removes the site's ability to
+ * fill one, and leaves a permanently empty hole nobody can see the cause of.
+ * The row is recreated on demand, so the delete is not even destructive in a
+ * useful way; it is just a trap.
+ */
+export function isSystemPlacement(key: string): boolean {
+  return PLACEMENTS.some((placement) => placement.key === key);
+}
+
+/** Placements that hold exactly one thing, where "add" means "replace". */
+export function isSingleSlot(key: string): boolean {
+  const placement = findPlacement(key);
+  return placement?.maxItems === 1;
+}

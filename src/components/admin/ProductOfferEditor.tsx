@@ -37,6 +37,28 @@ export function ProductOfferEditor({
 
   return (
     <div className="space-y-4">
+      {/*
+        Says what pasting a link does and does not do.
+        An affiliate URL looks like it should bring the product with it — title,
+        image, brand, price — and on most CMSs it would. Here it does not, and
+        an editor who assumes otherwise saves a product with an empty name and
+        no picture and only finds out when the homepage tile is blank.
+      */}
+      <div className="rounded-card border border-line bg-sand-50 p-4">
+        <h3 className="text-sm font-bold text-navy-900">Where to buy</h3>
+        <p className="mt-1 max-w-prose text-xs leading-relaxed text-ink-700">
+          One row per merchant that sells this. Readers see a Check Price button
+          for each, and clicks are counted.
+        </p>
+        <p className="mt-2 max-w-prose text-xs leading-relaxed text-amber-800">
+          <strong>Pasting a link does not fill in the product.</strong> Automatic
+          product details are not connected for any merchant yet, so the name,
+          brand, picture and description above are yours to write. Adding that
+          needs an approved merchant feed or API — we will not scrape a
+          merchant&rsquo;s pages to get it.
+        </p>
+      </div>
+
       {offers.map((offer) => (
         <OfferForm
           key={offer.id}

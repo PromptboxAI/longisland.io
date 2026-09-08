@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth";
-import { findPlacement } from "@/lib/editorial/placements";
+import { findPlacement, isSystemPlacement } from "@/lib/editorial/placements";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   searchTargets,
@@ -269,6 +269,30 @@ export async function updateSection(
 
 export async function deleteSection(id: string): Promise<void> {
   const { supabase } = await requireAdmin();
+
+  /*
+   * A system placement cannot be deleted.
+   *
+   * These are part of the page, not pieces of content. The homepage asks for
+   * `homepage_primary` by name in its own code, so deleting that row does not
+   * remove a section from the site — it removes the site's ability to fill one,
+   * and leaves a hole whose cause is invisible. The row is recreated on demand
+   * anyway, so the delete was never even usefully destructive; it was a trap
+   * sitting next to the controls an editor uses daily.
+   *
+   * Refused in the action rather than only hidden in the UI: a control that is
+   * merely absent from a page is not a rule.
+   */
+  const { data: section } = await supabase
+    .from("editorial_sections")
+    .select("key")
+    .eq("id", id)
+    .maybeSingle();
+
+  const key = (section as { key?: string } | null)?.key;
+  if (key && isSystemPlacement(key)) {
+    redirect(`/admin/editorial/${id}?error=system-placement`);
+  }
 
   // Read the scope BEFORE the delete: afterwards there is no row to say which
   // public page just lost a section.
@@ -549,4 +573,150 @@ export async function searchTargetsAction(
   input: TargetQuery,
 ): Promise<TargetSearchResult> {
   return searchTargets(input);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Placement-level actions                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Makes everything in a placement live, in one action.
+ *
+ * This is the whole point of the overhaul. The database keeps three publication
+ * states — section, item, and the content the item points at — and an editor
+ * was being asked to reconcile them by hand, which produced a placement reading
+ * "1 item · 0 published" while every part of it claimed to be published.
+ *
+ * So one button sets the section and every item live together. The third state
+ * is deliberately NOT touched: publishing a placement must never publish a
+ * draft ranking behind an editor's back. That one is reported instead, because
+ * it is a decision about content rather than about where content sits.
+ */
+export async function updatePlacement(sectionId: string): Promise<EditorialActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { error: sectionError } = await supabase
+    .from("editorial_sections")
+    .update({ status: "published" })
+    .eq("id", sectionId);
+
+  if (sectionError) return { error: "Could not update this placement." };
+
+  const { error: itemError } = await supabase
+    .from("editorial_section_items")
+    .update({ status: "published" })
+    .eq("section_id", sectionId);
+
+  if (itemError) return { error: "Could not update the items in this placement." };
+
+  revalidatePath(`/admin/editorial/${sectionId}`);
+  revalidatePath("/admin/editorial");
+  await revalidateSectionSurfaces(supabase, sectionId);
+  return { ok: true };
+}
+
+/**
+ * Empties a placement without touching what was in it.
+ *
+ * Removes the items and leaves the section row, because the placement is part
+ * of the site's structure and will be wanted again. Nothing that was curated
+ * here is altered: the ranking, product or article carries on existing,
+ * published, and appearing everywhere else it appears.
+ */
+export async function clearPlacement(sectionId: string): Promise<EditorialActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { error } = await supabase
+    .from("editorial_section_items")
+    .delete()
+    .eq("section_id", sectionId);
+
+  if (error) return { error: "Could not clear this placement." };
+
+  revalidatePath(`/admin/editorial/${sectionId}`);
+  revalidatePath("/admin/editorial");
+  await revalidateSectionSurfaces(supabase, sectionId);
+  return { ok: true };
+}
+
+/**
+ * Puts one piece of content in a single-slot placement, replacing whatever
+ * was there.
+ *
+ * The Primary Feature is one slot, so "add" is the wrong verb for it entirely.
+ * Adding produced two items, the old one lingering underneath as an expanded
+ * draft form that had to be individually unpublished — which is not a thing an
+ * editor choosing a hero image should ever have to think about.
+ *
+ * Replacing removes the previous item from the PLACEMENT ONLY. The ranking it
+ * pointed at is untouched: still published, still on /best, still wherever else
+ * it was curated.
+ */
+export async function setSingleSlotTarget(
+  sectionId: string,
+  targetType: string,
+  targetId: string,
+): Promise<EditorialActionState> {
+  const { supabase } = await requireAdmin();
+
+  /*
+   * The kind of thing is expressed by WHICH foreign key is set — there is no
+   * `target_type` column, and a CHECK constraint enforces exactly one. So the
+   * others are nulled explicitly rather than left absent.
+   */
+  const allowed = [
+    "ranking",
+    "article",
+    "product_ranking",
+    "product",
+    "business",
+    "category",
+    "place",
+  ];
+  if (!allowed.includes(targetType)) {
+    return { error: "That kind of content cannot go here." };
+  }
+
+  const destination: Record<string, string | null> = {
+    ranking_id: null,
+    business_id: null,
+    category_id: null,
+    place_id: null,
+    product_ranking_id: null,
+    product_id: null,
+    article_id: null,
+    external_url: null,
+  };
+  destination[`${targetType}_id`] = targetId;
+
+  // Out with the old — from this placement, not from the site.
+  const { error: clearError } = await supabase
+    .from("editorial_section_items")
+    .delete()
+    .eq("section_id", sectionId);
+
+  if (clearError) return { error: "Could not replace what was here." };
+
+  const { error: insertError } = await supabase.from("editorial_section_items").insert({
+    section_id: sectionId,
+    ...destination,
+    position: 1,
+    // Live immediately: a single-slot placement has no meaningful draft state
+    // of its own, and the editor's action WAS the decision to publish it.
+    status: "published",
+  });
+
+  if (insertError) return { error: "Could not set that as the feature." };
+
+  const { error: sectionError } = await supabase
+    .from("editorial_sections")
+    .update({ status: "published" })
+    .eq("id", sectionId);
+
+  if (sectionError) return { error: "Set, but the placement could not be switched on." };
+
+  revalidatePath(`/admin/editorial/${sectionId}`);
+  revalidatePath("/admin/editorial");
+  await revalidateSectionSurfaces(supabase, sectionId);
+  return { ok: true };
 }

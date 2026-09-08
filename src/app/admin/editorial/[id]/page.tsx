@@ -3,14 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { deleteSection } from "@/app/admin/editorial/actions";
+import { PlacementBoard } from "@/components/admin/PlacementBoard";
 import { SectionForm } from "@/components/admin/SectionForm";
-import {
-  AddSectionItem,
-  SectionItemEditor,
-} from "@/components/admin/SectionItemsEditor";
 import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
-import { StatusPill } from "@/components/admin/StatusPill";
-import { findPlacement } from "@/lib/editorial/placements";
+import { findPlacement, isSingleSlot } from "@/lib/editorial/placements";
+import { readPlacementState } from "@/lib/editorial/placement-state";
+import { resolveImageUrl } from "@/lib/media/resolve";
 import { hasUsableOffer } from "@/lib/affiliate";
 import {
   getEditorialSection,
@@ -36,13 +34,112 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
   if (!section) notFound();
 
   const placement = findPlacement(section.key);
+  const singleSlot = isSingleSlot(section.key);
+  const placementName = placement?.name ?? section.title ?? section.key;
+
+  /*
+   * One reading of the placement's state, built from the three the database
+   * keeps. Everything on screen below works from this rather than from the raw
+   * statuses, which is what stops the editor being handed the reconciliation
+   * job that produced "1 item · 0 published".
+   */
+  const targetStatusOf = (item: (typeof section.items)[number]): string | null =>
+    item.ranking?.status ??
+    item.article?.status ??
+    item.product?.status ??
+    item.product_ranking?.status ??
+    item.business?.status ??
+    item.category?.status ??
+    item.place?.status ??
+    (item.external_url ? "published" : null);
+
+  const placementStatus = readPlacementState(
+    section.status,
+    section.items.map((item) => ({
+      itemStatus: item.status,
+      targetStatus: targetStatusOf(item),
+    })),
+  );
+
+  /** What each row shows, resolved once here rather than in the client. */
+  const rows = section.items.map((item) => {
+    const title =
+      item.ranking?.title ??
+      item.article?.title ??
+      item.product?.name ??
+      item.product_ranking?.title ??
+      item.business?.name ??
+      item.category?.name ??
+      item.place?.name ??
+      item.external_url ??
+      "Untitled";
+
+    const typeLabel = item.ranking
+      ? "Ranking"
+      : item.article
+        ? "Article"
+        : item.product
+          ? "Product"
+          : item.product_ranking
+            ? "Buying guide"
+            : item.business
+              ? "Business"
+              : item.category
+                ? "Category"
+                : item.place
+                  ? "Place"
+                  : "Link";
+
+    const sourceImage =
+      resolveImageUrl(item.ranking?.hero_media ?? null, item.ranking?.hero_image_url ?? null) ??
+      resolveImageUrl(item.article?.hero_media ?? null, item.article?.hero_image_url ?? null) ??
+      resolveImageUrl(
+        item.product_ranking?.hero_media ?? null,
+        item.product_ranking?.hero_image_url ?? null,
+      ) ??
+      resolveImageUrl(item.business?.primary_media ?? null, item.business?.primary_image_url ?? null) ??
+      item.product?.image_url ??
+      null;
+
+    return {
+      id: item.id,
+      position: item.position,
+      headline: item.headline ?? title,
+      typeLabel,
+      // The override wins, then the content's own picture.
+      imageUrl: resolveImageUrl(item.image_media ?? null, item.image_url) ?? sourceImage,
+      targetStatus: targetStatusOf(item) ?? "published",
+      itemStatus: item.status,
+      context: item.product?.brand ?? item.ranking?.geography ?? null,
+      hasOverrides: Boolean(
+        item.headline || item.dek || item.kicker || item.image_url || item.image_media_id || item.badge,
+      ),
+    };
+  });
+
+  const slotContent =
+    singleSlot && rows.length > 0
+      ? {
+          headline: rows[0].headline,
+          dek:
+            section.items[0].dek ??
+            section.items[0].ranking?.description ??
+            section.items[0].article?.dek ??
+            section.items[0].product_ranking?.description ??
+            null,
+          kicker: section.items[0].kicker ?? section.items[0].ranking?.geography ?? null,
+          imageUrl: rows[0].imageUrl,
+          typeLabel: rows[0].typeLabel,
+          targetStatus: rows[0].targetStatus,
+        }
+      : null;
+
 
   async function removeSection() {
     "use server";
     await deleteSection(id);
   }
 
-  const liveCount = section.items.filter((i) => i.status === "published").length;
 
   /*
    * Top Picks is a product-only row in presentation, though not in the schema.
@@ -136,36 +233,42 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
               the code that asks for it.
             */}
             <h1 className="text-2xl font-extrabold text-navy-900">
-              {placement?.name ?? section.title ?? section.key}
+              {placementName}
             </h1>
-            <StatusPill status={section.status} />
           </div>
           <p className="mt-1 text-sm text-ink-500">
-            {placement ? `${placement.location} · ` : null}
-            {section.items.length} item{section.items.length === 1 ? "" : "s"} ·{" "}
-            {liveCount} published
+            {placement ? placement.location : "Custom section"}
           </p>
-          {/* Kept, but demoted: useful when something is wrong, noise otherwise. */}
-          <p className="mt-0.5 font-mono text-xs text-ink-400">
-            {section.key} · layout {section.layout}
-          </p>
+          {/*
+            The old subtitle read "1 item · 0 published", which was the single
+            most confusing string in the admin: both numbers were true and
+            together they explained nothing. The Live / Changes not live bar
+            below says the same thing in a way that can be acted on.
+
+            The database key is gone entirely. It is fixed by the code that asks
+            for it, so an editor can neither change it nor be helped by seeing
+            it.
+          */}
         </div>
 
-        {/* Asks first: a placement removed here takes its curation with it. */}
-        <DeleteRowButton
-          name={placement?.name ?? section.key}
-          consequence="Everything curated into it is removed too."
-          onDelete={removeSection}
-        />
-      </div>
+        {/*
+          No delete for a system placement.
 
-      {section.status !== "published" ? (
-        <p className="rounded-card border border-line bg-sand-50 px-4 py-3 text-sm text-ink-700">
-          This section is <strong>{section.status}</strong>. Row-level security
-          hides every item from the public site until the section itself is
-          published.
-        </p>
-      ) : null}
+          These are part of the page rather than pieces of content: the homepage
+          asks for this slot by name in its own code, so deleting the row does
+          not remove a section from the site — it removes the site's ability to
+          fill one. Clearing it is on the bar below, and that is the action
+          somebody reaching for "delete" actually wants. Custom sections, which
+          nothing asks for by name, keep the control.
+        */}
+        {placement ? null : (
+          <DeleteRowButton
+            name={section.title ?? section.key}
+            consequence="Everything curated into it is removed too."
+            onDelete={removeSection}
+          />
+        )}
+      </div>
 
       {/*
         The content is the work; the settings are configuration that is right
@@ -198,41 +301,20 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
         </div>
       </details>
 
-      <div className="grid gap-8">
-        <section aria-labelledby="section-items" className="space-y-4">
-          <h2
-            id="section-items"
-            className="text-sm font-bold uppercase tracking-wider text-navy-900"
-          >
-            Items ({section.items.length})
-          </h2>
+      <PlacementBoard
+        sectionId={section.id}
+        placementName={placementName}
+        singleSlot={singleSlot}
+        accepts={placement?.accepts ?? ["ranking", "article", "product_ranking"]}
+        status={placementStatus}
+        rows={rows}
+        slotContent={slotContent}
+        items={section.items}
+        library={library}
+        returnTo={`/admin/editorial/${section.id}`}
+        placementKey={section.key}
+      />
 
-          <AddSectionItem
-            sectionId={section.id}
-            placementKey={section.key}
-            returnTo={`/admin/editorial/${section.id}`}
-          />
-
-          {section.items.length === 0 ? (
-            <p className="rounded-card border border-line bg-white p-8 text-center text-sm text-ink-500">
-              No items yet. Add one above.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {section.items.map((item, index) => (
-                <SectionItemEditor
-                library={library}
-                  key={item.id}
-                  item={item}
-                  sectionId={section.id}
-                  isFirst={index === 0}
-                  isLast={index === section.items.length - 1}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
     </div>
   );
 }

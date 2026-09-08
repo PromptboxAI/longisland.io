@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Check, ExternalLink, Loader2, Trash2 } from "lucide-react";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useRef, useState, useTransition } from "react";
 
 import {
   addSectionItem,
@@ -150,8 +150,38 @@ export function AddSectionItem({
   /** Where a "create new" link should come back to. */
   returnTo?: string;
 }) {
+  const [external, setExternal] = useState(false);
+  const [chosen, setChosen] = useState<TargetResult | null>(null);
+  /*
+   * What was just added, so the click has a visible result.
+   *
+   * Adding used to do nothing an editor could see: the preview panel stayed put
+   * and the new row appeared far below the fold, so the reasonable conclusion
+   * was that the button had not worked.
+   */
+  const [justAdded, setJustAdded] = useState<string | null>(null);
+  const chosenRef = useRef<TargetResult | null>(null);
+
+  /*
+   * Wrapped so the outcome is visible.
+   *
+   * The name is captured from the form before the call, because the selection
+   * is cleared on success — the picker should be ready for the next item, not
+   * still holding the last one as though nothing happened.
+   */
   const [state, formAction, pending] = useActionState<EditorialActionState, FormData>(
-    addSectionItem,
+    async (previous, formData) => {
+      const label =
+        chosenRef.current?.title ||
+        String(formData.get("headline") ?? "") ||
+        "That item";
+      const result = await addSectionItem(previous, formData);
+      if (!result.error) {
+        setJustAdded(label);
+        setChosen(null);
+      }
+      return result;
+    },
     {},
   );
 
@@ -173,9 +203,6 @@ export function AddSectionItem({
     "category",
     "place",
   ];
-
-  const [external, setExternal] = useState(false);
-  const [chosen, setChosen] = useState<TargetResult | null>(null);
 
   return (
     <form action={formAction} className="rounded-card border border-line bg-white p-5">
@@ -245,11 +272,24 @@ export function AddSectionItem({
           <TargetPicker
             accepts={accepts}
             selectedId={chosen?.id ?? null}
-            onSelect={setChosen}
+            onSelect={(result) => {
+              chosenRef.current = result;
+              setChosen(result);
+              setJustAdded(null);
+            }}
             returnTo={returnTo}
           />
         </div>
       )}
+
+      {justAdded ? (
+        <p
+          aria-live="polite"
+          className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900"
+        >
+          {justAdded} added. It is in the list above.
+        </p>
+      ) : null}
 
       {chosen ? (
         <InheritedPreview

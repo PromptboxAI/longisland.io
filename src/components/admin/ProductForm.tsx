@@ -1,9 +1,10 @@
 "use client";
 
 import { Check, Loader2 } from "lucide-react";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { saveProduct, type ActionState } from "@/app/admin/products/actions";
+import { slugify } from "@/lib/slug";
 import { FormError } from "@/components/forms/Field";
 import { MediaField } from "@/components/admin/MediaField";
 import type { MediaAsset } from "@/types/media";
@@ -25,6 +26,23 @@ export function ProductForm({
   library,
   imageMedia,
 }: ProductFormProps) {
+
+  /*
+   * The identifier follows the name until somebody takes it over.
+   *
+   * Real products were being saved as "Untitled product / untitled-product"
+   * because the field was a separate chore nobody had a reason to do. Deriving
+   * it removes the chore; the touched flag means a deliberate value is never
+   * overwritten afterwards.
+   */
+  const [name, setName] = useState(product.name);
+  const [slugTouched, setSlugTouched] = useState(
+    // An existing product that already disagrees with its name was set by hand
+    // at some point, so it is left alone.
+    product.slug !== slugify(product.name),
+  );
+  const [rawSlug, setRawSlug] = useState(product.slug);
+  const slug = slugTouched ? rawSlug : slugify(name);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     saveProduct,
     {},
@@ -58,7 +76,8 @@ export function ProductForm({
               name="name"
               type="text"
               required
-              defaultValue={product.name}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
               className={`mt-2 ${inputClass}`}
             />
           </div>
@@ -101,20 +120,33 @@ export function ProductForm({
           </div>
 
           <div>
+            {/*
+              "Slug" reads as a URL, and this is not one — products have no page
+              of their own. Calling it what it is stops an editor worrying about
+              a web address that does not exist, and stops "untitled-product"
+              looking like something a reader might see.
+            */}
             <label htmlFor="slug" className="block text-sm font-semibold text-navy-900">
-              Slug
+              Internal identifier
             </label>
             <input
               id="slug"
               name="slug"
               type="text"
               required
-              defaultValue={product.slug}
+              value={slug}
+              onChange={(event) => {
+                // Any edit hands control over for good. Following the name
+                // afterwards would quietly undo a deliberate choice.
+                setSlugTouched(true);
+                setRawSlug(event.target.value);
+              }}
               className={`mt-2 ${inputClass} font-mono`}
             />
             <p className="mt-1 text-xs text-ink-500">
-              Products have no public page of their own — the slug identifies the
-              row and seeds its placeholder image.
+              {slugTouched
+                ? "Set by hand. It no longer follows the product name."
+                : "Follows the product name until you change it. Not a public web address — products appear inside guides and rows, not on pages of their own."}
             </p>
           </div>
         </div>
