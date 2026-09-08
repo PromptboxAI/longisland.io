@@ -76,7 +76,7 @@ export async function GET(
   const admin = createAdminClient();
   if (admin) {
     void admin
-      .from("affiliate_clicks__FAULT_INJECTION_TEMP")
+      .from("affiliate_clicks")
       .insert({
         offer_id: offer.id,
         product_id: offer.product_id,
