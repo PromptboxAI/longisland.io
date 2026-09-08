@@ -1,5 +1,7 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { AddSectionItem, SectionItemEditor } from "@/components/admin/SectionItemsEditor";
@@ -129,6 +131,19 @@ export function PlacementBoard({
           />
         </section>
       ) : null}
+
+      {/*
+        The homepage as it will be, before committing to it. A card preview
+        answers a different question from "does the page work with this on it".
+      */}
+      <Link
+        href="/preview/homepage"
+        target="_blank"
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:underline"
+      >
+        Preview the homepage with these changes
+        <ExternalLink aria-hidden="true" className="size-3.5" />
+      </Link>
 
       <section className="space-y-3">
         <h2 className="text-sm font-bold uppercase tracking-wider text-navy-900">

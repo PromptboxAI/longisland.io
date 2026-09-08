@@ -756,9 +756,8 @@ function InheritedPreview({ preview }: { preview: TargetPreview }) {
           </span>
         </span>
         {!published ? (
-          <span className="text-amber-700">
-            A draft target will not appear on the public page until it is
-            published.
+          <span className="font-semibold text-amber-700">
+            Draft — will not appear publicly until it is published.
           </span>
         ) : null}
       </div>
