@@ -85,7 +85,7 @@ export function ProductCard({
         not a paragraph, and ragged-right text under a centred image and a
         centred button left the middle of the card looking misaligned.
       */}
-      <div className="flex min-w-0 flex-1 flex-col p-5 pb-6 text-center">
+      <div className="flex min-w-0 flex-1 flex-col p-5 pb-7 text-center">
         {product.brand ? (
           <p className="meta">
             {product.brand}
@@ -115,7 +115,7 @@ export function ProductCard({
           an ad unit.
         */}
         {offer ? (
-          <div className="mt-auto flex justify-center pt-5">
+          <div className="mt-auto flex justify-center pt-9">
             <ProductOfferButton
               placement={placement}
               sourcePath={sourcePath}

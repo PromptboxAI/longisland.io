@@ -159,7 +159,7 @@ export function ProductOfferButton({
    */
   const sizing =
     size === "compact"
-      ? "gap-1 px-6 py-2.5 text-[15px] whitespace-nowrap"
+      ? "gap-1 px-8 py-3 text-base whitespace-nowrap"
       : "gap-1.5 px-5 py-2.5 text-[15px]";
 
   return (
