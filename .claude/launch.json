@@ -6,6 +6,16 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "skifree-scratch",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m", "http.server", "8899",
+        "--directory",
+        "C:/Users/Godfr/AppData/Local/Temp/claude/C--Users-Godfr-Longisland-io/523c88fe-ece7-4083-868f-17e07f59874e/scratchpad"
+      ],
+      "port": 8899
     }
   ]
 }

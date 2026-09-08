@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth";
 import { prunePending, splitByPolicy } from "@/lib/editorial/field-policy";
+import { revalidateRankingPaths } from "@/lib/data/revalidate";
 import { generateStructured } from "@/lib/ai/provider";
 import {
   entryCopyPrompt,
@@ -337,7 +338,15 @@ export async function applyEntryDraft(
 
   if (error) return { error: "Could not apply that draft." };
 
-  revalidatePath(`/admin/rankings/${rankingId}`);
+  /*
+   * The public pages too, not just this screen.
+   *
+   * A short field applied from a draft goes live immediately, and refreshing
+   * only the admin view left the editor looking at their change while readers
+   * kept the old one for an hour. Cheap to do unconditionally: a record that
+   * staged everything simply has nothing to refresh.
+   */
+  await revalidateRankingPaths(supabase, rankingId);
   return { ok: true };
 }
 
@@ -587,7 +596,15 @@ export async function applyRankingDraft(
   const { error } = await supabase.from("rankings").update(update).eq("id", rankingId);
   if (error) return { error: "Could not apply that draft." };
 
-  revalidatePath(`/admin/rankings/${rankingId}`);
+  /*
+   * The public pages too, not just this screen.
+   *
+   * A short field applied from a draft goes live immediately, and refreshing
+   * only the admin view left the editor looking at their change while readers
+   * kept the old one for an hour. Cheap to do unconditionally: a record that
+   * staged everything simply has nothing to refresh.
+   */
+  await revalidateRankingPaths(supabase, rankingId);
   return { ok: true };
 }
 

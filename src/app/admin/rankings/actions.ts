@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { businessSlug, slugify, uniqueSlug } from "@/lib/slug";
 import { prunePending, splitByPolicy } from "@/lib/editorial/field-policy";
+import { revalidateRankingPaths } from "@/lib/data/revalidate";
 
 /**
  * Ranking editor mutations.
@@ -347,38 +348,6 @@ export async function setRankingStatus(
   if (previous?.slug) revalidatePath(`/best/${previous.slug}`);
   revalidatePath("/best");
   revalidatePath("/");
-}
-
-/**
- * Every public path a ranking's copy appears on.
- *
- * A dek shows on the ranking, on /best, on the homepage and on its category and
- * place pages. Applying a pending change that refreshed only one of those would
- * leave the same sentence live in one place and stale in four.
- */
-async function revalidateRankingPaths(
-  supabase: Awaited<ReturnType<typeof requireAdmin>>["supabase"],
-  rankingId: string,
-): Promise<void> {
-  const { data } = await supabase
-    .from("rankings")
-    .select("slug, category:categories(slug), place:places(slug)")
-    .eq("id", rankingId)
-    .maybeSingle();
-
-  const row = data as unknown as {
-    slug?: string;
-    category?: { slug?: string } | null;
-    place?: { slug?: string } | null;
-  } | null;
-
-  revalidatePath(`/admin/rankings/${rankingId}`);
-  revalidatePath("/admin/rankings");
-  if (row?.slug) revalidatePath(`/best/${row.slug}`);
-  revalidatePath("/best");
-  revalidatePath("/");
-  if (row?.category?.slug) revalidatePath(`/category/${row.category.slug}`);
-  if (row?.place?.slug) revalidatePath(`/place/${row.place.slug}`);
 }
 
 const entrySchema = z.object({
