@@ -96,19 +96,26 @@ export function ProductCard({
           {product.name}
         </h3>
 
+        {/*
+          Clamped to two lines, which is what makes the gap below it constant.
+          Pinning the button to the foot lined the buttons up but left a
+          different amount of air under each card's text — a one-line product
+          got a chasm, a four-line one got none. Capping the description makes
+          every card's text block the same height, so the buttons line up AND
+          the spacing above them is identical, without choosing between the two.
+        */}
         {(note ?? product.editorial_summary) ? (
-          <p className="mt-2 text-sm leading-relaxed text-ink-700">
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-700">
             {note ?? product.editorial_summary}
           </p>
         ) : null}
 
         {/*
-          mt-auto pins the button to the foot of the card, so a row of cards of
-          different text lengths still lines its CTAs up. Not full-width: the
-          label is two words and a stretched pill reads as an ad unit.
+          Not full-width: the label is two words and a stretched pill reads as
+          an ad unit.
         */}
         {offer ? (
-          <div className="mt-auto flex justify-center pt-4">
+          <div className="mt-auto flex justify-center pt-5">
             <ProductOfferButton
               placement={placement}
               sourcePath={sourcePath}
