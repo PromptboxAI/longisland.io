@@ -261,7 +261,7 @@ export async function listCategories(): Promise<Category[]> {
 
   const { data, error } = await supabase
     .from("categories")
-    .select("*")
+    .select("*, hero_media:media_assets!categories_hero_media_id_fkey(*)")
     .order("name");
 
   // A failed read is NOT seed mode. Returning fixtures here would publish
@@ -283,7 +283,7 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
 
   const { data, error } = await supabase
     .from("categories")
-    .select("*")
+    .select("*, hero_media:media_assets!categories_hero_media_id_fkey(*)")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -307,7 +307,7 @@ export async function listPlaces(): Promise<Place[]> {
   const supabase = await getDb();
   if (!supabase) return seedAllowed() ? SEED_PLACES : [];
 
-  const { data, error } = await supabase.from("places").select("*").order("name");
+  const { data, error } = await supabase.from("places").select("*, hero_media:media_assets!places_hero_media_id_fkey(*)").order("name");
   if (error) {
     logQueryError("listPlaces", error);
     return [];
@@ -323,7 +323,7 @@ export async function getPlaceBySlug(slug: string): Promise<Place | null> {
 
   const { data, error } = await supabase
     .from("places")
-    .select("*")
+    .select("*, hero_media:media_assets!places_hero_media_id_fkey(*)")
     .eq("slug", slug)
     .maybeSingle();
 

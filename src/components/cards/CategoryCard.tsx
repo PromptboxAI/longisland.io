@@ -1,10 +1,14 @@
 import Link from "next/link";
+import { resolveImageUrl } from "@/lib/media/resolve";
+import type { MediaAsset } from "@/types/media";
 
 import { EditorialImage } from "@/components/ui/EditorialImage";
 import type { Category } from "@/types/database";
 
 export interface CategoryCardProps {
-  category: Pick<Category, "name" | "slug" | "description" | "hero_image_url">;
+  category: Pick<Category, "name" | "slug" | "description" | "hero_image_url"> & {
+    hero_media?: MediaAsset | null;
+  };
   /** "tile" is the dense discovery grid; "feature" carries a description. */
   variant?: "tile" | "feature";
 }
@@ -18,7 +22,7 @@ export function CategoryCard({ category, variant = "tile" }: CategoryCardProps) 
         href={href}
         className="group relative flex h-24 items-end overflow-hidden rounded-card border border-navy-100 p-3 transition-shadow hover:shadow-lift sm:h-28"
       >
-        <EditorialImage src={category.hero_image_url} alt="" seed={category.slug} sizes="200px" />
+        <EditorialImage src={resolveImageUrl(category.hero_media ?? null, category.hero_image_url)} alt="" seed={category.slug} sizes="200px" />
         <span className="absolute inset-0 bg-gradient-to-t from-navy-950/85 via-navy-950/25 to-transparent" />
         <span className="relative text-sm font-semibold leading-tight text-white">
           {category.name}
@@ -31,7 +35,7 @@ export function CategoryCard({ category, variant = "tile" }: CategoryCardProps) 
     <article className="group relative overflow-hidden rounded-card border border-navy-100 bg-white shadow-card transition-shadow hover:shadow-lift">
       <div className="relative aspect-[16/9]">
         <EditorialImage
-          src={category.hero_image_url}
+          src={resolveImageUrl(category.hero_media ?? null, category.hero_image_url)}
           alt=""
           seed={category.slug}
           sizes="(max-width: 640px) 100vw, 33vw"

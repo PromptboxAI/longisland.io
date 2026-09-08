@@ -1,10 +1,14 @@
 import Link from "next/link";
+import { resolveImageUrl } from "@/lib/media/resolve";
+import type { MediaAsset } from "@/types/media";
 
 import { EditorialImage } from "@/components/ui/EditorialImage";
 import type { Place } from "@/types/database";
 
 export interface PlaceCardProps {
-  place: Pick<Place, "name" | "slug" | "description" | "hero_image_url" | "type">;
+  place: Pick<Place, "name" | "slug" | "description" | "hero_image_url" | "type"> & {
+    hero_media?: MediaAsset | null;
+  };
   /** "region" is the large geography card; "town" is the dense link chip. */
   variant?: "region" | "town";
 }
@@ -25,8 +29,18 @@ export function PlaceCard({ place, variant = "region" }: PlaceCardProps) {
 
   return (
     <article className="group relative aspect-[4/3] overflow-hidden rounded-card border border-navy-100 shadow-card transition-shadow hover:shadow-lift">
+      {/*
+        The uploaded hero, then a pasted URL.
+
+        Reading the column alone was the same omission that hid every product
+        and business photograph: an image set through the media library lives in
+        media_assets and leaves hero_image_url null, so this would have drawn
+        its letter-tile fallback over a picture that was already uploaded. No
+        category or place has a hero yet — this is so the first one that gets
+        one actually appears.
+      */}
       <EditorialImage
-        src={place.hero_image_url}
+        src={resolveImageUrl(place.hero_media ?? null, place.hero_image_url)}
         alt=""
         seed={place.slug}
         sizes="(max-width: 640px) 50vw, 25vw"
