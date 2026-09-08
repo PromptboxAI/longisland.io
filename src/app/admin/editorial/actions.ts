@@ -532,6 +532,61 @@ export async function moveSectionItem(
 }
 
 /**
+ * Persists a complete new order for a placement.
+ *
+ * Drag-and-drop moves an item from 1 to 8 in a single gesture, which the
+ * pairwise swap above cannot express: seven swaps would be seven writes with
+ * seven chances to interleave with another editor's.
+ *
+ * The submitted order is filtered against what is actually in the section and
+ * refused if anything is missing, so a stale tab cannot silently drop a row
+ * that someone else added in the meantime.
+ */
+export async function reorderSectionItems(
+  sectionId: string,
+  orderedItemIds: string[],
+): Promise<{ ok?: true; error?: string }> {
+  const { supabase } = await requireAdmin();
+
+  const { data } = await supabase
+    .from("editorial_section_items")
+    .select("id")
+    .eq("section_id", sectionId);
+
+  const known = new Set(((data ?? []) as { id: string }[]).map((row) => row.id));
+  const ordered = orderedItemIds.filter((id) => known.has(id));
+
+  if (ordered.length !== known.size) {
+    return { error: "That order is out of date. Reload the page and try again." };
+  }
+
+  /*
+   * Parked in negative space first, then written forward.
+   *
+   * `position` has no unique constraint but is meant to behave like one, and
+   * writing 1..n straight over 1..n would briefly give two rows the same value.
+   * Negatives are outside anything the UI can produce, so the parking pass
+   * cannot collide with a live value.
+   */
+  for (const [index, id] of ordered.entries()) {
+    await supabase
+      .from("editorial_section_items")
+      .update({ position: -(index + 1) })
+      .eq("id", id);
+  }
+  for (const [index, id] of ordered.entries()) {
+    await supabase
+      .from("editorial_section_items")
+      .update({ position: index + 1 })
+      .eq("id", id);
+  }
+
+  revalidatePath(`/admin/editorial/${sectionId}`);
+  await revalidateSectionSurfaces(supabase, sectionId);
+  return { ok: true };
+}
+
+/**
  * Rewrites positions to a contiguous 1..n in current display order.
  *
  * Keeps "position" meaningful after inserts and deletes, so the numbers an

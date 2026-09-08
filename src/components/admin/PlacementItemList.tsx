@@ -1,11 +1,22 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Check, Loader2, Pencil, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  GripVertical,
+  Loader2,
+  Pencil,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { useDragOrder } from "@/components/admin/useDragOrder";
+
 import {
   moveSectionItem,
+  reorderSectionItems,
   removeSectionItem,
 } from "@/app/admin/editorial/actions";
 
@@ -55,7 +66,23 @@ export function PlacementItemList({
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [, startTransition] = useTransition();
+
+  /*
+   * Dragging saves the whole order at once; the arrows below still nudge one
+   * row at a time. Both write, neither replaces the other — the buttons are the
+   * keyboard path and nothing here takes that away.
+   *
+   * Above the empty-state return, because a hook cannot be called conditionally.
+   */
+  const drag = useDragOrder(items, async (orderedIds) => {
+    setBusyId("reorder");
+    const result = await reorderSectionItems(sectionId, orderedIds);
+    if (result.error) setError(result.error);
+    setBusyId(null);
+    router.refresh();
+  });
 
   if (items.length === 0) {
     return (
@@ -75,16 +102,40 @@ export function PlacementItemList({
   }
 
   return (
+    <>
+    {error ? (
+      <p className="mb-2 text-xs font-semibold text-red-700">{error}</p>
+    ) : null}
     <ol className="space-y-2">
-      {items.map((item, index) => {
+      {drag.ordered.map((item, index) => {
         const draftTarget = item.targetStatus !== "published";
         const notLive = item.itemStatus !== "published";
 
         return (
           <li
             key={item.id}
-            className="flex items-center gap-3 rounded-card border border-line bg-white p-3"
+            ref={(el) => drag.registerRow(item.id, el)}
+            className={`flex items-center gap-3 rounded-card border bg-white p-3 ${
+              drag.draggingId === item.id
+                ? "border-brand-500 shadow-lift"
+                : "border-line"
+            }`}
           >
+            {/*
+              The handle, not the whole row: a row carries a link, an edit
+              button and a remove button, and making all of it draggable turns
+              every mis-aimed click into a drag.
+            */}
+            <span
+              {...drag.handleProps(item.id)}
+              role="button"
+              tabIndex={-1}
+              aria-hidden="true"
+              className="-mr-1 shrink-0 cursor-grab text-ink-400 hover:text-navy-900 active:cursor-grabbing"
+            >
+              <GripVertical className="size-4" />
+            </span>
+
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-navy-900 text-xs font-bold text-white">
               {index + 1}
             </span>
@@ -212,5 +263,6 @@ export function PlacementItemList({
         </li>
       ) : null}
     </ol>
+    </>
   );
 }

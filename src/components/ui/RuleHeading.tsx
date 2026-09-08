@@ -40,7 +40,14 @@ export function RuleHeading({
 
   return (
     <div className="rule-heading flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-      <div className="max-w-3xl">
+      {/*
+        The measure is set on the heading block, and the standfirst under it was
+        inheriting a 3xl box at 14px — so a sentence that fits the page easily
+        broke onto a second line well before reaching the edge. Wider, and one
+        step up in size: it is the line that explains the section, and it was
+        set smaller than the body copy it introduces.
+      */}
+      <div className="max-w-4xl">
         <h2
           id={id}
           className={`section-heading ${sizes[size]}`}
@@ -48,7 +55,9 @@ export function RuleHeading({
           {title}
         </h2>
         {description ? (
-          <p className="mt-2 text-sm leading-relaxed text-ink-700">{description}</p>
+          <p className="mt-2 text-base leading-relaxed text-ink-700 sm:text-[17px]">
+            {description}
+          </p>
         ) : null}
       </div>
 

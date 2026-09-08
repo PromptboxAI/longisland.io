@@ -1,10 +1,11 @@
 "use client";
 
 import { GripVertical } from "lucide-react";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { reorderEntries } from "@/app/admin/rankings/actions";
 import { RankingEntryEditor } from "@/components/admin/RankingEntryEditor";
+import { useDragOrder } from "@/components/admin/useDragOrder";
 import type { RankingEntryWithBusiness } from "@/types/database";
 import type { MediaAsset } from "@/types/media";
 
@@ -41,50 +42,32 @@ export function RankingEntryList({
   aiConfigured?: boolean;
   rankingPublished?: boolean;
 }) {
-  const [order, setOrder] = useState(entries);
-  const [dragging, setDragging] = useState<string | null>(null);
-  const [over, setOver] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [saving, startSave] = useTransition();
 
-  // Server state wins whenever it changes — an entry added or removed elsewhere
-  // on the page must not be masked by the local copy.
-  const signature = entries.map((e) => e.id).join(",");
-  const lastSignature = useRef(signature);
-  useEffect(() => {
-    if (lastSignature.current !== signature) {
-      lastSignature.current = signature;
-      setOrder(entries);
-    }
-  }, [signature, entries]);
-
-  function moveTo(sourceId: string, targetId: string) {
-    if (sourceId === targetId) return;
-
-    const next = [...order];
-    const from = next.findIndex((e) => e.id === sourceId);
-    const to = next.findIndex((e) => e.id === targetId);
-    if (from === -1 || to === -1) return;
-
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-
-    const previous = order;
-    setOrder(next);
-    setError("");
-
-    startSave(async () => {
-      const result = await reorderEntries(
-        rankingId,
-        next.map((e) => e.id),
-      );
-      if (result.error) {
-        // Put it back rather than leaving the screen disagreeing with the data.
-        setOrder(previous);
-        setError(result.error);
-      }
-    });
-  }
+  /*
+   * No local mirror of `entries`.
+   *
+   * The old copy needed an effect watching a joined-id signature to notice when
+   * the server list changed under it, or an entry added elsewhere on the page
+   * stayed invisible. The hook holds an order only while a drag is in flight,
+   * so props are the source of truth the rest of the time and there is nothing
+   * to resynchronise.
+   */
+  const drag = useDragOrder(
+    entries,
+    (orderedIds) =>
+      new Promise<void>((resolve) => {
+        setError("");
+        startSave(async () => {
+          const result = await reorderEntries(rankingId, orderedIds);
+          // Left to the server's list rather than patched locally: a refused
+          // reorder should show what the database actually has.
+          if (result.error) setError(result.error);
+          resolve();
+        });
+      }),
+  );
 
   return (
     <div>
@@ -95,23 +78,13 @@ export function RankingEntryList({
       ) : null}
 
       <ul className="space-y-4">
-        {order.map((entry, index) => (
+        {drag.ordered.map((entry, index) => (
           <li
             key={entry.id}
-            onDragOver={(event) => {
-              event.preventDefault();
-              if (dragging && dragging !== entry.id) setOver(entry.id);
-            }}
-            onDragLeave={() => setOver((current) => (current === entry.id ? null : current))}
-            onDrop={(event) => {
-              event.preventDefault();
-              if (dragging) moveTo(dragging, entry.id);
-              setDragging(null);
-              setOver(null);
-            }}
+            ref={(el) => drag.registerRow(entry.id, el)}
             className={`relative rounded-card transition-shadow ${
-              over === entry.id ? "ring-2 ring-brand-500" : ""
-            } ${dragging === entry.id ? "opacity-50" : ""}`}
+              drag.draggingId === entry.id ? "opacity-60 ring-2 ring-brand-500" : ""
+            }`}
           >
             <div className="flex items-start gap-2">
               {/*
@@ -120,17 +93,7 @@ export function RankingEntryList({
                 same thing and always have.
               */}
               <span
-                draggable
-                onDragStart={(event) => {
-                  setDragging(entry.id);
-                  event.dataTransfer.effectAllowed = "move";
-                  // Firefox will not start a drag without payload.
-                  event.dataTransfer.setData("text/plain", entry.id);
-                }}
-                onDragEnd={() => {
-                  setDragging(null);
-                  setOver(null);
-                }}
+                {...drag.handleProps(entry.id)}
                 aria-hidden="true"
                 title="Drag to reorder"
                 className="mt-6 flex cursor-grab select-none flex-col items-center gap-1 rounded px-1 py-2 text-ink-400 hover:bg-sand-100 hover:text-navy-900 active:cursor-grabbing"
@@ -146,7 +109,7 @@ export function RankingEntryList({
                   entry={entry}
                   rankingId={rankingId}
                   isFirst={index === 0}
-                  isLast={index === order.length - 1}
+                  isLast={index === entries.length - 1}
                   library={library}
                   rankingPlaceName={rankingPlaceName}
                   hasYelpReference={yelpReferencedBusinessIds.includes(
