@@ -593,9 +593,13 @@ export function GenerateWorkbench({
                 Selected {selectedIds.length} / {rankingSize}
               </p>
               {/*
-                Says what happened to the batch. "10 shown" after asking for 25
-                looks like the batch size was ignored; naming the filters shows
-                it was not.
+                Says what happened to the batch, and accounts for ALL of it.
+                "10 shown" after asking for 25 looks like the batch size was
+                ignored; naming the filters shows it was not — but only if
+                every filter is named. The unrecognised-town bucket was missing
+                here, so a search could read "34 fetched · 26 eligible · 4
+                outside" and leave four candidates unexplained on the one line
+                an editor actually reads.
               */}
               <p className="text-xs text-ink-500">
                 {candidates.length} fetched from Yelp · {visible.length} eligible
@@ -605,6 +609,10 @@ export function GenerateWorkbench({
                 {outsideArea.length > 0
                   ? ` · ${outsideArea.length} outside the area`
                   : ""}
+                {unrecognisedArea.length > 0
+                  ? ` · ${unrecognisedArea.length} in an unrecognised town`
+                  : ""}
+                {excludedIds.length > 0 ? ` · ${excludedIds.length} excluded` : ""}
                 {total > 0 ? ` · ${total.toLocaleString()} matched on Yelp` : ""}
               </p>
             </div>
