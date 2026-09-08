@@ -132,11 +132,13 @@ export function SiteHeader() {
         On desktop the category bar is itself a navy band, and it is what stops
         the white header dissolving into a white page. Hiding that bar below
         `lg` took the separation with it and left the masthead floating. The
-        rule puts the band back at 3px — enough to read as a deliberate edge in
-        the site's own navy rather than as a hairline border.
+        rule puts that edge back. A hairline, not a band: at 3px it read as a
+        second navigation strip that had lost its labels, which is heavier than
+        the job needs. One pixel of the site's navy separates the two surfaces
+        and then gets out of the way.
       */}
       <header
-        className={`sticky top-0 z-50 border-b-[3px] border-navy-900 bg-white transition-shadow lg:border-b-0 ${
+        className={`sticky top-0 z-50 border-b border-navy-900 bg-white transition-shadow lg:border-b-0 ${
           scrolled ? "shadow-card" : "shadow-none"
         }`}
       >

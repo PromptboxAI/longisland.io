@@ -19,29 +19,90 @@ import type { BusinessResearch, EvidenceAssessment } from "@/lib/ai/research";
 /* Shapes                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/*
+ * Forgiving about shape, strict about meaning.
+ *
+ * The first version rejected the whole draft if any single field fell outside
+ * its bounds — a 94-character phrase, a badge the model invented, a
+ * capitalised "Low" — and the editor got "did not match the expected shape"
+ * with no way to know which field or to recover the rest. Perfectly good copy
+ * was thrown away over a full stop.
+ *
+ * The bounds that exist to protect the PAGE are kept and enforced by trimming:
+ * an over-long phrase is cut, not refused. The bounds that exist only to catch
+ * a confused model are relaxed to a coercion: an unrecognised badge becomes no
+ * badge, which is the conservative answer anyway, and an unrecognised
+ * confidence becomes "low", which is the honest one.
+ *
+ * Nothing here weakens review. Every field still lands in a panel a human
+ * reads and edits before it touches an editorial field.
+ */
 export const entryCopySchema = z.object({
-  /** One short phrase, lowercase, no trailing full stop. */
-  bestFor: z.string().trim().min(3).max(90),
+  /** One short phrase. Cut rather than refused if the model runs long. */
+  bestFor: z
+    .string()
+    .trim()
+    .min(3)
+    .transform((value) => (value.length > 90 ? `${value.slice(0, 87)}…` : value)),
   /** Two or three sentences. */
-  whyWePickedIt: z.string().trim().min(40).max(600),
-  /** Only when the evidence genuinely supports one. */
-  badge: z.enum(["", ...RANKING_BADGES] as [string, ...string[]]).optional(),
+  whyWePickedIt: z
+    .string()
+    .trim()
+    .min(20)
+    .transform((value) => (value.length > 600 ? `${value.slice(0, 597)}…` : value)),
+  /**
+   * Only when the evidence genuinely supports one.
+   *
+   * An unrecognised badge becomes none. A badge is a claim, and one the model
+   * made up is exactly the claim we would not want to publish.
+   */
+  badge: z
+    .string()
+    .optional()
+    .transform((value) =>
+      value && (RANKING_BADGES as readonly string[]).includes(value) ? value : "",
+    ),
   /**
    * The model's own read of how much it had to go on. Shown to the editor
    * beside the draft, so a confident-sounding paragraph built on nothing is
    * labelled as such by the thing that wrote it.
+   *
+   * Anything unrecognised reads as "low" — the cautious reading, and the right
+   * default for a model that could not follow a three-word instruction.
    */
-  confidence: z.enum(["high", "medium", "low"]),
+  confidence: z
+    .string()
+    .optional()
+    .transform((value) => {
+      const v = (value ?? "").trim().toLowerCase();
+      return v === "high" || v === "medium" ? v : "low";
+    }),
   /** One line naming what the draft rests on. Internal only. */
-  basis: z.string().trim().max(200),
+  basis: z
+    .string()
+    .optional()
+    .transform((value) => (value ?? "").trim().slice(0, 200)),
 });
 
 export type EntryCopy = z.infer<typeof entryCopySchema>;
 
+/** Same principle: trim to the page's limits rather than discard the draft. */
 export const rankingCopySchema = z.object({
-  dek: z.string().trim().min(20).max(300),
-  intro: z.string().trim().min(80).max(1200),
-  methodology: z.string().trim().min(80).max(1200),
+  dek: z
+    .string()
+    .trim()
+    .min(10)
+    .transform((v) => (v.length > 300 ? `${v.slice(0, 297)}…` : v)),
+  intro: z
+    .string()
+    .trim()
+    .min(40)
+    .transform((v) => (v.length > 1200 ? `${v.slice(0, 1197)}…` : v)),
+  methodology: z
+    .string()
+    .trim()
+    .min(40)
+    .transform((v) => (v.length > 1200 ? `${v.slice(0, 1197)}…` : v)),
 });
 
 export type RankingCopy = z.infer<typeof rankingCopySchema>;

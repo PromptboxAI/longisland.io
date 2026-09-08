@@ -102,6 +102,17 @@ export async function generateStructured<T>(
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
+    /*
+     * Logged with the field names, because the message an editor sees cannot
+     * carry them and "did not match the expected shape" is undiagnosable
+     * without them. The values are not logged — only which key failed and why.
+     */
+    console.error(
+      "[ai] draft rejected by schema:",
+      result.error.issues
+        .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+        .join("; "),
+    );
     return {
       ok: false,
       error: "The draft did not match the expected shape. Try again.",
