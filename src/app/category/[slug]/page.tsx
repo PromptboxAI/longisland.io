@@ -235,9 +235,22 @@ export default async function CategoryPage({ params }: PageParams) {
               title={`Popular ${category.name} Spots`}
               uppercase
             />
-            <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {/*
+              Thumbnail rows, not photo cards.
+
+              These are browse lists — often twenty-plus businesses — and at
+              four full 4:3 photographs to a row they read as twenty separate
+              features rather than one list to scan down. The 48px thumbnail is
+              enough to recognise a place by; three columns fit far more of the
+              list on screen at once, which is what a directory section is for.
+            */}
+            <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {businesses.map((business) => (
-                <BusinessCard key={business.id} business={business} />
+                <BusinessCard
+                  key={business.id}
+                  business={business}
+                  variant="compact"
+                />
               ))}
             </div>
           </section>
