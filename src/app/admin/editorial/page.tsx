@@ -5,7 +5,11 @@ import { openPlacement } from "@/app/admin/editorial/actions";
 import { ScopedPlacementPicker } from "@/components/admin/ScopedPlacementPicker";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { listAdminCategories, listEditorialSections } from "@/lib/data/admin-queries";
-import { placementsByLocation, type Placement } from "@/lib/editorial/placements";
+import {
+  emptyStateClause,
+  placementsByLocation,
+  type Placement,
+} from "@/lib/editorial/placements";
 import { resolveImageUrl } from "@/lib/media/resolve";
 
 export const dynamic = "force-dynamic";
@@ -175,7 +179,14 @@ function PlacementCard({
           />
         ) : !section ? (
           <p className="text-xs text-ink-700">
-            Nothing here yet — the site falls back to its automatic selection.
+            {/*
+              This promised an automatic fallback for every placement, which is
+              the opposite of the mistake the detail screen made and just as
+              misleading: the Primary Feature, Top Rail and Trending show
+              nothing at all when empty. An editor reading this would leave the
+              lead story blank believing the site would fill it.
+            */}
+            Nothing here yet — {emptyStateClause(placement, placement.location.toLowerCase())}
           </p>
         ) : section.itemCount === 0 ? (
           <p className="text-xs text-ink-700">Configured, but empty.</p>
