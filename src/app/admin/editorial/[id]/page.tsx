@@ -304,6 +304,7 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
         placement.showsHeading ? (
           <PlacementHeadingForm
             sectionId={section.id}
+            sectionKey={section.key}
             title={section.title}
             description={section.description}
             defaultHeading={placement.publicHeading ?? placementName}

@@ -22,6 +22,7 @@ import { updateSection, type EditorialActionState } from "@/app/admin/editorial/
  */
 export function PlacementHeadingForm({
   sectionId,
+  sectionKey,
   title,
   description,
   defaultHeading,
@@ -33,6 +34,15 @@ export function PlacementHeadingForm({
   status,
 }: {
   sectionId: string;
+  /**
+   * Carried, never asked for.
+   *
+   * The action validates the whole section row, so a form that omits the key
+   * fails on an empty string — which is how Save heading came to report
+   * "expected string to have >=2 characters" about a field the editor cannot
+   * see. It travels hidden; it is still not something anyone types.
+   */
+  sectionKey: string;
   title: string | null;
   description: string | null;
   /** What the page shows when the title is blank. */
@@ -60,6 +70,7 @@ export function PlacementHeadingForm({
   return (
     <form action={formAction} className="rounded-card border border-line bg-white p-5">
       <input type="hidden" name="id" value={sectionId} />
+      <input type="hidden" name="key" value={sectionKey} />
       <input type="hidden" name="scopeType" value={scopeType} />
       <input type="hidden" name="categoryId" value={categoryId ?? ""} />
       <input type="hidden" name="placeId" value={placeId ?? ""} />
