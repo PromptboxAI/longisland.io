@@ -41,16 +41,18 @@ export function RuleHeading({
   return (
     <div className="rule-heading flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
       {/*
-        The measure is set on the heading block, and the standfirst under it was
-        inheriting a 3xl box at 14px — so a sentence that fits the page easily
-        broke onto a second line well before reaching the edge. Wider, and one
-        step up in size: it is the line that explains the section, and it was
-        set smaller than the body copy it introduces.
+        The measure belongs to the heading, not to the block.
+        
+        The standfirst was inheriting the heading's box at 14px, so a sentence
+        that fits the page easily broke onto a second line while roughly a third
+        of the column sat empty beside it. The heading keeps its measure — a
+        display line does want one — and the sentence under it now runs to the
+        column edge, which is where it stops on the reference sites.
       */}
-      <div className="max-w-4xl">
+      <div className="min-w-0 flex-1">
         <h2
           id={id}
-          className={`section-heading ${sizes[size]}`}
+          className={`section-heading max-w-4xl ${sizes[size]}`}
         >
           {title}
         </h2>
