@@ -142,7 +142,14 @@ export function SiteHeader() {
           scrolled ? "shadow-card" : "shadow-none"
         }`}
       >
-        <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+        {/*
+          56px on a phone, 64px from `lg`.
+          The wordmark is the only thing in this row on mobile, and at 20px in
+          a 64px bar it floated with dead space above and below. A shorter bar
+          and a larger wordmark close that gap from both sides — and 8px off
+          the top of every page is worth having on a phone besides.
+        */}
+        <div className="relative mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:h-16 lg:px-8">
           {/*
             Hamburger first in the DOM as well as on screen, so tab order
             matches reading order on a phone. It disappears at `lg`, where the
@@ -167,7 +174,7 @@ export function SiteHeader() {
           */}
           <Link
             href="/"
-            className="absolute left-1/2 -translate-x-1/2 text-xl font-extrabold tracking-tight text-navy-900 sm:text-2xl lg:static lg:left-auto lg:translate-x-0 lg:shrink-0"
+            className="absolute left-1/2 -translate-x-1/2 text-2xl font-extrabold tracking-tight text-navy-900 lg:static lg:left-auto lg:translate-x-0 lg:shrink-0"
           >
             LongIsland<span className="text-gold-400">.io</span>
           </Link>
