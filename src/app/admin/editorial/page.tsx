@@ -2,8 +2,9 @@ import { ArrowRight, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 import { openPlacement } from "@/app/admin/editorial/actions";
+import { ScopedPlacementPicker } from "@/components/admin/ScopedPlacementPicker";
 import { StatusPill } from "@/components/admin/StatusPill";
-import { listEditorialSections } from "@/lib/data/admin-queries";
+import { listAdminCategories, listEditorialSections } from "@/lib/data/admin-queries";
 import { placementsByLocation, type Placement } from "@/lib/editorial/placements";
 import { resolveImageUrl } from "@/lib/media/resolve";
 
@@ -22,7 +23,10 @@ export const dynamic = "force-dynamic";
  * by hand was a way to get the key wrong.
  */
 export default async function EditorialPage() {
-  const sections = await listEditorialSections();
+  const [sections, categories] = await Promise.all([
+    listEditorialSections(),
+    listAdminCategories(),
+  ]);
 
   // Global placements match on key alone; scoped ones can have many rows, one
   // per category or place, so they are counted rather than shown singly.
@@ -74,6 +78,7 @@ export default async function EditorialPage() {
                 key={placement.key}
                 placement={placement}
                 rows={byKey.get(placement.key) ?? []}
+                categories={categories}
               />
             ))}
           </div>
@@ -114,12 +119,13 @@ export default async function EditorialPage() {
 function PlacementCard({
   placement,
   rows,
+  categories,
 }: {
   placement: Placement;
   rows: Awaited<ReturnType<typeof listEditorialSections>>;
+  categories: { id: string; name: string }[];
 }) {
   const section = placement.scope === "global" ? rows[0] : null;
-  const scopedCount = placement.scope === "global" ? 0 : rows.length;
 
   const lead = section?.items?.[0] ?? null;
   const leadImage = lead
@@ -147,11 +153,26 @@ function PlacementCard({
       {/* What is actually in the slot right now. */}
       <div className="mt-3 flex-1">
         {placement.scope !== "global" ? (
-          <p className="text-xs text-ink-700">
-            {scopedCount === 0
-              ? "Not configured on any category yet."
-              : `Configured on ${scopedCount} categor${scopedCount === 1 ? "y" : "ies"}.`}
-          </p>
+          /*
+            A category placement exists once per category, so "Set up" needs to
+            know which one. It used to pass none, the database rejected the row,
+            and the editor was redirected back with nothing created and nothing
+            said — which meant these could not be configured from admin at all.
+          */
+          <ScopedPlacementPicker
+            placementKey={placement.key}
+            placementName={placement.name}
+            categories={categories}
+            configured={rows
+              .filter((row) => row.category_id)
+              .map((row) => ({
+                sectionId: row.id,
+                categoryId: row.category_id as string,
+                categoryName:
+                  categories.find((category) => category.id === row.category_id)
+                    ?.name ?? "Unknown category",
+              }))}
+          />
         ) : !section ? (
           <p className="text-xs text-ink-700">
             Nothing here yet — the site falls back to its automatic selection.
