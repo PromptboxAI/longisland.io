@@ -126,20 +126,55 @@ export function SiteHeader() {
   return (
     <>
       {/* ------------------------------- Row 1 — the sticky one, every width */}
+      {/*
+        The navy rule under the mobile header.
+
+        On desktop the category bar is itself a navy band, and it is what stops
+        the white header dissolving into a white page. Hiding that bar below
+        `lg` took the separation with it and left the masthead floating. The
+        rule puts the band back at 3px — enough to read as a deliberate edge in
+        the site's own navy rather than as a hairline border.
+      */}
       <header
-        className={`sticky top-0 z-50 bg-white transition-shadow ${
+        className={`sticky top-0 z-50 border-b-[3px] border-navy-900 bg-white transition-shadow lg:border-b-0 ${
           scrolled ? "shadow-card" : "shadow-none"
         }`}
       >
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+          {/*
+            Hamburger first in the DOM as well as on screen, so tab order
+            matches reading order on a phone. It disappears at `lg`, where the
+            wordmark takes the leading position back.
+          */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={mobileOpen}
+            className="-ml-2 rounded-md p-2 text-navy-900 transition-colors hover:bg-navy-50 lg:hidden"
+          >
+            <Menu aria-hidden="true" className="size-6" />
+          </button>
+
+          {/*
+            Centred by absolute positioning below `lg` rather than by a grid.
+            The two side slots hold different things at different widths — a
+            hamburger against a search icon, then pills — so any layout that
+            centres by balancing them would drift as their widths changed.
+            `left-1/2` is indifferent to what sits either side of it.
+          */}
           <Link
             href="/"
-            className="shrink-0 text-xl font-extrabold tracking-tight text-navy-900 sm:text-2xl"
+            className="absolute left-1/2 -translate-x-1/2 text-xl font-extrabold tracking-tight text-navy-900 sm:text-2xl lg:static lg:left-auto lg:translate-x-0 lg:shrink-0"
           >
             LongIsland<span className="text-gold-400">.io</span>
           </Link>
 
-          <div className="mx-auto hidden w-full max-w-xl md:block">
+          {/*
+            The inline field appears at `lg`, with the desktop bar — not at
+            `md`, where it would have run into the centred wordmark.
+          */}
+          <div className="mx-auto hidden w-full max-w-xl lg:block">
             <SearchBar variant="header" />
           </div>
 
@@ -149,7 +184,7 @@ export function SiteHeader() {
               onClick={() => setMobileSearchOpen((open) => !open)}
               aria-expanded={mobileSearchOpen}
               aria-label="Search"
-              className="rounded-md p-2 text-ink-700 transition-colors hover:bg-navy-50 md:hidden"
+              className="-mr-2 rounded-md p-2 text-ink-700 transition-colors hover:bg-navy-50 lg:hidden"
             >
               <Search aria-hidden="true" className="size-5" />
             </button>
@@ -166,21 +201,11 @@ export function SiteHeader() {
             >
               Advertise
             </Link>
-
-            <button
-              type="button"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open menu"
-              aria-expanded={mobileOpen}
-              className="rounded-md p-2 text-navy-900 transition-colors hover:bg-navy-50 lg:hidden"
-            >
-              <Menu aria-hidden="true" className="size-6" />
-            </button>
           </div>
         </div>
 
         {mobileSearchOpen ? (
-          <div className="border-t border-line px-4 py-3 md:hidden">
+          <div className="border-t border-line px-4 py-3 lg:hidden">
             <SearchBar variant="header" autoFocus />
           </div>
         ) : null}
