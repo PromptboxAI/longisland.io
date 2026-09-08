@@ -1,11 +1,12 @@
 import { MapPin } from "lucide-react";
+import { resolveImageUrl } from "@/lib/media/resolve";
 import Link from "next/link";
 
 import { EditorialImage } from "@/components/ui/EditorialImage";
-import type { Business } from "@/types/database";
+import type { BusinessWithMedia } from "@/types/database";
 
 export interface BusinessCardProps {
-  business: Business;
+  business: BusinessWithMedia;
   /** Rank shown as a numeral, when the card appears inside an ordered context. */
   position?: number;
   variant?: "standard" | "compact";
@@ -46,7 +47,10 @@ export function BusinessCard({
     <article className="group relative overflow-hidden rounded-card border border-navy-100 bg-white shadow-card transition-shadow hover:shadow-lift">
       <div className="relative aspect-[4/3] overflow-hidden">
         <EditorialImage
-          src={business.primary_image_url}
+          src={resolveImageUrl(
+            business.primary_media ?? null,
+            business.primary_image_url,
+          )}
           alt=""
           seed={business.slug}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"

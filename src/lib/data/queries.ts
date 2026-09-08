@@ -12,19 +12,20 @@ import {
   SEED_RANKINGS,
 } from "@/lib/data/seed";
 import type {
-  EditorialSection,
-  EditorialSectionItemWithTargets,
-  ResolvedSection,
-  ResolvedSectionItem,
-  SectionTargetType,
   Business,
   BusinessAppearance,
+  BusinessWithMedia,
   Category,
+  EditorialSection,
+  EditorialSectionItemWithTargets,
   Place,
   Ranking,
   RankingEntryWithBusiness,
   RankingSummary,
   RankingWithEntries,
+  ResolvedSection,
+  ResolvedSectionItem,
+  SectionTargetType,
 } from "@/types/database";
 import type { MediaAsset } from "@/types/media";
 import type {
@@ -524,7 +525,18 @@ export async function listBusinesses(
 
   if (!supabase) return seedAllowed() ? seedBusinesses(options) : [];
 
-  let request = supabase.from("businesses").select("*").order("name");
+  /*
+   * The picture is a media asset, so the asset has to come with the row.
+   *
+   * Every business image on the site is an upload — primary_image_url is null
+   * on all of them — and this selected the columns only, so the category page's
+   * business grid rendered 25 placeholder tiles over photographs that were
+   * sitting in the bucket the whole time.
+   */
+  let request = supabase
+    .from("businesses")
+    .select("*, primary_media:media_assets!businesses_primary_media_id_fkey(*)")
+    .order("name");
 
   if (categorySlug) {
     const category = await getCategoryBySlug(categorySlug);
@@ -632,7 +644,9 @@ const REGION_TOWNS: Record<string, string[]> = {
   "fire-island": [],
 };
 
-export async function getBusinessBySlug(slug: string): Promise<Business | null> {
+export async function getBusinessBySlug(
+  slug: string,
+): Promise<BusinessWithMedia | null> {
   const supabase = await getDb();
   if (!supabase) {
     return seedAllowed()
@@ -642,7 +656,7 @@ export async function getBusinessBySlug(slug: string): Promise<Business | null> 
 
   const { data, error } = await supabase
     .from("businesses")
-    .select("*")
+    .select("*, primary_media:media_assets!businesses_primary_media_id_fkey(*)")
     .eq("slug", slug)
     .maybeSingle();
 

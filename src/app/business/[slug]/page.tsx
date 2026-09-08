@@ -1,4 +1,5 @@
 import { Globe, MapPin, Navigation, Phone, Tag } from "lucide-react";
+import { resolveImageUrl } from "@/lib/media/resolve";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -101,7 +102,10 @@ export default async function BusinessPage({ params }: PageParams) {
       {/* Hero */}
       <div className="relative h-56 w-full overflow-hidden sm:h-72">
         <EditorialImage
-          src={business.primary_image_url}
+          src={resolveImageUrl(
+            business.primary_media ?? null,
+            business.primary_image_url,
+          )}
           alt=""
           seed={business.slug}
           priority

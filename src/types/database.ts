@@ -43,6 +43,19 @@ export interface Business {
   seo_description: string | null;
 }
 
+/**
+ * A business row with its picture joined on.
+ *
+ * The image is a media asset, and every business on the site uses one —
+ * `primary_image_url` is null across the table. The public queries embed the
+ * asset, so anything rendering a business photo wants this rather than the bare
+ * row, which is how a grid of 25 placeholders came to sit over 25 real
+ * photographs.
+ */
+export type BusinessWithMedia = Business & {
+  primary_media?: MediaAsset | null;
+};
+
 export interface Category {
   id: string;
   name: string;
