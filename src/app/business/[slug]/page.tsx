@@ -1,4 +1,5 @@
 import { Globe, MapPin, Navigation, Phone, Tag } from "lucide-react";
+import { PhoneLink } from "@/components/business/PhoneLink";
 import { resolveImageUrl } from "@/lib/media/resolve";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -270,12 +271,10 @@ export default async function BusinessPage({ params }: PageParams) {
                     <dt className="sr-only">Phone</dt>
                     <Phone aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ink-400" />
                     <dd>
-                      <a
-                        href={`tel:${business.phone.replace(/[^\d+]/g, "")}`}
+                      <PhoneLink
+                        phone={business.phone}
                         className="text-brand-600 hover:underline"
-                      >
-                        {business.phone}
-                      </a>
+                      />
                     </dd>
                   </div>
                 ) : null}

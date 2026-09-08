@@ -92,9 +92,19 @@ export default async function SearchPage({ searchParams }: PageProps) {
             {results.businesses.length > 0 ? (
               <section aria-labelledby="search-businesses">
                 <RuleHeading id="search-businesses" title="Businesses" uppercase />
-                <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                {/*
+                  Rows, like every other business list on the site. Results are
+                  something you scan for the one you meant; four photo cards to
+                  a row shows fewer of them and makes each look like a
+                  recommendation rather than a match.
+                */}
+                <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {results.businesses.map((business) => (
-                    <BusinessCard key={business.id} business={business} />
+                    <BusinessCard
+                      key={business.id}
+                      business={business}
+                      variant="compact"
+                    />
                   ))}
                 </div>
               </section>

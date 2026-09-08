@@ -1,4 +1,5 @@
 import { Globe, MapPin, Navigation, Phone } from "lucide-react";
+import { PhoneLink } from "@/components/business/PhoneLink";
 import Link from "next/link";
 
 import { EditorialImage } from "@/components/ui/EditorialImage";
@@ -117,7 +118,12 @@ export function RankingEntry({ entry, priority = false }: RankingEntryProps) {
               <div className="flex items-center gap-1.5">
                 <dt className="sr-only">Phone</dt>
                 <Phone aria-hidden="true" className="size-3.5 shrink-0" />
-                <dd>{business.phone}</dd>
+                <dd>
+                  <PhoneLink
+                    phone={business.phone}
+                    className="hover:text-brand-600 hover:underline"
+                  />
+                </dd>
               </div>
             ) : null}
             {business.website ? (
