@@ -143,11 +143,28 @@ export async function createBlankPlace(): Promise<void> {
 export async function deletePlace(id: string): Promise<void> {
   const { supabase } = await requireAdmin();
 
+  /*
+   * The slug has to be read before the delete, because afterwards there is no
+   * record of the URL this had — and that URL is a prerendered page that keeps
+   * serving a deleted record for up to an hour. Revalidating the index and the
+   * homepage was never enough: those stop LINKING to it, which is not the same
+   * as it ceasing to exist.
+   */
+  const { data: doomed } = await supabase
+    .from("places")
+    .select("slug")
+    .eq("id", id)
+    .maybeSingle();
+
   await supabase.from("places").update({ parent_id: null }).eq("parent_id", id);
   await supabase.from("places").delete().eq("id", id);
 
   revalidatePath("/admin/places");
   revalidatePath("/places");
   revalidatePath("/");
+
+  const slug = (doomed as { slug?: string } | null)?.slug;
+  if (slug) revalidatePath(`/place/${slug}`);
+
   redirect("/admin/places");
 }

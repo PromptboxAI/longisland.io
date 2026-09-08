@@ -209,6 +209,18 @@ export async function createBlankArticle(formData?: FormData): Promise<void> {
 export async function deleteArticle(id: string): Promise<void> {
   const { supabase } = await requireAdmin();
 
+  /*
+   * Read the slug first: after the delete there is no record of the URL this
+   * had, and that URL is a prerendered page that would keep serving a deleted
+   * article for up to an hour. Revalidating the index stops it being LINKED
+   * to, which is not the same as it ceasing to exist.
+   */
+  const { data: doomed } = await supabase
+    .from("articles")
+    .select("slug")
+    .eq("id", id)
+    .maybeSingle();
+
   // Curated placements cascade with the article, so a deleted piece cannot
   // leave a dead slot in a section.
   await supabase.from("articles").delete().eq("id", id);
@@ -216,5 +228,9 @@ export async function deleteArticle(id: string): Promise<void> {
   revalidatePath("/admin/articles");
   revalidatePath("/articles");
   revalidatePath("/");
+
+  const slug = (doomed as { slug?: string } | null)?.slug;
+  if (slug) revalidatePath(`/articles/${slug}`);
+
   redirect("/admin/articles");
 }

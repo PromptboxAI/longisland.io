@@ -149,11 +149,28 @@ export async function createBlankCategory(): Promise<void> {
 export async function deleteCategory(id: string): Promise<void> {
   const { supabase } = await requireAdmin();
 
+  /*
+   * The slug has to be read before the delete, because afterwards there is no
+   * record of the URL this had — and that URL is a prerendered page that keeps
+   * serving a deleted record for up to an hour. Revalidating the index and the
+   * homepage was never enough: those stop LINKING to it, which is not the same
+   * as it ceasing to exist.
+   */
+  const { data: doomed } = await supabase
+    .from("categories")
+    .select("slug")
+    .eq("id", id)
+    .maybeSingle();
+
   await supabase.from("categories").update({ parent_id: null }).eq("parent_id", id);
   await supabase.from("categories").delete().eq("id", id);
 
   revalidatePath("/admin/categories");
   revalidatePath("/categories");
   revalidatePath("/");
+
+  const slug = (doomed as { slug?: string } | null)?.slug;
+  if (slug) revalidatePath(`/category/${slug}`);
+
   redirect("/admin/categories");
 }
