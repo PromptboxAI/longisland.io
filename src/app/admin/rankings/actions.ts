@@ -7,7 +7,10 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { businessSlug, slugify, uniqueSlug } from "@/lib/slug";
 import { prunePending, splitByPolicy } from "@/lib/editorial/field-policy";
-import { revalidateRankingPaths } from "@/lib/data/revalidate";
+import {
+  revalidateRankingPaths,
+  revalidateRankingScope,
+} from "@/lib/data/revalidate";
 
 /**
  * Ranking editor mutations.
@@ -193,27 +196,15 @@ export async function saveRankingDetails(
 
   revalidatePath(`/admin/rankings/${data.id}`);
   revalidatePath("/admin/rankings");
-  revalidatePath(`/best/${nextSlug}`);
   if (previous?.slug && previous.slug !== nextSlug) {
     // The old URL now has no page behind it; leaving it cached would serve the
     // moved content from an address that no longer resolves.
     revalidatePath(`/best/${previous.slug}`);
   }
-  revalidatePath("/best");
-  revalidatePath("/");
 
-  // The dek and hero show on its category and place pages too.
-  const { data: scope } = await supabase
-    .from("rankings")
-    .select("category:categories(slug), place:places(slug)")
-    .eq("id", data.id)
-    .maybeSingle();
-  const scoped = scope as unknown as {
-    category: { slug: string } | null;
-    place: { slug: string } | null;
-  } | null;
-  if (scoped?.category) revalidatePath(`/category/${scoped.category.slug}`);
-  if (scoped?.place) revalidatePath(`/place/${scoped.place.slug}`);
+  // The dek and hero show on its category and place pages, and its title shows
+  // in the related rail of every other ranking.
+  await revalidateRankingPaths(supabase, data.id);
 
   return {
     ok: true,
@@ -345,11 +336,15 @@ export async function setRankingStatus(
     }
   }
 
-  revalidatePath(`/admin/rankings/${id}`);
-  revalidatePath("/admin/rankings");
-  if (previous?.slug) revalidatePath(`/best/${previous.slug}`);
-  revalidatePath("/best");
-  revalidatePath("/");
+  /*
+   * The shared list, not a shorter one written out again here.
+   *
+   * This hand-rolled copy had drifted: it cleared the ranking's own page and
+   * the two indexes, but never its category or place page, and never the other
+   * ranking pages that list it as related. Unpublishing therefore took a
+   * ranking off its own URL while leaving it on display elsewhere.
+   */
+  await revalidateRankingPaths(supabase, id);
 }
 
 const entrySchema = z.object({
@@ -724,18 +719,7 @@ export async function publishEntryBusinesses(rankingId: string): Promise<ActionS
 
   if (error) return { error: "Could not publish those businesses." };
 
-  const { data: ranking } = await supabase
-    .from("rankings")
-    .select("slug")
-    .eq("id", rankingId)
-    .maybeSingle();
-
-  revalidatePath(`/admin/rankings/${rankingId}`);
-  if ((ranking as { slug: string } | null)?.slug) {
-    revalidatePath(`/best/${(ranking as { slug: string }).slug}`);
-  }
-  revalidatePath("/best");
-  revalidatePath("/");
+  await revalidateRankingPaths(supabase, rankingId);
   return { ok: true };
 }
 
@@ -1018,13 +1002,19 @@ export async function deleteRanking(id: string): Promise<ActionState> {
 
   const { data, error: readError } = await supabase
     .from("rankings")
-    .select("slug, title, status")
+    .select("slug, title, status, category:categories(slug), place:places(slug)")
     .eq("id", id)
     .maybeSingle();
 
   if (readError || !data) return { error: "That ranking could not be found." };
 
-  const ranking = data as { slug: string; title: string; status: string };
+  const ranking = data as unknown as {
+    slug: string;
+    title: string;
+    status: string;
+    category: { slug: string } | null;
+    place: { slug: string } | null;
+  };
 
   if (ranking.status === "published") {
     return {
@@ -1048,9 +1038,11 @@ export async function deleteRanking(id: string): Promise<ActionState> {
    * trap that left deleted places resolving for an hour.
    */
   revalidatePath("/admin/rankings");
-  revalidatePath(`/best/${ranking.slug}`);
-  revalidatePath("/best");
-  revalidatePath("/");
+  revalidateRankingScope({
+    slug: ranking.slug,
+    categorySlug: ranking.category?.slug,
+    placeSlug: ranking.place?.slug,
+  });
 
   return {
     ok: true,

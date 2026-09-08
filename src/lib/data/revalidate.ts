@@ -37,9 +37,46 @@ export async function revalidateRankingPaths(
 
   revalidatePath(`/admin/rankings/${rankingId}`);
   revalidatePath("/admin/rankings");
-  if (row?.slug) revalidatePath(`/best/${row.slug}`);
+  revalidateRankingScope({
+    slug: row?.slug,
+    categorySlug: row?.category?.slug,
+    placeSlug: row?.place?.slug,
+  });
+}
+
+/**
+ * The public surfaces, given what is already known about the ranking.
+ *
+ * Separate from the read above so deletion can use it: the row is gone by the
+ * time the paths need clearing, so the slug has to be captured beforehand.
+ */
+export function revalidateRankingScope(scope: {
+  slug?: string | null;
+  categorySlug?: string | null;
+  placeSlug?: string | null;
+}): void {
+  if (scope.slug) revalidatePath(`/best/${scope.slug}`);
   revalidatePath("/best");
   revalidatePath("/");
-  if (row?.category?.slug) revalidatePath(`/category/${row.category.slug}`);
-  if (row?.place?.slug) revalidatePath(`/place/${row.place.slug}`);
+  if (scope.categorySlug) revalidatePath(`/category/${scope.categorySlug}`);
+  if (scope.placeSlug) revalidatePath(`/place/${scope.placeSlug}`);
+
+  /*
+   * Every OTHER ranking page, because each one ends in Related Rankings.
+   *
+   * Unpublishing a ranking cleared its own page and left it on display in the
+   * related rail of every ranking that listed it — three dead cards linking to
+   * three 404s, for the hour it took ISR to expire. Clearing the record's own
+   * URL was never enough; the pages that merely MENTION it are stale too.
+   *
+   * The category and place patterns are here for the same reason in a different
+   * shape: moving a ranking to another category leaves it listed on the old
+   * one, and that page's own path is no longer derivable from the row.
+   *
+   * A route pattern marks matching pages stale rather than rebuilding them, so
+   * the cost is paid on the next visit to each, not here.
+   */
+  revalidatePath("/best/[slug]", "page");
+  revalidatePath("/category/[slug]", "page");
+  revalidatePath("/place/[slug]", "page");
 }
