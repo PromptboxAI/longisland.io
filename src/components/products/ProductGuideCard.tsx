@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { formatDate } from "@/components/editorial/EditorialDisclosure";
 import { EditorialImage } from "@/components/ui/EditorialImage";
+import { resolveImageUrl } from "@/lib/media/resolve";
 import type { ProductRankingSummary } from "@/types/products";
 
 export interface ProductGuideCardProps {
@@ -39,7 +40,7 @@ export function ProductGuideCard({
         }`}
       >
         <EditorialImage
-          src={null}
+          src={resolveImageUrl(guide.hero_media, guide.hero_image_url)}
           alt=""
           seed={guide.slug}
           priority={priority}

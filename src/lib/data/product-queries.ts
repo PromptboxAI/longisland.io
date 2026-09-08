@@ -1,4 +1,5 @@
 import "server-only";
+import type { MediaAsset } from "@/types/media";
 
 import {
   SEED_CATEGORIES,
@@ -236,6 +237,9 @@ function seedGuideSummary(guide: ProductRanking): ProductRankingSummary {
       (entry) => entry.product_ranking_id === guide.id,
     ).length,
     category: category ? { name: category.name, slug: category.slug } : null,
+    // Fixtures have never carried a hero; the card falls back as it always did.
+    hero_image_url: guide.hero_image_url,
+    hero_media: null,
   };
 }
 
@@ -272,7 +276,8 @@ export async function listProductGuides(
 
   let request = supabase
     .from("product_rankings")
-    .select("*, category:product_categories(name, slug), product_ranking_entries(count)")
+    .select("*, category:product_categories(name, slug), product_ranking_entries(count), " +
+      "hero_media:media_assets!product_rankings_hero_media_id_fkey(*)")
     .order("published_at", { ascending: false, nullsFirst: false });
 
   if (categorySlug) {
@@ -297,9 +302,10 @@ export async function listProductGuides(
   type Row = ProductRanking & {
     category: { name: string; slug: string } | null;
     product_ranking_entries: { count: number }[];
+    hero_media: MediaAsset | null;
   };
 
-  return (data as Row[]).map((row) => ({
+  return (data as unknown as Row[]).map((row) => ({
     id: row.id,
     title: row.title,
     slug: row.slug,
@@ -309,6 +315,8 @@ export async function listProductGuides(
     updated_at: row.updated_at,
     entry_count: row.product_ranking_entries?.[0]?.count ?? 0,
     category: row.category,
+    hero_image_url: row.hero_image_url,
+    hero_media: row.hero_media,
   }));
 }
 
@@ -411,7 +419,8 @@ export async function listProductGuidesForLocalCategory(
 
   const { data } = await supabase
     .from("product_rankings")
-    .select("*, category:product_categories(name, slug), product_ranking_entries(count)")
+    .select("*, category:product_categories(name, slug), product_ranking_entries(count), " +
+      "hero_media:media_assets!product_rankings_hero_media_id_fkey(*)")
     .eq("local_category_id", localCategoryId)
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(limit);
@@ -419,9 +428,10 @@ export async function listProductGuidesForLocalCategory(
   type Row = ProductRanking & {
     category: { name: string; slug: string } | null;
     product_ranking_entries: { count: number }[];
+    hero_media: MediaAsset | null;
   };
 
-  return ((data ?? []) as Row[]).map((row) => ({
+  return ((data ?? []) as unknown as Row[]).map((row) => ({
     id: row.id,
     title: row.title,
     slug: row.slug,
@@ -431,6 +441,8 @@ export async function listProductGuidesForLocalCategory(
     updated_at: row.updated_at,
     entry_count: row.product_ranking_entries?.[0]?.count ?? 0,
     category: row.category,
+    hero_image_url: row.hero_image_url,
+    hero_media: row.hero_media,
   }));
 }
 

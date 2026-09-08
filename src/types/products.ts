@@ -185,6 +185,16 @@ export interface ProductRankingSummary {
   updated_at: string;
   entry_count: number;
   category: Pick<ProductCategory, "name" | "slug"> | null;
+  /*
+   * The hero, both ways it can be set.
+   *
+   * The summary carried no image at all, so the index card had nothing to draw
+   * and passed null to its frame — every buying guide on /products showed the
+   * letter-tile fallback while its own page showed the hero correctly, because
+   * only the single-guide query joined the asset.
+   */
+  hero_image_url: string | null;
+  hero_media: MediaAsset | null;
 }
 
 /** A product recommended on a host page, with the editorial context for it. */
