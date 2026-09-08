@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -64,14 +64,69 @@ export function PlacementBoard({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   if (singleSlot) {
+    /*
+     * The single slot gets the same override form as every other placement.
+     *
+     * It had none: the feature showed the chosen item's own headline and
+     * standfirst and offered no way to write different ones for the homepage.
+     * An editor could change the wording on the ranking itself — which changes
+     * it everywhere — or not at all. That is the one placement on the site
+     * where a bespoke standfirst matters most, and it was the only one that
+     * could not have one.
+     */
+    const slotItem = items[0] ?? null;
+
     return (
-      <SingleSlotPlacement
-        sectionId={sectionId}
-        placementName={placementName}
-        accepts={accepts}
-        current={slotContent}
-        returnTo={returnTo}
-      />
+      <div className="space-y-5">
+        <SingleSlotPlacement
+          sectionId={sectionId}
+          placementName={placementName}
+          accepts={accepts}
+          current={slotContent}
+          returnTo={returnTo}
+        />
+
+        {slotItem ? (
+          editingId === slotItem.id ? (
+            <section className="rounded-card border-2 border-brand-300 bg-brand-50/30 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-navy-900">
+                  Customise how this looks on the homepage
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setEditingId(null)}
+                  className="text-xs font-semibold text-navy-900 hover:underline"
+                >
+                  Done
+                </button>
+              </div>
+              <p className="mb-3 text-xs leading-relaxed text-ink-700">
+                Everything here is optional and applies to the homepage only.
+                Leave a field empty and the feature uses the content&rsquo;s own
+                wording and picture; the content itself is not changed.
+              </p>
+              <SectionItemEditor
+                key={slotItem.id}
+                item={slotItem}
+                sectionId={sectionId}
+                library={library}
+                isFirst
+                isLast
+              />
+            </section>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditingId(slotItem.id)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50"
+            >
+              <Pencil aria-hidden="true" className="size-3.5" />
+              Customise headline and description
+            </button>
+          )
+        ) : null}
+      </div>
     );
   }
 

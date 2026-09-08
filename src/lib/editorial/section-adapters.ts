@@ -195,7 +195,11 @@ export interface FeatureProps {
   href: string;
   headline: string;
   kicker: string | null;
+  /** Where the kicker points, when it names something with a page. */
+  kickerHref: string | null;
   dek: string | null;
+  /** Publication date, formatted for a dateline. */
+  dateline: string | null;
   imageUrl: string | null;
   imageSeed: string;
   objectPosition: string | null;
@@ -218,26 +222,43 @@ export function toFeature(
   const item = section?.items[0];
   if (!item) return null;
 
-  // The one fact worth adding, and only when we can actually count it.
-  let meta: string | null = null;
-  if (item.targetType === "ranking") {
-    const ranking = rankings.find((r) => `/best/${r.slug}` === item.href);
-    if (ranking) {
-      meta =
-        `${ranking.entry_count} ${ranking.entry_count === 1 ? "place" : "places"}` +
-        (ranking.geography ? ` · ${ranking.geography}` : "");
-    }
-  }
+  /*
+   * Date and category, the two things a dateline is for.
+   *
+   * The feature used to print the ranking's geography as its kicker and then a
+   * separate "10 places · Stony Brook" line under the dek — so the place was
+   * named twice, once in caps above the headline and once below it, and the
+   * date was nowhere. The count belongs on the ranking's own page, where it
+   * describes something the reader is about to scroll through; in the lead slot
+   * it is trivia sitting where the standfirst should be.
+   */
+  const ranking =
+    item.targetType === "ranking"
+      ? rankings.find((r) => `/best/${r.slug}` === item.href)
+      : undefined;
+
+  const dateline = ranking?.published_at
+    ? new Date(ranking.published_at).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      })
+    : null;
 
   return {
     href: item.href,
     headline: item.headline,
-    kicker: item.kicker,
+    // The category names what kind of thing this is; the town was already in
+    // the headline. An editor's own kicker override still wins over both.
+    kicker: item.overrides.kicker ? item.kicker : (ranking?.category?.name ?? item.kicker),
+    kickerHref: ranking?.category?.slug ? `/category/${ranking.category.slug}` : null,
     dek: item.dek,
+    dateline,
     imageUrl: item.imageUrl,
     imageSeed: item.id,
     objectPosition: item.objectPosition,
-    meta,
+    meta: null,
   };
 }
 
@@ -247,14 +268,23 @@ export function rankingToFeature(ranking: RankingSummary): FeatureProps {
     href: `/best/${ranking.slug}`,
     headline: ranking.title,
     kicker: ranking.category?.name ?? ranking.geography,
+    kickerHref: ranking.category?.slug ? `/category/${ranking.category.slug}` : null,
     dek: ranking.description,
+    dateline: ranking.published_at
+      ? new Date(ranking.published_at).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          timeZone: "UTC",
+        })
+      : null,
     imageUrl: resolveImageUrl(ranking.hero_media, ranking.hero_image_url),
     imageSeed: ranking.slug,
     objectPosition: ranking.hero_media
       ? `${ranking.hero_media.focal_x * 100}% ${ranking.hero_media.focal_y * 100}%`
       : null,
-    meta:
-      `${ranking.entry_count} ${ranking.entry_count === 1 ? "place" : "places"}` +
-      (ranking.geography ? ` · ${ranking.geography}` : ""),
+    // The count lives on the ranking's own page. In the lead slot it sat where
+    // the standfirst belongs and repeated the town already in the headline.
+    meta: null,
   };
 }
