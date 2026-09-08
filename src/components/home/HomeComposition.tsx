@@ -341,11 +341,6 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
             }
           />
         ) : null}
-        {picksNeedDisclosure ? (
-          <div className="mt-3">
-            <AffiliateDisclosure variant="inline" merchantNotes={picksMerchantNotes} />
-          </div>
-        ) : null}
         <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-7 lg:grid-cols-5">
             {topPicks.map((pick) =>
               pick.kind === "product" ? (
@@ -369,6 +364,21 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
               ),
             )}
         </div>
+        {/*
+          Under the row, at the editor's request.
+
+          Worth knowing what moved: the FTC asks for affiliate disclosure that is
+          clear and conspicuous, and it treats proximity to the link as part of
+          that — above the buttons is the safer side of the line. It remains on
+          the same screen, unhidden and in the same section, which is why this is
+          a judgement call rather than a removal; if it ever ends up below the
+          fold on a narrow phone, move it back above the grid.
+        */}
+        {picksNeedDisclosure ? (
+          <div className="mt-5">
+            <AffiliateDisclosure variant="inline" merchantNotes={picksMerchantNotes} />
+          </div>
+        ) : null}
       </section>
       ) : null}
 

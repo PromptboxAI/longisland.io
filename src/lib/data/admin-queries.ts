@@ -294,7 +294,9 @@ export async function listEditorialSections(): Promise<AdminSection[]> {
         "article:articles(title, hero_image_url, hero_media:media_assets!articles_hero_media_id_fkey(*)), " +
         "product_ranking:product_rankings(title, hero_image_url, hero_media:media_assets!product_rankings_hero_media_id_fkey(*)), " +
         "business:businesses(name, primary_image_url, primary_media:media_assets!businesses_primary_media_id_fkey(*)), " +
-        "category:categories(name), place:places(name), product:products(name, image_url), " +
+        "category:categories(name), place:places(name), " +
+        "product:products(name, image_url, " +
+        "image_media:media_assets!products_image_media_id_fkey(*)), " +
         "external_url" +
         ")",
     )

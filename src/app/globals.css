@@ -89,7 +89,14 @@
     "Segoe UI", sans-serif;
 
   --radius-card: 0.5rem;
-  --shadow-card: 0 1px 2px rgb(8 26 52 / 0.06);
+  /*
+   * Card elevation: a contact shadow plus a soft ambient one.
+   *
+   * This was a single 2px shadow at 6% and cards read as flat rectangles
+   * separated only by their hairline border. The near layer keeps the edge
+   * crisp; the far layer is what actually lifts the card off the page.
+   */
+  --shadow-card: 0 1px 2px rgb(8 26 52 / 0.07), 0 8px 20px -10px rgb(8 26 52 / 0.18);
   --shadow-lift: 0 4px 16px -4px rgb(8 26 52 / 0.18);
 }
 

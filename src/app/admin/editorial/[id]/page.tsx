@@ -139,7 +139,7 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
         item.product_ranking?.hero_image_url ?? null,
       ) ??
       resolveImageUrl(item.business?.primary_media ?? null, item.business?.primary_image_url ?? null) ??
-      item.product?.image_url ??
+      resolveImageUrl(item.product?.image_media ?? null, item.product?.image_url ?? null) ??
       null;
 
     return {

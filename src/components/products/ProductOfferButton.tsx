@@ -122,7 +122,20 @@ export function ProductOfferButton({
   const unavailable =
     offer.availability === "out_of_stock" || offer.availability === "discontinued";
 
-  const theme = variant === "primary" ? merchantButtonTheme(offer) : null;
+  /*
+   * Merchant colour goes where the merchant is NAMED, and nowhere else.
+   *
+   * The card button is already deliberately merchant-neutral in its wording —
+   * a row of five reads "Check Price" five times rather than mixing in each
+   * retailer's own phrasing. Colouring that same button in Amazon yellow put
+   * the branding back in the one place the text had just taken it out of, and
+   * made a row of cards look like five different things.
+   *
+   * So the rule follows the label: where `showMerchant` names the retailer, its
+   * colours identify it; where the button is anonymous, it wears the house blue.
+   */
+  const theme =
+    variant === "primary" && showMerchant ? merchantButtonTheme(offer) : null;
 
   // Hover cannot be expressed in an inline style, so the colours arrive as
   // custom properties and Tailwind reads them back for both states.
@@ -168,7 +181,15 @@ export function ProductOfferButton({
           </>
         ) : null}
       </span>
-      <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
+      {/*
+        The icon rides along only where the merchant is named. On a card it was
+        decoration competing with the label for a very small button, and the
+        accessible name already ends "(opens in a new tab)" for everyone who
+        needs telling.
+      */}
+      {showMerchant ? (
+        <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
+      ) : null}
       {isAffiliateOffer(offer) ? <span className="sr-only">(affiliate link)</span> : null}
     </a>
   );

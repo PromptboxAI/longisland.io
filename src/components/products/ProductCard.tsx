@@ -1,6 +1,7 @@
 import { EditorialImage } from "@/components/ui/EditorialImage";
 import { ProductOfferButton } from "@/components/products/ProductOfferButton";
 import { bestOffer } from "@/lib/affiliate";
+import { resolveImageUrl } from "@/lib/media/resolve";
 import type { ProductWithOffers } from "@/types/products";
 
 export interface ProductCardProps {
@@ -52,7 +53,12 @@ export function ProductCard({
 
       <div className="relative aspect-[4/3] overflow-hidden rounded-t-card border-b border-line">
         <EditorialImage
-          src={product.image_url}
+          /*
+            The uploaded picture, then the linked URL. Reading only the column
+            meant a product whose image was uploaded rather than pasted showed
+            the placeholder, on the card and in the admin list alike.
+          */
+          src={resolveImageUrl(product.image_media ?? null, product.image_url)}
           alt=""
           seed={product.slug}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 300px"
@@ -68,7 +74,7 @@ export function ProductCard({
         ) : null}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col p-4">
+      <div className="flex min-w-0 flex-1 flex-col p-5 pb-6">
         {product.brand ? (
           <p className="meta">
             {product.brand}
@@ -91,7 +97,7 @@ export function ProductCard({
           label is two words and a stretched pill reads as an ad unit.
         */}
         {offer ? (
-          <div className="mt-auto pt-4">
+          <div className="mt-auto flex justify-center pt-4">
             <ProductOfferButton
               placement={placement}
               sourcePath={sourcePath}

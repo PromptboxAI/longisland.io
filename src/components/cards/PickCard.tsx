@@ -32,7 +32,7 @@ export interface PickCardProps {
  */
 export function PickCard({ title, subtitle, href, imageUrl, imageSeed }: PickCardProps) {
   return (
-    <article className="group relative flex flex-col rounded-card border border-line bg-white p-4 text-center transition-shadow hover:shadow-lift">
+    <article className="group relative flex flex-col rounded-card border border-line bg-white p-5 pb-6 text-center shadow-card transition-shadow hover:shadow-lift">
       <div className="relative mx-auto aspect-square w-full max-w-[170px] overflow-hidden">
         <EditorialImage
           src={imageUrl}
@@ -43,7 +43,7 @@ export function PickCard({ title, subtitle, href, imageUrl, imageSeed }: PickCar
         />
       </div>
 
-      <h3 className="mt-4 text-[17px] font-semibold leading-snug text-navy-900">
+      <h3 className="mt-5 text-[17px] font-semibold leading-snug text-navy-900">
         {/* The stretched link makes the image and the whole tile the target. */}
         <Link
           href={href}

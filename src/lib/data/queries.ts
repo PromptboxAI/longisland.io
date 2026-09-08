@@ -813,7 +813,8 @@ const SECTION_SELECT =
   "category:categories(*, hero_media:media_assets!categories_hero_media_id_fkey(*)), " +
   "place:places(*, hero_media:media_assets!places_hero_media_id_fkey(*)), " +
   "product_ranking:product_rankings(*, hero_media:media_assets!product_rankings_hero_media_id_fkey(*)), " +
-  "product:products(*, offers:product_offers(*))" +
+  "product:products(*, offers:product_offers(*), " +
+  "image_media:media_assets!products_image_media_id_fkey(*))" +
   ")";
 
 /**
@@ -912,6 +913,13 @@ function resolveItem(
     inheritedHeadline = item.product.name;
     inheritedDek = item.product.short_description;
     inheritedImage = item.product.image_url;
+    /*
+     * Products were the one target type whose media asset was never read.
+     * Every other branch sets both the URL column and the asset; this one set
+     * only the column, so a product whose picture was uploaded rather than
+     * linked resolved to nothing and the card rendered its empty state.
+     */
+    inheritedMedia = item.product.image_media ?? null;
     commerce = {
       ...item.product,
       offers: (item.product.offers ?? []).map(
