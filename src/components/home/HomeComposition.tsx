@@ -153,8 +153,6 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
   const picksHeading = headingFor("homepage_top_picks", picksSection);
   const trendingHeading = headingFor("homepage_trending", trendingSection);
 
-  const [feedLead, ...rest] = rankings;
-
   /*
    * The feature takes ANY curated target — ranking, article or buying guide —
    * because it renders from the resolved item rather than from a ranking. It
@@ -172,10 +170,25 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
   const notFeatured = <T extends { slug: string }>(items: T[], prefix: string) =>
     featuredHref ? items.filter((item) => `${prefix}${item.slug}` !== featuredHref) : items;
 
-  // The one automatic feed on the page, and the only one whose claim is a date.
+  /*
+   * The one automatic feed on the page, and the only one whose claim is a date.
+   *
+   * Built from every published ranking minus the feature — not from `rest`,
+   * which drops the newest one. `rest` is left over from when the feature was
+   * the newest ranking automatically, and dropping it made sense then because
+   * it was the thing above. Now the feature is chosen, so `rest` silently hid
+   * whichever ranking happened to be newest: switching the feature from Bagels
+   * back to Pizza made the Bagels ranking disappear from Latest entirely,
+   * despite being published and not featured.
+   *
+   * Deduplication belongs to `notFeatured` alone, which knows what is actually
+   * in the slot.
+   */
   const curatedLatest = pickRankingSummaries(latestSection, rankings);
   const latest =
-    curatedLatest.length > 0 ? curatedLatest : notFeatured(rest, "/best/").slice(0, 5);
+    curatedLatest.length > 0
+      ? curatedLatest
+      : notFeatured(rankings, "/best/").slice(0, 5);
 
   // Curated only. An empty Top Rankings is honest; one filled with every
   // ranking we have is a list of everything calling itself a selection.
@@ -209,7 +222,15 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
   const relatedToLead =
     curatedRelated.length > 0
       ? curatedRelated
-      : deriveRelatedFallback(feedLead, notFeatured(rest, "/best/"));
+      : deriveRelatedFallback(
+          /*
+           * The ranking the feature is showing, when it is showing one. The
+           * fallback picks content related to it, so it needs the actual
+           * feature rather than "whatever happened to be newest".
+           */
+          rankings.find((r) => `/best/${r.slug}` === featuredHref),
+          notFeatured(rankings, "/best/"),
+        );
 
   const regions = REGION_SLUGS.map((slug) =>
     places.find((place) => place.slug === slug),
