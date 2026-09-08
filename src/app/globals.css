@@ -47,6 +47,20 @@
   --color-brand-800: #001c48;
   --color-brand-900: #001536;
 
+  /*
+   * Buy-button blue.
+   *
+   * Deliberately not the house navy, which at #001b4f is nearly black and
+   * reads as a dark slab at button size. This is the one control on the page
+   * asking to be clicked, and the reference sites all use a mid-blue for it.
+   * Kept as its own ramp so changing the CTA never drags the rest of the
+   * interface with it.
+   */
+  --color-cta-400: #6274d4;
+  --color-cta-500: #4658c4;
+  --color-cta-600: #3a4aa8;
+  --color-cta-700: #2f3d8c;
+
   /* Gold — the single highlight cue (#FAB700) */
   --color-gold-50: #fff8e5;
   --color-gold-100: #ffefc0;

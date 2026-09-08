@@ -51,7 +51,12 @@ export function ProductCard({
         </div>
       ) : null}
 
-      <div className="relative aspect-[4/3] overflow-hidden rounded-t-card border-b border-line">
+      {/*
+        The shot sat flush against the top edge with a rule under it, which
+        boxed it in. Inset instead, so the card opens with white space and the
+        product floats in it.
+      */}
+      <div className="relative mt-5 aspect-[4/3] overflow-hidden px-5">
         <EditorialImage
           /*
             The uploaded picture, then the linked URL. Reading only the column
@@ -74,7 +79,13 @@ export function ProductCard({
         ) : null}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col p-5 pb-6">
+      {/*
+        Centred, matching the pick card beside it in the same row. A product
+        card is a poster for one thing — brand, what it is, and the button —
+        not a paragraph, and ragged-right text under a centred image and a
+        centred button left the middle of the card looking misaligned.
+      */}
+      <div className="flex min-w-0 flex-1 flex-col p-5 pb-6 text-center">
         {product.brand ? (
           <p className="meta">
             {product.brand}

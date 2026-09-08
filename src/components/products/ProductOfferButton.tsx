@@ -150,13 +150,17 @@ export function ProductOfferButton({
   const styles = theme
     ? "bg-(--merchant-bg) text-(--merchant-fg) hover:bg-(--merchant-hover) border border-black/10"
     : variant === "primary"
-      ? "bg-navy-900 text-white hover:bg-navy-800"
+      ? "bg-cta-500 text-white hover:bg-cta-600"
       : "border border-navy-300 text-navy-900 hover:border-navy-500 hover:bg-navy-50";
 
+  /*
+   * The card button is the page's one call to action, and at 13px in a shallow
+   * pill it read as a footnote next to the product name above it.
+   */
   const sizing =
     size === "compact"
-      ? "gap-1 px-3 py-1.5 text-[13px] whitespace-nowrap"
-      : "gap-1.5 px-4 py-2 text-sm";
+      ? "gap-1 px-6 py-2.5 text-[15px] whitespace-nowrap"
+      : "gap-1.5 px-5 py-2.5 text-[15px]";
 
   return (
     <a
