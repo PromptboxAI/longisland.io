@@ -84,6 +84,20 @@ const NASSAU_TOWNS = new Set([
   "flower hill",
   "plandome manor",
   "baxter estates",
+  // Added after a live data audit found Old Bethpage stored as Suffolk: the
+  // list simply did not contain it, and an unknown town is how a wrong county
+  // gets typed in by hand.
+  "old bethpage",
+  "east massapequa",
+  "north merrick",
+  "north woodmere",
+  "mill neck",
+  "matinecock",
+  "lattingtown",
+  "upper brookville",
+  "centre island",
+  "cove neck",
+  "laurel hollow",
 ]);
 
 /**
@@ -217,6 +231,70 @@ export function isOnLongIsland(
  * visible. The first is a confident exclusion. The second is the list admitting
  * what it does not know, and it belongs in front of a person.
  */
+/**
+ * Whether a ZIP code is on Long Island at all.
+ *
+ * Deliberately narrower than "which county". Nassau and Suffolk interleave —
+ * Hicksville is 11801 and Amityville is 11701, so no contiguous split exists —
+ * and a hand-rolled table that got those edges wrong would raise false alarms
+ * until people stopped reading them. A check nobody trusts is worse than none.
+ *
+ * What a ZIP CAN settle is the failure that actually happened: a Connecticut or
+ * Westchester address stored as Suffolk County. Those are not 11xxx at all, and
+ * that is a fact with no edge cases. Brooklyn and Queens are excluded by name
+ * because they share the prefix, which is exactly what makes them dangerous.
+ *
+ * Returns null when there is nothing to judge — a missing or malformed ZIP is
+ * common and must never be read as "not Long Island".
+ */
+export function zipIsLongIsland(zip: string | null | undefined): boolean | null {
+  if (!zip) return null;
+  const digits = zip.trim().slice(0, 5);
+  if (!/^\d{5}$/.test(digits)) return null;
+
+  const n = Number(digits);
+
+  // Anywhere outside 11xxx is not Nassau or Suffolk. This is the whole point.
+  if (n < 11000 || n > 11999) return false;
+
+  // Brooklyn.
+  if (n >= 11201 && n <= 11256) return false;
+  // Queens, including the Rockaways and the two Floral Park exceptions.
+  if (n === 11004 || n === 11005) return false;
+  if (n >= 11101 && n <= 11109) return false;
+  if (n >= 11351 && n <= 11499) return false;
+  if (n >= 11690 && n <= 11697) return false;
+
+  return true;
+}
+
+/**
+ * Where the town list and the ZIP code disagree.
+ *
+ * Returns the disagreement in words, or null when they agree or when there is
+ * not enough to compare. Two directions matter, and they mean different things:
+ * a county asserted over an off-island ZIP is a fabrication, and an unknown
+ * town with a Long Island ZIP is a gap in our list.
+ */
+export function countyConflict(
+  city: string | null | undefined,
+  state: string | null | undefined,
+  zip: string | null | undefined,
+): string | null {
+  const byName = inferCounty(city, state);
+  const onIsland = zipIsLongIsland(zip);
+
+  if (onIsland === null) return null;
+
+  if (byName && !onIsland) {
+    return `Stored as ${byName}, but ZIP ${zip} is not on Long Island.`;
+  }
+  if (!byName && onIsland) {
+    return `ZIP ${zip} is on Long Island, but ${city ?? "this town"} is not in our town list.`;
+  }
+  return null;
+}
+
 export type LocationVerdict = "long_island" | "outside_ny" | "unrecognised";
 
 export function classifyLocation(

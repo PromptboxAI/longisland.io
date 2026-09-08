@@ -33,7 +33,7 @@ import { AiReviewPanel } from "@/components/admin/AiReviewPanel";
 import { PendingChangesBar } from "@/components/admin/PendingChangesBar";
 import { displayValue, isLongForm } from "@/lib/editorial/field-policy";
 import { assessResearchContext } from "@/lib/ai/context";
-import { classifyLocation } from "@/lib/yelp/areas";
+import { classifyLocation, countyConflict } from "@/lib/yelp/areas";
 import { SaveIndicator } from "@/components/admin/SaveIndicator";
 import { useAutosave } from "@/components/admin/useAutosave";
 import { RANKING_BADGES, type RankingEntryWithBusiness } from "@/types/database";
@@ -144,6 +144,19 @@ export function RankingEntryEditor({
   const onLongIsland = entry.business.city
     ? classifyLocation(entry.business.city, null) === "long_island"
     : null;
+
+  /*
+   * Where the town list and the ZIP disagree.
+   *
+   * The town list is an allowlist and cannot know what it has never been told —
+   * "Old Bethpage" was stored as Suffolk County purely because the list lacked
+   * it, and nothing anywhere contradicted that. A ZIP can, so it does.
+   */
+  const geoConflict = countyConflict(
+    entry.business.city,
+    null,
+    entry.business.zip,
+  );
 
   const research = assessResearchContext({
     hasLocation: Boolean(entry.business.city?.trim()),
@@ -465,6 +478,12 @@ export function RankingEntryEditor({
               : "Shows as Visit website on the business profile. Saved to the business, not just this ranking."}
           </p>
         </div>
+
+        {geoConflict ? (
+          <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-900">
+            {geoConflict} Worth checking before this is published.
+          </p>
+        ) : null}
 
         {onLongIsland === false ? (
           <p className="mt-2 rounded border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-800">
