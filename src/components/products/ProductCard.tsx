@@ -4,6 +4,15 @@ import { bestOffer } from "@/lib/affiliate";
 import type { ProductWithOffers } from "@/types/products";
 
 export interface ProductCardProps {
+  /**
+   * Which surface this is rendered on, and the page it sits on.
+   *
+   * Passed to the buy-button so a click can be attributed. Optional throughout:
+   * an unlabelled click is still counted, which matters more than the label.
+   */
+  placement?: string;
+  sourcePath?: string;
+
   product: ProductWithOffers;
   /** Badge from the guide entry, e.g. "Our Pick". */
   badge?: string | null;
@@ -21,7 +30,14 @@ export interface ProductCardProps {
  * do not publish those. The card's one outbound link is the offer itself, and it
  * goes to the merchant.
  */
-export function ProductCard({ product, badge, note, position }: ProductCardProps) {
+export function ProductCard({
+  product,
+  badge,
+  note,
+  position,
+  placement,
+  sourcePath,
+}: ProductCardProps) {
   const offer = bestOffer(product.offers);
 
   return (
@@ -77,6 +93,8 @@ export function ProductCard({ product, badge, note, position }: ProductCardProps
         {offer ? (
           <div className="mt-auto pt-4">
             <ProductOfferButton
+              placement={placement}
+              sourcePath={sourcePath}
               offer={offer}
               productName={product.name}
               size="compact"

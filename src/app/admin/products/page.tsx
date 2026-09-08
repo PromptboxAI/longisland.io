@@ -5,6 +5,7 @@ import { createBlankProduct, deleteProduct } from "@/app/admin/products/actions"
 import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { listAdminProducts } from "@/lib/data/admin-product-queries";
+import { getClickCountsByProduct } from "@/lib/data/click-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,12 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
     status: params.status,
     query: params.q,
   });
+
+  /*
+   * One query for the page. A per-row count would fire forty requests for a
+   * column that is a single number each, which is not a trade worth making.
+   */
+  const clicks = await getClickCountsByProduct(products.map((p) => p.id));
 
   return (
     <div className="space-y-6">
@@ -117,6 +124,18 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                 >
                   Buy links
                 </th>
+                {/*
+                  Clicks, never sales. Nothing on this page can see a purchase
+                  — affiliate programmes report those only in their own
+                  dashboards — so the header says what the number is.
+                */}
+                <th
+                  scope="col"
+                  className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400"
+                  title="Outbound buy-link clicks in the last 30 days. Not sales."
+                >
+                  Clicks 30d
+                </th>
                 <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
                   Status
                 </th>
@@ -153,6 +172,15 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                       </span>
                     ) : (
                       <span className="text-ink-700">{product.offer_count}</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 tabular-nums">
+                    {(clicks.get(product.id) ?? 0) > 0 ? (
+                      <span className="font-semibold text-navy-900">
+                        {(clicks.get(product.id) ?? 0).toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="text-ink-400">—</span>
                     )}
                   </td>
                   <td className="px-5 py-3">

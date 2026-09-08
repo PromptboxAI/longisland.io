@@ -5,6 +5,9 @@ import { resolveImage } from "@/lib/media/resolve";
 import type { ProductRankingEntryWithProduct } from "@/types/products";
 
 export interface ProductRankingEntryProps {
+  /** The guide page this entry is on, for click attribution. */
+  sourcePath?: string;
+
   entry: ProductRankingEntryWithProduct;
   priority?: boolean;
 }
@@ -21,6 +24,7 @@ export interface ProductRankingEntryProps {
 export function ProductRankingEntry({
   entry,
   priority = false,
+  sourcePath,
 }: ProductRankingEntryProps) {
   const { product } = entry;
   const image = resolveImage(product.image_media ?? null, product.image_url, product.name);
@@ -110,7 +114,12 @@ export function ProductRankingEntry({
           <p className="meta mb-2">
             Where to buy
           </p>
-          <ProductOfferList offers={product.offers} productName={product.name} />
+          <ProductOfferList
+            offers={product.offers}
+            productName={product.name}
+            placement="product_guide"
+            sourcePath={sourcePath}
+          />
           {product.offers.length === 0 ? (
             <p className="text-sm text-ink-500">No current buying options.</p>
           ) : null}

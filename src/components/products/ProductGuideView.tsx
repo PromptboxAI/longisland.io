@@ -174,6 +174,7 @@ export async function ProductGuideView({
               key={entry.id}
               entry={entry}
               priority={index === 0}
+              sourcePath={`/products/${guide.slug}`}
             />
           ))}
         </div>

@@ -162,6 +162,7 @@ export async function RankingView({
             contentType="ranking"
             contentId={ranking.id}
             localCategoryId={ranking.category?.id}
+            sourcePath={`/best/${ranking.slug}`}
           />
         </div>
 

@@ -3,6 +3,15 @@ import { bestOffer, displayPrice } from "@/lib/affiliate";
 import type { ProductRankingEntryWithProduct } from "@/types/products";
 
 export interface ProductComparisonTableProps {
+  /**
+   * Which surface this is rendered on, and the page it sits on.
+   *
+   * Passed to the buy-button so a click can be attributed. Optional throughout:
+   * an unlabelled click is still counted, which matters more than the label.
+   */
+  placement?: string;
+  sourcePath?: string;
+
   entries: ProductRankingEntryWithProduct[];
   caption?: string;
 }
@@ -21,6 +30,8 @@ export interface ProductComparisonTableProps {
 export function ProductComparisonTable({
   entries,
   caption = "Every pick in this guide, compared",
+  placement,
+  sourcePath,
 }: ProductComparisonTableProps) {
   if (entries.length < 2) return null;
 
@@ -103,6 +114,8 @@ export function ProductComparisonTable({
                 <td className="px-5 py-3">
                   {offer ? (
                     <ProductOfferButton
+                      placement={placement}
+                      sourcePath={sourcePath}
                       offer={offer}
                       productName={entry.product.name}
                       variant="secondary"

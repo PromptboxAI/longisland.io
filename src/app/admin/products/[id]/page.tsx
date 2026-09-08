@@ -2,7 +2,13 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
+import { ProductClicksPanel } from "@/components/admin/ProductClicksPanel";
 import { ReturnToBanner } from "@/components/admin/ReturnToBanner";
+import {
+  getProductClickSources,
+  getProductClicksByOffer,
+  getProductClickTotals,
+} from "@/lib/data/click-queries";
 import { notFound } from "next/navigation";
 
 import { deleteProduct } from "@/app/admin/products/actions";
@@ -29,11 +35,15 @@ export default async function ProductEditorPage({
   const { returnTo } = await searchParams;
   const { id } = await params;
 
-  const [product, categories, merchants, library] = await Promise.all([
+  const [product, categories, merchants, library, clickTotals, clicksByOffer, clickSources] =
+    await Promise.all([
     getAdminProduct(id),
     listAdminProductCategories(),
     listAdminMerchants(),
     listMediaAssets(),
+    getProductClickTotals(id),
+    getProductClicksByOffer(id),
+    getProductClickSources(id),
   ]);
 
   if (!product) notFound();
@@ -123,6 +133,12 @@ export default async function ProductEditorPage({
             productId={product.id}
             offers={product.offers}
             merchants={merchants}
+          />
+
+          <ProductClicksPanel
+            totals={clickTotals}
+            byOffer={clicksByOffer}
+            sources={clickSources}
           />
         </section>
       </div>

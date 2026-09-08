@@ -333,6 +333,8 @@ export async function HomeComposition({ draft = false }: { draft?: boolean }) {
                   product={pick.product}
                   badge={pick.badge}
                   note={pick.note}
+                  placement="homepage_top_picks"
+                  sourcePath="/"
                 />
               ) : (
                 <PickCard

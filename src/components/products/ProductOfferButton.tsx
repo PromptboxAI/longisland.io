@@ -32,6 +32,16 @@ export interface ProductOfferButtonProps {
    */
   showMerchant?: boolean;
   /**
+   * Which surface this button is on — 'homepage_top_picks', 'product_guide',
+   * 'product_detail', 'article', or another placement key.
+   *
+   * Optional, and absent means the click is still recorded with a null
+   * placement. A missing label is worth less than a missing click.
+   */
+  placement?: string;
+  /** The page the reader was on. Recorded as-is; only our own paths count. */
+  sourcePath?: string;
+  /**
    * "compact" is the card size: smaller type and padding, and the label never
    * wraps. In a five-card row the tiles get narrow, and a button that breaks
    * "Check Price" over two lines leaves the row's feet out of line with each
@@ -76,9 +86,29 @@ export function ProductOfferButton({
   showMerchant = false,
   size = "default",
   className = "",
+  placement,
+  sourcePath,
 }: ProductOfferButtonProps) {
   const href = offerUrl(offer);
   if (!href) return null;
+
+  /*
+   * The link points at our own redirect, which counts the click and then sends
+   * the reader on with the destination untouched.
+   *
+   * An offer with no id is linked directly rather than not at all: a click we
+   * cannot count is a small loss, and a buy-button that does not work is a
+   * large one.
+   */
+  const trackedHref = offer.id
+    ? `/go/${offer.id}` +
+      (placement || sourcePath
+        ? `?${new URLSearchParams({
+            ...(sourcePath ? { from: sourcePath } : {}),
+            ...(placement ? { placement } : {}),
+          }).toString()}`
+        : "")
+    : href;
 
   const merchant = merchantName(offer);
   /*
@@ -117,7 +147,7 @@ export function ProductOfferButton({
 
   return (
     <a
-      href={href}
+      href={trackedHref}
       target="_blank"
       rel={AFFILIATE_LINK_REL}
       style={brandStyle}
@@ -155,10 +185,14 @@ export function ProductOfferList({
   offers,
   productName,
   max = 3,
+  placement,
+  sourcePath,
 }: {
   offers: OfferWithMerchant[];
   productName: string;
   max?: number;
+  placement?: string;
+  sourcePath?: string;
 }) {
   const usable = offers.filter((offer) => offerUrl(offer) !== null).slice(0, max);
   if (usable.length === 0) return null;
@@ -179,6 +213,8 @@ export function ProductOfferList({
             variant="primary"
             showMerchant
             className="w-full"
+            placement={placement}
+            sourcePath={sourcePath}
           />
         </li>
       ))}

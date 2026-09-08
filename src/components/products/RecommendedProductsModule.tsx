@@ -11,6 +11,8 @@ import {
 import type { RecommendationContentType } from "@/types/products";
 
 export interface RecommendedProductsModuleProps {
+  /** The page this module sits on, so a click can say where it came from. */
+  sourcePath?: string;
   contentType: RecommendationContentType;
   contentId: string;
   /** Heading used when the editor did not set a context label on the rows. */
@@ -34,6 +36,7 @@ export interface RecommendedProductsModuleProps {
  * no empty state, no reserved space.
  */
 export async function RecommendedProductsModule({
+  sourcePath,
   contentType,
   contentId,
   fallbackHeading = "What we recommend bringing",
@@ -79,6 +82,8 @@ export async function RecommendedProductsModule({
             key={rec.id}
             product={rec.product}
             note={rec.editorial_note}
+            placement="ranking_recommendation"
+            sourcePath={sourcePath}
           />
         ))}
       </div>
