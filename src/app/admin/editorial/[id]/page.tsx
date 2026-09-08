@@ -7,7 +7,7 @@ import { PlacementBoard } from "@/components/admin/PlacementBoard";
 import { PlacementHeadingForm } from "@/components/admin/PlacementHeadingForm";
 import { SectionForm } from "@/components/admin/SectionForm";
 import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
-import { defaultPublicHeading, findPlacement, isSingleSlot } from "@/lib/editorial/placements";
+import { defaultPublicHeading, emptyStateClause, findPlacement, isSingleSlot } from "@/lib/editorial/placements";
 import { readPlacementState } from "@/lib/editorial/placement-state";
 import { resolveImageUrl } from "@/lib/media/resolve";
 import { hasUsableOffer } from "@/lib/affiliate";
@@ -385,7 +385,7 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
         library={library}
         returnTo={`/admin/editorial/${section.id}`}
         placementKey={section.key}
-        surfaceName={surfaceLabel}
+        emptyBehaviour={emptyStateClause(placement, surfaceLabel)}
         preview={preview}
       />
 

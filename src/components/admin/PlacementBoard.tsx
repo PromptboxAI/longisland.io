@@ -36,7 +36,7 @@ export function PlacementBoard({
   library,
   returnTo,
   placementKey,
-  surfaceName,
+  emptyBehaviour,
   preview,
 }: {
   sectionId: string;
@@ -51,8 +51,8 @@ export function PlacementBoard({
   returnTo: string;
   /** Scopes the picker to what this placement accepts. */
   placementKey: string;
-  /** The page this placement renders on, for wording. */
-  surfaceName: string;
+  /** What the page does when this placement is empty, already worded. */
+  emptyBehaviour: string;
   /** Where to go and look at the result. Null when there is nowhere useful. */
   preview: { href: string; label: string } | null;
 }) {
@@ -84,7 +84,7 @@ export function PlacementBoard({
         placementName={placementName}
         status={status}
         itemCount={rows.length}
-        surfaceName={surfaceName}
+        emptyBehaviour={emptyBehaviour}
       />
 
       <section className="space-y-3">

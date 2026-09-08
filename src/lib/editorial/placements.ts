@@ -54,6 +54,19 @@ export interface Placement {
   accepts: TargetKind[];
   /** Where to look at the result. */
   previewPath: string | null;
+  /**
+   * What actually happens on the page when this placement has nothing live.
+   *
+   * The empty-state message used to say "the homepage hides it" for every
+   * placement, which was true of three of the eight. The rest fall back to
+   * something automatic, and each falls back to something different — telling
+   * an editor their empty Featured Module is hiding the category's rankings,
+   * when the page is in fact listing all of them, sends them to fix a problem
+   * that is not there.
+   *
+   * `{surface}` is replaced with the page this placement sits on.
+   */
+  whenEmpty: string;
 }
 
 export const PLACEMENTS: Placement[] = [
@@ -71,6 +84,7 @@ export const PLACEMENTS: Placement[] = [
     publicHeading: null,
     maxItems: 1,
     previewPath: "/",
+    whenEmpty: "{surface} hides it.",
   },
   {
     key: "homepage_latest",
@@ -84,6 +98,7 @@ export const PLACEMENTS: Placement[] = [
     publicHeading: "The Latest",
     maxItems: 5,
     previewPath: "/",
+    whenEmpty: "{surface} falls back to the newest published rankings, in date order.",
   },
   {
     key: "homepage_top_rail",
@@ -97,6 +112,7 @@ export const PLACEMENTS: Placement[] = [
     publicHeading: "Top Rankings",
     maxItems: 5,
     previewPath: "/",
+    whenEmpty: "{surface} hides it.",
   },
   {
     key: "homepage_top_picks",
@@ -112,6 +128,7 @@ export const PLACEMENTS: Placement[] = [
     maxItems: 5,
     restrictedTo: ["product", "product_ranking"],
     previewPath: "/",
+    whenEmpty: "{surface} hides it.",
   },
   {
     key: "homepage_trending",
@@ -125,6 +142,7 @@ export const PLACEMENTS: Placement[] = [
     publicHeading: "What's Trending Now",
     maxItems: 3,
     previewPath: "/",
+    whenEmpty: "{surface} hides it.",
   },
   {
     key: "related_content",
@@ -138,6 +156,7 @@ export const PLACEMENTS: Placement[] = [
     publicHeading: null,
     maxItems: 4,
     previewPath: "/",
+    whenEmpty: "{surface} works out related links automatically instead.",
   },
   {
     key: "category_module",
@@ -151,6 +170,7 @@ export const PLACEMENTS: Placement[] = [
     publicHeading: "Featured",
     maxItems: 8,
     previewPath: null,
+    whenEmpty: "{surface} lists every published ranking in the category instead.",
   },
   {
     key: "category_links",
@@ -164,6 +184,7 @@ export const PLACEMENTS: Placement[] = [
     publicHeading: null,
     maxItems: 4,
     previewPath: null,
+    whenEmpty: "{surface} leaves the row of links out. Nothing else changes.",
   },
 ];
 
@@ -221,4 +242,23 @@ export function defaultPublicHeading(
     return `${scopeName} Rankings`;
   }
   return placement?.publicHeading ?? placement?.name ?? "";
+}
+
+/**
+ * The empty-state clause for a placement, with its surface named.
+ *
+ * Returned as a clause rather than a whole sentence so the caller keeps the
+ * placement's name in its own voice: "Featured Module is empty, so " + this.
+ *
+ * A custom section — one no placement claims — gets the cautious answer. The
+ * code that reads it is not in the registry, so nothing here can honestly say
+ * what the page does without it.
+ */
+export function emptyStateClause(
+  placement: Placement | null,
+  surfaceName: string,
+): string {
+  const surface = surfaceName.trim() || "the page";
+  if (!placement) return `nothing appears in its place on the ${surface}.`;
+  return placement.whenEmpty.replace("{surface}", `the ${surface}`);
 }

@@ -29,18 +29,20 @@ export function PlacementUpdateBar({
   placementName,
   status,
   itemCount,
-  surfaceName = "homepage",
+  emptyBehaviour,
 }: {
   sectionId: string;
   placementName: string;
   /**
-   * The page this placement sits on, in an editor's words.
+   * What the page does when this placement is empty, already worded.
    *
-   * A category placement was telling people "the homepage hides it" while they
-   * stood on a category page. Wrong, and the kind of wrong that makes someone
-   * doubt everything else on the screen.
+   * This was the string "the homepage hides it", written into the component.
+   * It named the wrong page on a category placement, and it described the
+   * wrong behaviour on five of the eight — most of them fall back to something
+   * automatic rather than hiding anything. Both facts belong to the placement,
+   * so the placement supplies them.
    */
-  surfaceName?: string;
+  emptyBehaviour: string;
   status: PlacementStatus;
   itemCount: number;
 }) {
@@ -87,7 +89,7 @@ export function PlacementUpdateBar({
             {live
               ? `Readers are seeing ${status.liveCount} item${status.liveCount === 1 ? "" : "s"} in ${placementName}.`
               : empty
-                ? `${placementName} is empty, so the ${surfaceName} hides it.`
+                ? `${placementName} is empty, so ${emptyBehaviour}`
                 : `${status.pendingCount} of ${itemCount} item${itemCount === 1 ? "" : "s"} ${status.pendingCount === 1 ? "is" : "are"} not visible to readers yet.`}
           </p>
 
