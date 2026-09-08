@@ -102,13 +102,17 @@ export function FeatureCard({
         </h3>
 
         {/*
-          13px at 1.62, which is the reference's own standfirst. Smaller than
-          the 15px this was set at — a standfirst is a caption for the headline
-          above it, and at 15px it competed with the body copy further down the
-          page instead of introducing it.
+          15px on phones, 17px from the small breakpoint up.
+          
+          The reference's 13px was copied here and read far too small — their
+          figure comes with their body face and their column width, and lifting
+          one number out of that arrangement does not carry the rest of it. 15px
+          was right on a phone and slightly light on a wide screen, which is a
+          breakpoint problem rather than a size problem, so the desktop step is
+          where the correction goes.
         */}
         {dek ? (
-          <p className="mt-2 max-w-2xl text-[13px] leading-[1.62] text-ink-700">
+          <p className="mt-2 max-w-2xl text-[15px] leading-[25px] text-ink-700 sm:text-[17px] sm:leading-[28px]">
             {dek}
           </p>
         ) : null}
