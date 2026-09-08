@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { deleteSection } from "@/app/admin/editorial/actions";
 import { PlacementBoard } from "@/components/admin/PlacementBoard";
+import { PlacementHeadingForm } from "@/components/admin/PlacementHeadingForm";
 import { SectionForm } from "@/components/admin/SectionForm";
 import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
 import { findPlacement, isSingleSlot } from "@/lib/editorial/placements";
@@ -289,17 +290,41 @@ export default async function EditorialSectionEditorPage({ params }: PageParams)
         </div>
       ) : null}
 
-      <details className="rounded-card border border-line bg-white">
-        <summary className="cursor-pointer px-5 py-3 text-sm font-semibold text-navy-900">
-          Section settings
-          <span className="ml-2 font-normal text-ink-400">
-            key, scope, layout, limit
-          </span>
-        </summary>
-        <div className="border-t border-line p-5">
-          <SectionForm section={section} categories={categories} places={places} />
-        </div>
-      </details>
+      {/*
+        A system placement has exactly two settings that do anything.
+        Key, scope, layout and item limit are all decided by the code that
+        renders the slot — offering them as fields invites an editor to change
+        something that either has no effect or quietly breaks the page, which is
+        the definition of a dead field. Placements that draw no heading get no
+        form at all, rather than two inputs that save and never appear.
+
+        Custom sections, which nothing renders by name, keep the full form.
+      */}
+      {placement ? (
+        placement.showsHeading ? (
+          <PlacementHeadingForm
+            sectionId={section.id}
+            title={section.title}
+            description={section.description}
+            defaultHeading={placement.publicHeading ?? placementName}
+            scopeType={section.scope_type}
+            categoryId={section.category_id}
+            placeId={section.place_id}
+            layout={section.layout}
+            maxItems={section.max_items}
+            status={section.status}
+          />
+        ) : null
+      ) : (
+        <details className="rounded-card border border-line bg-white">
+          <summary className="cursor-pointer px-5 py-3 text-sm font-semibold text-navy-900">
+            Section settings
+          </summary>
+          <div className="border-t border-line p-5">
+            <SectionForm section={section} categories={categories} places={places} />
+          </div>
+        </details>
+      )}
 
       <PlacementBoard
         sectionId={section.id}
