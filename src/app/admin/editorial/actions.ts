@@ -720,3 +720,80 @@ export async function setSingleSlotTarget(
   await revalidateSectionSurfaces(supabase, sectionId);
   return { ok: true };
 }
+
+/**
+ * Publishes the chosen content, then puts it in the placement.
+ *
+ * Adding a draft product to a live Top Picks used to produce a row that looked
+ * fine and rendered nothing — the "1 item · 0 published" trap, arrived at from
+ * the other direction. The honest options are to refuse or to offer, and
+ * refusing wastes a trip: the editor picked the product deliberately and the
+ * only thing standing between it and readers is one status.
+ *
+ * So this is the offer. It is deliberately explicit — a separate action behind
+ * a separate button — because publishing content is a bigger decision than
+ * arranging a homepage row, and it should never happen as a side effect of
+ * curating.
+ */
+export async function publishTargetAndAdd(
+  sectionId: string,
+  targetType: string,
+  targetId: string,
+): Promise<EditorialActionState> {
+  const { supabase } = await requireAdmin();
+
+  const tables: Record<string, string> = {
+    ranking: "rankings",
+    article: "articles",
+    product: "products",
+    product_ranking: "product_rankings",
+    business: "businesses",
+    category: "categories",
+    place: "places",
+  };
+
+  const table = tables[targetType];
+  if (!table) return { error: "That kind of content cannot be published here." };
+
+  const { error: publishError } = await supabase
+    .from(table)
+    .update({ status: "published" })
+    .eq("id", targetId);
+
+  if (publishError) return { error: "Could not publish that content." };
+
+  const destination: Record<string, string | null> = {
+    ranking_id: null,
+    business_id: null,
+    category_id: null,
+    place_id: null,
+    product_ranking_id: null,
+    product_id: null,
+    article_id: null,
+    external_url: null,
+  };
+  destination[`${targetType}_id`] = targetId;
+
+  const { data: existing } = await supabase
+    .from("editorial_section_items")
+    .select("position")
+    .eq("section_id", sectionId)
+    .order("position", { ascending: false })
+    .limit(1);
+
+  const nextPosition = ((existing?.[0]?.position as number | undefined) ?? 0) + 1;
+
+  const { error } = await supabase.from("editorial_section_items").insert({
+    section_id: sectionId,
+    position: nextPosition,
+    ...destination,
+    // Live straight away: the editor just answered both questions at once.
+    status: "published",
+  });
+
+  if (error) return { error: "Published it, but could not add it here." };
+
+  revalidatePath(`/admin/editorial/${sectionId}`);
+  await revalidateSectionSurfaces(supabase, sectionId);
+  return { ok: true };
+}

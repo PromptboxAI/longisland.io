@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Check, ExternalLink, Loader2, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useActionState, useRef, useState, useTransition } from "react";
 
 import {
@@ -9,6 +10,7 @@ import {
   removeSectionItem,
   updateSectionItem,
   type EditorialActionState,
+  publishTargetAndAdd,
 } from "@/app/admin/editorial/actions";
 import { FormError } from "@/components/forms/Field";
 import { MediaField } from "@/components/admin/MediaField";
@@ -161,6 +163,9 @@ export function AddSectionItem({
    */
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const chosenRef = useRef<TargetResult | null>(null);
+  const [publishing, startPublish] = useTransition();
+  const [publishError, setPublishError] = useState("");
+  const router = useRouter();
 
   /*
    * Wrapped so the outcome is visible.
@@ -305,6 +310,55 @@ export function AddSectionItem({
       ) : null}
 
       <FormError message={state.error} />
+
+      {/*
+        A draft target is the one case where adding is not the whole job.
+        Adding it produces a row that looks fine and renders nothing — the same
+        trap as "1 item · 0 published", reached from the other direction. So the
+        publish is offered here, as its own explicit button, rather than
+        happening quietly as a side effect of curating.
+      */}
+      {chosen && chosen.status !== "published" ? (
+        <div className="mt-4 rounded-card border border-amber-300 bg-amber-50 p-3">
+          <p className="text-sm font-semibold text-navy-900">
+            {chosen.title} is a draft
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-700">
+            Adding it now is allowed, but readers will not see it here until the{" "}
+            {chosen.typeLabel.toLowerCase()} itself is published.
+          </p>
+          <button
+            type="button"
+            disabled={publishing}
+            onClick={() =>
+              startPublish(async () => {
+                setPublishError("");
+                const result = await publishTargetAndAdd(
+                  sectionId,
+                  chosen.kind,
+                  chosen.id,
+                );
+                if (result.error) {
+                  setPublishError(result.error);
+                  return;
+                }
+                setJustAdded(`${chosen.title} (published)`);
+                setChosen(null);
+                router.refresh();
+              })
+            }
+            className="mt-2.5 inline-flex items-center gap-2 rounded-full bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800 disabled:opacity-60"
+          >
+            {publishing ? (
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+            ) : null}
+            Publish {chosen.typeLabel.toLowerCase()} and add
+          </button>
+          {publishError ? (
+            <p className="mt-2 text-xs font-semibold text-red-700">{publishError}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <button
         type="submit"
