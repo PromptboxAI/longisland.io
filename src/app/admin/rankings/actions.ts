@@ -55,6 +55,8 @@ export type ActionState = {
    * would assume their edit had gone live.
    */
   stagedFields?: string[];
+  /** How many entries went with a deleted ranking, for the confirmation. */
+  deletedEntryCount?: number;
 };
 
 function readString(formData: FormData, key: string): string {
@@ -990,4 +992,69 @@ export async function setBusinessWebsite(
     revalidatePath(`/business/${(business as { slug: string }).slug}`);
   }
   return { ok: true };
+}
+
+/**
+ * Permanently removes a ranking.
+ *
+ * Refuses while the ranking is published, and that is a deliberate speed bump
+ * rather than a technical limit. Unpublishing is reversible and takes the page
+ * down in one click; deleting is not reversible at all. Making someone do the
+ * safe one first means the irreversible step is never the first thing they
+ * reach for, and it splits "get this off the site now" from "destroy the
+ * record" — which are different intentions that a single button conflates.
+ *
+ * What goes: the ranking, its entries, and any editorial placement curating it.
+ * All three cascade in the schema, so a deleted ranking cannot leave a section
+ * pointing at nothing.
+ *
+ * What stays: the businesses. They are shared records — the same pizzeria sits
+ * on three other lists and has a public profile of its own — so removing a list
+ * must never remove the places on it. `ranking_entries.business_id` cascades
+ * from the entry side only, which is what makes that safe.
+ */
+export async function deleteRanking(id: string): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { data, error: readError } = await supabase
+    .from("rankings")
+    .select("slug, title, status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (readError || !data) return { error: "That ranking could not be found." };
+
+  const ranking = data as { slug: string; title: string; status: string };
+
+  if (ranking.status === "published") {
+    return {
+      error:
+        "Unpublish this ranking before deleting it. That takes it off the site straight away, and is undoable — deleting is not.",
+    };
+  }
+
+  // Counted before the delete, so the confirmation can say what went.
+  const { count: entryCount } = await supabase
+    .from("ranking_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("ranking_id", id);
+
+  const { error } = await supabase.from("rankings").delete().eq("id", id);
+  if (error) return { error: "Could not delete that ranking." };
+
+  /*
+   * The ranking's own URL as well as the indexes. A prerendered page keeps
+   * answering with a deleted record until ISR expires otherwise — the same
+   * trap that left deleted places resolving for an hour.
+   */
+  revalidatePath("/admin/rankings");
+  revalidatePath(`/best/${ranking.slug}`);
+  revalidatePath("/best");
+  revalidatePath("/");
+
+  return {
+    ok: true,
+    error: undefined,
+    deletedEntryCount: entryCount ?? 0,
+  };
 }

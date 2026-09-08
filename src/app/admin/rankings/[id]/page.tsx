@@ -13,6 +13,7 @@ import {
   RankingLiveTitle,
 } from "@/components/admin/RankingEditorContext";
 import { AiDraftPanel } from "@/components/admin/AiDraftPanel";
+import { DeleteRankingButton } from "@/components/admin/DeleteRankingButton";
 import { PublishRankingButton } from "@/components/admin/PublishRankingButton";
 import { RankingEntryList } from "@/components/admin/RankingEntryList";
 import { RecommendedProductsEditor } from "@/components/admin/RecommendedProductsEditor";
@@ -169,6 +170,18 @@ export default async function RankingEditorPage({ params }: PageParams) {
           )}
         </div>
       </div>
+
+      {/*
+        Deliberately below the publish controls and on its own row, not beside
+        them. A destructive action sharing a line with the one people click
+        every day is how it gets clicked by accident.
+      */}
+      <DeleteRankingButton
+        rankingId={ranking.id}
+        title={ranking.title}
+        entryCount={ranking.entries.length}
+        isPublished={isPublished}
+      />
 
       {!isPublished ? (
         <p className="rounded-card border border-line bg-sand-50 px-4 py-3 text-sm text-ink-700">
