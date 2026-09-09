@@ -5,7 +5,8 @@ import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "@/lib/media/limits";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth";
-import type { MediaAsset, UploadTicket } from "@/types/media";
+import { fetchRemoteImage, MIME_EXTENSION } from "@/lib/media/fetch-remote";
+import type { MediaAsset, MediaSource, UploadTicket } from "@/types/media";
 
 /**
  * Media library mutations.
@@ -153,6 +154,250 @@ export async function registerUploadedAsset(input: {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Import from a URL                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Sources whose images land needing a human look before they publish.
+ *
+ * Only one entry today, and that is the point: everything we can name a
+ * provenance story for is cleared on arrival, and the catch-all is not.
+ */
+const REVIEW_ON_ARRIVAL = new Set<MediaSource>(["other_editorial_source"]);
+
+const IMPORTABLE_SOURCES = new Set<MediaSource>([
+  "original",
+  "business_provided",
+  "licensed",
+  "official_website",
+  "official_instagram",
+  "official_facebook",
+  "other_editorial_source",
+]);
+
+const importSchema = z.object({
+  imageUrl: z.string().trim().min(1).max(2000),
+  sourcePageUrl: z.string().trim().max(2000).nullable(),
+  sourceType: z.string().trim().min(1),
+  credit: z.string().trim().max(200).nullable(),
+  altText: z.string().trim().max(300).nullable(),
+});
+
+/**
+ * Imports an image from a URL into the library, with its provenance.
+ *
+ * This is the deliberate replacement for a rule that read "never scraped". We
+ * copy the bytes to our own bucket rather than hotlinking, which is the part
+ * that matters practically — a hotlink is someone else's bandwidth, breaks the
+ * day they reorganise their CDN, and lets them swap what our page shows.
+ *
+ * What we do NOT do is pretend the file is ours. `source` says where it came
+ * from, `source_url` is the file, `source_page_url` is the page a person can
+ * open to check, and none of it is optional for the sources that need it. An
+ * asset with no provenance cannot be defended a year later, and the only moment
+ * that information is cheap to record is now.
+ */
+export async function importMediaFromUrl(input: {
+  imageUrl: string;
+  sourcePageUrl: string | null;
+  sourceType: string;
+  credit: string | null;
+  altText: string | null;
+}): Promise<{ asset?: MediaAsset; error?: string; warning?: string }> {
+  const { supabase, user } = await requireAdmin();
+
+  const parsed = importSchema.safeParse(input);
+  if (!parsed.success) return { error: "Check the image details." };
+  const d = parsed.data;
+
+  const sourceType = d.sourceType as MediaSource;
+  if (!IMPORTABLE_SOURCES.has(sourceType)) {
+    return { error: "Choose where this image came from." };
+  }
+
+  /*
+   * A source page is required for anything taken from a business's channels.
+   * It is the difference between a record we can stand behind and a URL to a
+   * CDN blob that nobody can trace once the path rotates.
+   */
+  const needsSourcePage =
+    sourceType === "official_website" ||
+    sourceType === "official_instagram" ||
+    sourceType === "official_facebook" ||
+    sourceType === "other_editorial_source";
+
+  if (needsSourcePage && !d.sourcePageUrl) {
+    return { error: "Add the page this image came from." };
+  }
+
+  const fetched = await fetchRemoteImage(d.imageUrl);
+  if (!fetched.ok) return { error: fetched.error };
+
+  const { image } = fetched;
+
+  // The path is built here and never from the remote filename, which is
+  // attacker-controlled text and has no business shaping a storage key.
+  const now = new Date();
+  const folder = `${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const path = `${folder}/${crypto.randomUUID()}.${MIME_EXTENSION[image.mimeType]}`;
+
+  /*
+   * Uploaded with the editor's own session, not a service key. The bucket's
+   * admin-insert policy is what authorises it, so this path is exactly as
+   * privileged as the browser upload beside it and no more.
+   */
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, image.bytes, {
+      contentType: image.mimeType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    return { error: "The image downloaded but could not be stored." };
+  }
+
+  const filename = filenameFromUrl(image.finalUrl, MIME_EXTENSION[image.mimeType]);
+  const reviewState = REVIEW_ON_ARRIVAL.has(sourceType) ? "needs_review" : "ok";
+
+  const { data, error } = await supabase
+    .from("media_assets")
+    .insert({
+      storage_path: path,
+      filename,
+      mime_type: image.mimeType,
+      width: image.width,
+      height: image.height,
+      size_bytes: image.bytes.byteLength,
+      alt_text: d.altText,
+      source: sourceType,
+      credit: d.credit,
+      source_url: image.finalUrl,
+      source_page_url: d.sourcePageUrl,
+      review_state: reviewState,
+      created_by: user.id,
+    })
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    // The object is already in the bucket; without a row it is unreachable
+    // through the app, so take it back out rather than leaving a stray file.
+    await supabase.storage.from(BUCKET).remove([path]);
+    return { error: "Could not record the image details." };
+  }
+
+  revalidatePath("/admin/media");
+
+  return {
+    asset: data as MediaAsset,
+    warning:
+      reviewState === "needs_review"
+        ? "Imported, but marked Needs review — clear it before this publishes."
+        : undefined,
+  };
+}
+
+/** A readable filename for the library listing, derived from the URL. */
+function filenameFromUrl(url: string, extension: string): string {
+  try {
+    const last = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
+    const cleaned = last.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 120);
+    if (!cleaned) return `imported.${extension}`;
+    return /\.[a-z0-9]{3,4}$/i.test(cleaned) ? cleaned : `${cleaned}.${extension}`;
+  } catch {
+    return `imported.${extension}`;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Takedown                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Removes an image on request, and remembers that we did.
+ *
+ * A published promise to take imagery down is worth nothing without a button
+ * that does it. Deleting the asset row detaches it from every record that used
+ * it — each reference is `on delete set null` — and the object leaves the
+ * bucket, so the file stops being served rather than merely stopping being
+ * linked.
+ *
+ * The log is written FIRST and outlives the row. It is the answer to "you
+ * ignored us", and it is what stops the same URL being re-imported next month
+ * by someone who never heard about the complaint.
+ */
+export async function takedownMediaAsset(
+  assetId: string,
+  reason: string,
+): Promise<MediaActionState> {
+  const { supabase, user } = await requireAdmin();
+
+  const { data: asset } = await supabase
+    .from("media_assets")
+    .select("id, filename, storage_path, source, source_url, source_page_url")
+    .eq("id", assetId)
+    .maybeSingle();
+
+  if (!asset) return { error: "That image could not be found." };
+  const a = asset as {
+    id: string;
+    filename: string;
+    storage_path: string;
+    source: string | null;
+    source_url: string | null;
+    source_page_url: string | null;
+  };
+
+  const { error: logError } = await supabase.from("media_takedowns").insert({
+    media_asset_id: a.id,
+    filename: a.filename,
+    storage_path: a.storage_path,
+    source: a.source,
+    source_url: a.source_url,
+    source_page_url: a.source_page_url,
+    reason: reason.trim() || null,
+    actioned_by: user.id,
+  });
+
+  if (logError) return { error: "Could not record the takedown. Nothing removed." };
+
+  const { error: deleteError } = await supabase
+    .from("media_assets")
+    .delete()
+    .eq("id", assetId);
+
+  if (deleteError) return { error: "Could not remove that image." };
+
+  // Best effort, and deliberately after the row: an object with no row is
+  // invisible to the site, whereas a row pointing at a deleted object is a
+  // broken image on a public page.
+  await supabase.storage.from(BUCKET).remove([a.storage_path]);
+
+  revalidatePath("/admin/media");
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Clears the needs-review flag once a person has looked at the image. */
+export async function clearMediaReview(
+  assetId: string,
+  note: string | null,
+): Promise<MediaActionState> {
+  const { supabase } = await requireAdmin();
+
+  const { error } = await supabase
+    .from("media_assets")
+    .update({ review_state: "ok", review_note: note?.trim() || null })
+    .eq("id", assetId);
+
+  if (error) return { error: "Could not clear that review." };
+
+  revalidatePath("/admin/media");
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
 /* Library                                                                     */
 /* -------------------------------------------------------------------------- */
 
@@ -162,9 +407,21 @@ const detailsSchema = z.object({
   caption: z.string().trim().max(500).nullable(),
   credit: z.string().trim().max(200).nullable(),
   source: z
-    .enum(["own", "business_provided", "licensed", "creator", "manufacturer", "other"])
+    .enum([
+      "original",
+      "business_provided",
+      "licensed",
+      "official_website",
+      "official_instagram",
+      "official_facebook",
+      "other_editorial_source",
+      "creator",
+      "manufacturer",
+      "other",
+    ])
     .nullable(),
   sourceUrl: z.string().trim().max(500).nullable(),
+  sourcePageUrl: z.string().trim().max(500).nullable(),
   license: z.string().trim().max(200).nullable(),
   permissionNote: z.string().trim().max(1000).nullable(),
   focalX: z.number().min(0).max(1),
@@ -184,6 +441,7 @@ export async function saveMediaDetails(
     credit: readNullableString(formData, "credit"),
     source: readNullableString(formData, "source"),
     sourceUrl: readNullableString(formData, "sourceUrl"),
+    sourcePageUrl: readNullableString(formData, "sourcePageUrl"),
     license: readNullableString(formData, "license"),
     permissionNote: readNullableString(formData, "permissionNote"),
     focalX: Number(readString(formData, "focalX") || "0.5"),
@@ -203,6 +461,7 @@ export async function saveMediaDetails(
       credit: d.credit,
       source: d.source,
       source_url: d.sourceUrl,
+      source_page_url: d.sourcePageUrl,
       license: d.license,
       permission_note: d.permissionNote,
       focal_x: d.focalX,

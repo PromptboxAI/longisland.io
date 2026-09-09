@@ -1,11 +1,13 @@
 "use client";
 
-import { Archive, ImageOff, Loader2 } from "lucide-react";
+import { Archive, ImageOff, Loader2, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { useActionState, useMemo, useState, useTransition } from "react";
 
 import {
+  clearMediaReview,
   saveMediaDetails,
   setMediaStatus,
+  takedownMediaAsset,
   type MediaActionState,
 } from "@/app/admin/media/actions";
 import { FormError } from "@/components/forms/Field";
@@ -141,6 +143,7 @@ function MediaDetails({
   );
   const [focal, setFocal] = useState({ x: asset.focal_x, y: asset.focal_y });
   const [archiving, startArchive] = useTransition();
+  const [clearing, startClear] = useTransition();
 
   return (
     <form action={formAction} className="rounded-card border border-line bg-white p-5">
@@ -281,6 +284,22 @@ function MediaDetails({
         </div>
 
         <div>
+          <label htmlFor={`sourcePageUrl-${asset.id}`} className={LABEL}>
+            Source page URL
+          </label>
+          <input
+            id={`sourcePageUrl-${asset.id}`}
+            name="sourcePageUrl"
+            type="url"
+            defaultValue={asset.source_page_url ?? ""}
+            className={`mt-1 ${INPUT}`}
+          />
+          <p className="mt-1 text-xs text-ink-400">
+            The page a person can open to check this. Outlives the image URL.
+          </p>
+        </div>
+
+        <div>
           <label htmlFor={`note-${asset.id}`} className={LABEL}>
             Permission note
           </label>
@@ -294,6 +313,17 @@ function MediaDetails({
           />
         </div>
       </div>
+
+      {asset.review_state === "needs_review" ? (
+        <p className="mt-3 flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
+          <ShieldAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            <strong className="font-bold">Needs review.</strong> This came from a
+            source we cannot vouch for. Open the source page, confirm the picture
+            actually shows this business, then mark it reviewed.
+          </span>
+        </p>
+      ) : null}
 
       <FormError message={state.error} />
 
@@ -322,6 +352,21 @@ function MediaDetails({
           Archive
         </button>
 
+        <TakedownButton assetId={asset.id} filename={asset.filename} />
+
+        {asset.review_state === "needs_review" ? (
+          <button
+            type="button"
+            disabled={clearing}
+            onClick={() => startClear(() => void clearMediaReview(asset.id, null))}
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-60"
+            title="Confirm this image depicts the named business and came from where the record says"
+          >
+            <ShieldCheck aria-hidden="true" className="size-3.5" />
+            Mark reviewed
+          </button>
+        ) : null}
+
         {state.ok ? (
           <span className="text-xs font-semibold text-emerald-700">Saved</span>
         ) : null}
@@ -332,5 +377,97 @@ function MediaDetails({
         a page already using it would be left pointing at nothing.
       </p>
     </form>
+  );
+}
+
+/**
+ * Removing an image because somebody asked.
+ *
+ * Two clicks and a reason, because the reason is the record. A takedown that
+ * leaves no trace of who objected and why is how the same image gets
+ * re-imported next month by someone who never heard about it.
+ *
+ * Unlike Archive, this is not reversible and does not try to be: the row goes,
+ * every reference to it nulls out through the foreign keys, and the object
+ * leaves the bucket so it stops being served rather than merely stopping being
+ * linked.
+ */
+function TakedownButton({
+  assetId,
+  filename,
+}: {
+  assetId: string;
+  filename: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, startBusy] = useTransition();
+  const [error, setError] = useState("");
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-full border border-navy-300 px-4 py-2 text-sm font-semibold text-navy-900 hover:border-red-300 hover:text-red-600"
+      >
+        <Trash2 aria-hidden="true" className="size-3.5" />
+        Take down
+      </button>
+    );
+  }
+
+  return (
+    <div className="w-full rounded-md border-2 border-red-300 bg-red-50 p-3">
+      <p className="text-xs font-bold text-navy-900">
+        Take down &ldquo;{filename}&rdquo;?
+      </p>
+      <p className="mt-1 text-xs leading-relaxed text-ink-700">
+        The file is deleted from storage and detached from every record using it.
+        A permanent log of the request is kept. This cannot be undone.
+      </p>
+      <label htmlFor={`takedown-${assetId}`} className="mt-2 block text-xs font-semibold text-navy-900">
+        Who asked, and why
+      </label>
+      <input
+        id={`takedown-${assetId}`}
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        placeholder="Emailed by the owner, 12 Sept — asked us not to use it"
+        className="mt-1 w-full rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-red-500"
+      />
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={busy || !reason.trim()}
+          onClick={() =>
+            startBusy(async () => {
+              setError("");
+              const result = await takedownMediaAsset(assetId, reason);
+              if (result.error) setError(result.error);
+            })
+          }
+          className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {busy ? <Loader2 aria-hidden="true" className="size-3.5 animate-spin" /> : null}
+          Take it down
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setOpen(false);
+            setReason("");
+            setError("");
+          }}
+          className="rounded-full border border-navy-300 bg-white px-4 py-1.5 text-xs font-semibold text-navy-900 hover:bg-navy-50"
+        >
+          Cancel
+        </button>
+      </div>
+      {error ? (
+        <p className="mt-2 text-xs font-semibold text-red-700">{error}</p>
+      ) : null}
+    </div>
   );
 }

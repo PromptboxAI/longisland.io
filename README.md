@@ -25,6 +25,7 @@ To connect the database and the admin area, see [docs/setup.md](docs/setup.md).
 | [docs/setup.md](docs/setup.md) | Install, env vars, Supabase, migrations, deployment |
 | [docs/architecture.md](docs/architecture.md) | Stack, structure, data model, auth, API, caching |
 | [docs/editorial-workflow.md](docs/editorial-workflow.md) | Idea → published, and the standard at each step |
+| [docs/media-sourcing.md](docs/media-sourcing.md) | Image rights, source tiers, provenance and takedowns |
 
 ## What is built
 

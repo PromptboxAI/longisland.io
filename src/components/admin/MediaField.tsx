@@ -3,8 +3,10 @@
 import {
   ImagePlus,
   Library,
+  Link2,
   Loader2,
   Pencil,
+  ShieldAlert,
   Trash2,
   Upload,
   X,
@@ -14,12 +16,13 @@ import { MAX_UPLOAD_LABEL } from "@/lib/media/limits";
 
 import {
   createUploadTicket,
+  importMediaFromUrl,
   registerUploadedAsset,
   saveMediaMetadata,
 } from "@/app/admin/media/actions";
 import { mediaUrl } from "@/lib/media/resolve";
 import { createClient } from "@/lib/supabase/client";
-import type { MediaAsset } from "@/types/media";
+import { EDITORIAL_SOURCE_TYPES, type MediaAsset } from "@/types/media";
 
 /**
  * The standard image control.
@@ -75,6 +78,8 @@ export function MediaField({
   const [asset, setAsset] = useState<MediaAsset | null>(value);
   const [url, setUrl] = useState(urlValue ?? "");
   const [picking, setPicking] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("");
@@ -204,6 +209,19 @@ export function MediaField({
               Choose existing
             </button>
 
+            <button
+              type="button"
+              className={BUTTON}
+              disabled={busy}
+              onClick={() => {
+                setNotice("");
+                setImporting((open) => !open);
+              }}
+            >
+              <Link2 aria-hidden="true" className="size-3.5" />
+              Add from URL
+            </button>
+
             {asset || url ? (
               <button
                 type="button"
@@ -231,6 +249,27 @@ export function MediaField({
               if (file) void upload(file);
             }}
           />
+
+          {importing ? (
+            <ImportFromUrl
+              hasExisting={Boolean(asset)}
+              onCancel={() => setImporting(false)}
+              onImported={(imported, warning) => {
+                setAsset(imported);
+                setUrl("");
+                setImporting(false);
+                setNotice(warning ?? "");
+                onChange?.(imported.id, null);
+              }}
+            />
+          ) : null}
+
+          {notice ? (
+            <p className="mt-2 flex items-start gap-1.5 text-xs font-semibold text-amber-800">
+              <ShieldAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+              {notice}
+            </p>
+          ) : null}
 
           {asset ? (
             <ImageDetails
@@ -331,6 +370,190 @@ export function MediaField({
             </ul>
           )}
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Bringing in an image we did not take, with the record that makes it defensible.
+ *
+ * The fields are not a formality. We host our own copy rather than hotlinking,
+ * so the only thing tying the file back to where it came from is what gets typed
+ * here — and the moment to capture it is now, not when somebody asks a year
+ * later. The source page is required for anything off a business's own channels
+ * because a CDN image URL rots and a page URL does not.
+ *
+ * Replacing an existing image is deliberately a separate decision. The common
+ * mistake this prevents is an automated pass overwriting a photograph somebody
+ * chose on purpose, which is silent and unrecoverable.
+ */
+function ImportFromUrl({
+  hasExisting,
+  onImported,
+  onCancel,
+}: {
+  hasExisting: boolean;
+  onImported: (asset: MediaAsset, warning?: string) => void;
+  onCancel: () => void;
+}) {
+  const [imageUrl, setImageUrl] = useState("");
+  const [sourcePageUrl, setSourcePageUrl] = useState("");
+  const [sourceType, setSourceType] = useState("official_website");
+  const [credit, setCredit] = useState("");
+  const [replace, setReplace] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const chosen = EDITORIAL_SOURCE_TYPES.find((s) => s.value === sourceType);
+  const needsSourcePage = (chosen?.tier ?? 1) > 1;
+  const blocked = hasExisting && !replace;
+
+  const field =
+    "mt-1 w-full rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-brand-500";
+
+  async function run() {
+    setBusy(true);
+    setError("");
+    try {
+      const result = await importMediaFromUrl({
+        imageUrl: imageUrl.trim(),
+        sourcePageUrl: sourcePageUrl.trim() || null,
+        sourceType,
+        credit: credit.trim() || null,
+        altText: null,
+      });
+      if (result.error || !result.asset) {
+        setError(result.error ?? "That image could not be imported.");
+        return;
+      }
+      onImported(result.asset, result.warning);
+    } catch {
+      setError("That image could not be imported.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-md border border-navy-200 bg-navy-50/40 p-3">
+      <p className="text-xs font-bold text-navy-900">Add from URL</p>
+      <p className="mt-0.5 text-xs leading-relaxed text-ink-500">
+        We download the file and keep our own copy — nothing is hotlinked. Where
+        it came from is stored with it.
+      </p>
+
+      <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label htmlFor="import-image-url" className="block text-xs font-semibold text-navy-900">
+            Image URL
+          </label>
+          <input
+            id="import-image-url"
+            type="url"
+            value={imageUrl}
+            onChange={(event) => setImageUrl(event.target.value)}
+            placeholder="https://example.com/storefront.jpg"
+            className={field}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="import-source-type" className="block text-xs font-semibold text-navy-900">
+            Where it came from
+          </label>
+          <select
+            id="import-source-type"
+            value={sourceType}
+            onChange={(event) => setSourceType(event.target.value)}
+            className={`${field} bg-white`}
+          >
+            {EDITORIAL_SOURCE_TYPES.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {chosen ? (
+            <p className="mt-1 text-xs text-ink-400">{chosen.note}</p>
+          ) : null}
+        </div>
+
+        <div>
+          <label htmlFor="import-credit" className="block text-xs font-semibold text-navy-900">
+            Credit <span className="font-normal text-ink-400">(optional)</span>
+          </label>
+          <input
+            id="import-credit"
+            type="text"
+            value={credit}
+            onChange={(event) => setCredit(event.target.value)}
+            placeholder="Photo: the business"
+            className={field}
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label htmlFor="import-page-url" className="block text-xs font-semibold text-navy-900">
+            Source page URL{" "}
+            {needsSourcePage ? null : (
+              <span className="font-normal text-ink-400">(optional)</span>
+            )}
+          </label>
+          <input
+            id="import-page-url"
+            type="url"
+            value={sourcePageUrl}
+            onChange={(event) => setSourcePageUrl(event.target.value)}
+            placeholder="https://example.com/about"
+            className={field}
+          />
+          <p className="mt-1 text-xs text-ink-400">
+            The page a person can open to check this. It outlives the image URL.
+          </p>
+        </div>
+      </div>
+
+      {hasExisting ? (
+        <label className="mt-2.5 flex items-start gap-2 text-xs text-amber-900">
+          <input
+            type="checkbox"
+            checked={replace}
+            onChange={(event) => setReplace(event.target.checked)}
+            className="mt-0.5 size-3.5"
+          />
+          <span>
+            This record already has an image. Tick to replace it.
+          </span>
+        </label>
+      ) : null}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={busy || !imageUrl.trim() || blocked}
+          onClick={() => void run()}
+          className="inline-flex items-center gap-1.5 rounded-full bg-navy-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-navy-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? (
+            <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+          ) : (
+            <Link2 aria-hidden="true" className="size-3.5" />
+          )}
+          {busy ? "Importing" : "Import and assign"}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onCancel}
+          className="rounded-full border border-navy-300 px-4 py-1.5 text-xs font-semibold text-navy-900 hover:bg-navy-50 disabled:opacity-60"
+        >
+          Cancel
+        </button>
+      </div>
+
+      {error ? (
+        <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>
       ) : null}
     </div>
   );

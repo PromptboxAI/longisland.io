@@ -4,7 +4,7 @@ import Image from "next/image";
  * Image with a deterministic branded fallback.
  *
  * The seed data ships without photography on purpose — we do not scrape images
- * we have no licence to. Until owned, licensed or business-provided media is
+ * we have no licence to. Until sourced media is
  * attached, this renders a stable navy/aqua gradient derived from the subject's
  * name, so a page full of placeholders still looks composed rather than broken.
  *

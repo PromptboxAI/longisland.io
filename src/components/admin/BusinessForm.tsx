@@ -256,7 +256,7 @@ export function BusinessForm({
             urlValue={business.primary_image_url ?? null}
             library={library}
             label="Primary image"
-            hint="1200 × 900 (4:3). The venue, the food, the interior or the storefront — a logo reads as an advert in a ranking. Owned, licensed or business-provided photography only, never a third-party listing photo."
+            hint="1200 × 900 (4:3). The venue, the food, the interior or the storefront — a logo reads as an advert in a ranking. Ours, business-provided or licensed first; otherwise Add from URL with the source recorded. Never a customer photo where an official one exists."
           />
         </div>
       </section>

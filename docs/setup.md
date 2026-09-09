@@ -65,6 +65,12 @@ order**:
 1. `20260101000000_initial_schema.sql` — tables, indexes, `updated_at` triggers
 2. `20260101000001_rls_policies.sql` — row level security
 
+…and so on through the directory. The most recent is
+`20260912000000_media_editorial_sourcing.sql`, which adds image provenance
+(`source_page_url`, `review_state`) and the `media_takedowns` log. Without it,
+**Add from URL** on any image control fails at the point it records the asset —
+see [media-sourcing.md](media-sourcing.md).
+
 ### 2. Verify RLS
 
 Every table has RLS enabled. Confirm in Dashboard → Authentication → Policies

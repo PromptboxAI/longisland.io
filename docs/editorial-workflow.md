@@ -103,11 +103,24 @@ ranking.
 
 ## MEDIA
 
-Photography and video. Owned, licensed or business-provided only — never
-scraped. Until real imagery is attached, `EditorialImage` renders a branded
-placeholder, which is the honest state rather than a borrowed photo.
+Photography and video. The full rules, including the source tiers and the
+takedown process, are in [docs/media-sourcing.md](media-sourcing.md).
 
-Remote hosts must be added to `images.remotePatterns` in `next.config.ts`.
+The short version: prefer our own, business-provided or licensed imagery. Where
+none exists, an image from the business's own public channels may be used to
+show the business it depicts, provided we host our own copy, record where it
+came from, never claim it as ours, and remove it on request. Anything from
+another source lands as **Needs review** and does not publish until a person
+clears it.
+
+Until real imagery is attached, `EditorialImage` renders a branded placeholder,
+which remains a perfectly good answer — better than a photo that misrepresents
+the place.
+
+Images are imported through the image control on the record (**Add from URL**),
+which downloads the file into our own bucket. Nothing is hotlinked, so
+`images.remotePatterns` in `next.config.ts` needs no entry per source — every
+image is served from our own storage.
 
 ## READY
 
