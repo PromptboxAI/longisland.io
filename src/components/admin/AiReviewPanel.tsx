@@ -30,6 +30,8 @@ export interface AiDraftField {
 export function AiReviewPanel({
   fields,
   note,
+  idSuffix,
+  applyLabel = "Apply to entry",
   onApply,
   onRegenerate,
   onDiscard,
@@ -37,6 +39,18 @@ export function AiReviewPanel({
   fields: AiDraftField[];
   /** The model's own account of what it had to work with. */
   note?: string | null;
+  /**
+   * What makes this panel's field ids unique on the page.
+   *
+   * Ten entries render ten of these at once, and every one of them used to
+   * emit `id="ai-bestFor"`. Duplicate ids are not merely invalid: a `<label
+   * for>` resolves to the FIRST match in the document, so clicking "Best for"
+   * on the tenth entry put the caret in the first entry's field. Pass the
+   * entry or ranking id.
+   */
+  idSuffix: string;
+  /** "Apply to ranking" on the ranking-level panel; entries keep the default. */
+  applyLabel?: string;
   onApply: (values: Record<string, string>) => Promise<{ error?: string }>;
   onRegenerate: () => void;
   onDiscard: () => void;
@@ -68,7 +82,7 @@ export function AiReviewPanel({
         {fields.map((field) => (
           <div key={field.key}>
             <label
-              htmlFor={`ai-${field.key}`}
+              htmlFor={`ai-${field.key}-${idSuffix}`}
               className="block text-xs font-semibold text-navy-900"
             >
               {field.label}
@@ -76,7 +90,7 @@ export function AiReviewPanel({
 
             {field.kind === "select" ? (
               <select
-                id={`ai-${field.key}`}
+                id={`ai-${field.key}-${idSuffix}`}
                 value={values[field.key] ?? ""}
                 onChange={(event) =>
                   setValues((current) => ({
@@ -95,7 +109,7 @@ export function AiReviewPanel({
               </select>
             ) : field.kind === "textarea" ? (
               <textarea
-                id={`ai-${field.key}`}
+                id={`ai-${field.key}-${idSuffix}`}
                 rows={4}
                 value={values[field.key] ?? ""}
                 onChange={(event) =>
@@ -108,7 +122,7 @@ export function AiReviewPanel({
               />
             ) : (
               <input
-                id={`ai-${field.key}`}
+                id={`ai-${field.key}-${idSuffix}`}
                 type="text"
                 value={values[field.key] ?? ""}
                 onChange={(event) =>
@@ -147,7 +161,7 @@ export function AiReviewPanel({
           {busy ? (
             <Loader2 aria-hidden="true" className="size-4 animate-spin" />
           ) : null}
-          Apply to entry
+          {applyLabel}
         </button>
 
         <button

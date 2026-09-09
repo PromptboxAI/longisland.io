@@ -313,3 +313,34 @@ export function resolveArea(value: string): { location: string; radius?: number 
   // Anything else is treated as a town name typed by the editor.
   return { location: `${value}, NY` };
 }
+
+/**
+ * The county a search area confines results to, or null when it does not.
+ *
+ * Yelp takes a location and a radius, which is a circle, not a boundary — a
+ * 24km radius on Nassau County reaches Huntington and Melville. Those came back
+ * as "eligible" because the workbench fell back to `isOnLongIsland` for every
+ * region preset, and Suffolk is on Long Island, so a Nassau list was quietly
+ * being built from a Nassau-and-Suffolk pool.
+ *
+ * Only the two county presets are a boundary we can enforce, because county is
+ * the one thing `inferCounty` can actually derive. The sub-regions (North
+ * Shore, the Hamptons, Fire Island) are radii around an anchor town by design
+ * and have no county to check against, so they keep the island-wide test.
+ */
+export function areaCounty(areaValue: string): string | null {
+  if (areaValue === "nassau-county") return "Nassau County";
+  if (areaValue === "suffolk-county") return "Suffolk County";
+  return null;
+}
+
+/** Whether a search area value is one of the region presets, not a town. */
+export function isRegionPreset(areaValue: string): boolean {
+  return SEARCH_AREAS.some((area) => area.value === areaValue);
+}
+
+/**
+ * Yelp caps `offset + limit` at 240, so a single sweep can never see more than
+ * 240 records however many matches it reports.
+ */
+export const YELP_MAX_OFFSET = 240;

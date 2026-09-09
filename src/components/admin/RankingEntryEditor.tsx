@@ -508,6 +508,7 @@ export function RankingEntryEditor({
       */}
       {aiDraft ? (
         <AiReviewPanel
+          idSuffix={entry.id}
           note={
             aiDraft.basis
               ? `${aiDraft.confidence} confidence · ${aiDraft.basis}`

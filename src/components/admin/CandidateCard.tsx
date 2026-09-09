@@ -27,6 +27,15 @@ export interface CandidateCardProps {
    * simplified label they are indistinguishable from the real thing.
    */
   topicHint?: string | null;
+  /**
+   * The strictest review floor the adaptive ladder found this candidate under.
+   *
+   * Provenance, not a filter. A business the pool picked up at 250 reviews
+   * carries more evidence than one that only appeared once the floor dropped to
+   * 75, and after a merged multi-rung run there is otherwise nothing on screen
+   * that distinguishes them.
+   */
+  foundAtFloor?: number | null;
   onToggle: () => void;
   onExclude: () => void;
 }
@@ -76,6 +85,7 @@ export function CandidateCard({
   position,
   searchAreaLabel,
   topicHint,
+  foundAtFloor = null,
   onToggle,
   onExclude,
 }: CandidateCardProps) {
@@ -146,6 +156,15 @@ export function CandidateCard({
                 {inSearchArea === true ? " — exact area" : null}
                 {inSearchArea === false ? " — nearby" : null}
                 {distance ? `, ${distance}` : null}
+              </span>
+            ) : null}
+
+            {foundAtFloor !== null ? (
+              <span
+                className="inline-flex items-center rounded-full bg-sand-100 px-2 py-0.5 font-semibold text-ink-500"
+                title="The strictest review floor this candidate was found under"
+              >
+                found at {foundAtFloor}+
               </span>
             ) : null}
             {candidate.address ? (

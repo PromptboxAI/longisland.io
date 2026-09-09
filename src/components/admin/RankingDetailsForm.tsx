@@ -120,6 +120,8 @@ export function RankingDetailsForm({
       */}
       {aiDraft ? (
         <AiReviewPanel
+          idSuffix={ranking.id}
+          applyLabel="Apply to ranking"
           fields={[
             ...(aiDraft.dek !== undefined
               ? [{ key: "dek", label: "Dek", value: aiDraft.dek, kind: "textarea" as const, staged: isPublished }]
