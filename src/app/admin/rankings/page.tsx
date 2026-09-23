@@ -2,7 +2,7 @@ import { Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { createBlankRanking } from "@/app/admin/rankings/actions";
-import { StatusPill } from "@/components/admin/StatusPill";
+import { RankingBulkList } from "@/components/admin/RankingBulkList";
 import { listAdminRankings } from "@/lib/data/admin-queries";
 
 export const dynamic = "force-dynamic";
@@ -93,58 +93,17 @@ export default async function AdminRankingsPage({ searchParams }: PageProps) {
           </Link>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-card border border-line bg-white">
-          <table className="w-full min-w-3xl text-sm">
-            <thead className="border-b border-line bg-sand-50 text-left">
-              <tr>
-                <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
-                  Title
-                </th>
-                <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
-                  Category
-                </th>
-                <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
-                  Area
-                </th>
-                <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
-                  Entries
-                </th>
-                <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {rankings.map((ranking) => (
-                <tr key={ranking.id} className="hover:bg-sand-50">
-                  <td className="px-5 py-3">
-                    <Link
-                      href={`/admin/rankings/${ranking.id}`}
-                      className="font-semibold text-navy-900 hover:text-brand-600 hover:underline"
-                    >
-                      {ranking.title}
-                    </Link>
-                    <span className="mt-0.5 block font-mono text-xs text-ink-400">
-                      /{ranking.slug}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-ink-700">
-                    {ranking.category?.name ?? "—"}
-                  </td>
-                  <td className="px-5 py-3 text-ink-700">
-                    {ranking.geography ?? ranking.place?.name ?? "—"}
-                  </td>
-                  <td className="px-5 py-3 tabular-nums text-ink-700">
-                    {ranking.entry_count}
-                  </td>
-                  <td className="px-5 py-3">
-                    <StatusPill status={ranking.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RankingBulkList
+          rankings={rankings.map((ranking) => ({
+            id: ranking.id,
+            title: ranking.title,
+            slug: ranking.slug,
+            status: ranking.status,
+            entry_count: ranking.entry_count,
+            categoryName: ranking.category?.name ?? null,
+            areaName: ranking.geography ?? ranking.place?.name ?? null,
+          }))}
+        />
       )}
     </div>
   );

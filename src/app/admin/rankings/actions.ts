@@ -997,6 +997,102 @@ export async function setBusinessWebsite(
  * must never remove the places on it. `ranking_entries.business_id` cascades
  * from the entry side only, which is what makes that safe.
  */
+/**
+ * Deletes several drafts in one go.
+ *
+ * Five drafts used to mean five page loads, five confirmations and five round
+ * trips, which is why placeholder rows sat in the list for weeks instead of
+ * being cleared.
+ *
+ * It refuses the whole batch rather than doing part of it. A selection that
+ * turns out to contain something published — or something a placement points
+ * at — stops with the titles named, instead of deleting four rows and
+ * reporting an error about the fifth, which would leave the editor unsure what
+ * survived. The check runs here and not only in the UI: a Server Action is a
+ * public endpoint, and a checkbox that is merely absent from a page is not a
+ * rule.
+ *
+ * Entries go with their ranking. The BUSINESSES those entries point at do not
+ * — they are shared records that other rankings use, and deleting a list has
+ * never meant deleting the places on it.
+ */
+export async function deleteRankings(
+  ids: string[],
+): Promise<ActionState & { deleted?: number }> {
+  const { supabase } = await requireAdmin();
+
+  const wanted = [...new Set(ids)].filter(Boolean);
+  if (wanted.length === 0) return { error: "Nothing was selected." };
+
+  const { data } = await supabase
+    .from("rankings")
+    .select("id, title, slug, status, category:categories(slug), place:places(slug)")
+    .in("id", wanted);
+
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    title: string;
+    slug: string;
+    status: string;
+    category: { slug: string } | null;
+    place: { slug: string } | null;
+  }[];
+
+  if (rows.length !== wanted.length) {
+    return {
+      error:
+        "That selection is out of date — something in it no longer exists. Reload and try again.",
+    };
+  }
+
+  const live = rows.filter((row) => row.status === "published");
+  if (live.length > 0) {
+    return {
+      error: `Unpublish ${live
+        .map((row) => `"${row.title}"`)
+        .join(", ")} before deleting. Taking a list off the site is undoable; deleting it is not.`,
+    };
+  }
+
+  /*
+   * Something on the site still pointing at it.
+   *
+   * A draft can be sitting in a homepage placement waiting to be published, and
+   * deleting it out from under that leaves a placement referring to nothing.
+   */
+  const { data: placed } = await supabase
+    .from("editorial_section_items")
+    .select("ranking_id")
+    .in("ranking_id", wanted);
+
+  const placedIds = new Set(
+    ((placed ?? []) as { ranking_id: string }[]).map((row) => row.ranking_id),
+  );
+  if (placedIds.size > 0) {
+    const names = rows
+      .filter((row) => placedIds.has(row.id))
+      .map((row) => `"${row.title}"`)
+      .join(", ");
+    return {
+      error: `${names} is still placed on the site. Remove it from that placement first.`,
+    };
+  }
+
+  const { error } = await supabase.from("rankings").delete().in("id", wanted);
+  if (error) return { error: "Could not delete those rankings." };
+
+  revalidatePath("/admin/rankings");
+  for (const row of rows) {
+    revalidateRankingScope({
+      slug: row.slug,
+      categorySlug: row.category?.slug,
+      placeSlug: row.place?.slug,
+    });
+  }
+
+  return { ok: true, deleted: rows.length };
+}
+
 export async function deleteRanking(id: string): Promise<ActionState> {
   const { supabase } = await requireAdmin();
 
