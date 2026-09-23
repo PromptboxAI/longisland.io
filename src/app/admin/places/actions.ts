@@ -140,8 +140,31 @@ export async function createBlankPlace(): Promise<void> {
   if (data) redirect(`/admin/places/${data.id}`);
 }
 
-export async function deletePlace(id: string): Promise<void> {
+export async function deletePlace(
+  id: string,
+): Promise<{ error?: string } | void> {
   const { supabase } = await requireAdmin();
+
+  /*
+   * A published record is not deleted on one click.
+   *
+   * Unpublishing takes it off the site immediately and is undoable; deleting is
+   * not. Only the bulk path enforced this, which left the safer-looking single
+   * button as the sharper one — and it sits beside records that may be live on
+   * the homepage right now.
+   */
+  const { data: current } = await supabase
+    .from("places")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if ((current as { status?: string } | null)?.status === "published") {
+    return {
+      error:
+        "Unpublish this place before deleting it. That takes it off the site straight away and is undoable — deleting is not.",
+    };
+  }
 
   /*
    * The slug has to be read before the delete, because afterwards there is no

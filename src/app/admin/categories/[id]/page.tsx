@@ -25,7 +25,7 @@ export default async function CategoryEditorPage({ params }: PageParams) {
 
   async function remove() {
     "use server";
-    await deleteCategory(id);
+    return deleteCategory(id);
   }
 
   return (

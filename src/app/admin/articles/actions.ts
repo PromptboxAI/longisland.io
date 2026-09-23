@@ -275,8 +275,31 @@ export async function deleteArticles(
   return { ok: true, deleted: rows.length };
 }
 
-export async function deleteArticle(id: string): Promise<void> {
+export async function deleteArticle(
+  id: string,
+): Promise<{ error?: string } | void> {
   const { supabase } = await requireAdmin();
+
+  /*
+   * A published record is not deleted on one click.
+   *
+   * Unpublishing takes it off the site immediately and is undoable; deleting is
+   * not. Only the bulk path enforced this, which left the safer-looking single
+   * button as the sharper one — and it sits beside records that may be live on
+   * the homepage right now.
+   */
+  const { data: current } = await supabase
+    .from("articles")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if ((current as { status?: string } | null)?.status === "published") {
+    return {
+      error:
+        "Unpublish this article before deleting it. That takes it off the site straight away and is undoable — deleting is not.",
+    };
+  }
 
   /*
    * Read the slug first: after the delete there is no record of the URL this

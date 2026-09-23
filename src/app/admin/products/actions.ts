@@ -253,8 +253,31 @@ export async function deleteProducts(
   return { ok: true, deleted: rows.length };
 }
 
-export async function deleteProduct(id: string): Promise<void> {
+export async function deleteProduct(
+  id: string,
+): Promise<{ error?: string } | void> {
   const { supabase } = await requireAdmin();
+
+  /*
+   * A published record is not deleted on one click.
+   *
+   * Unpublishing takes it off the site immediately and is undoable; deleting is
+   * not. Only the bulk path enforced this, which left the safer-looking single
+   * button as the sharper one — and it sits beside records that may be live on
+   * the homepage right now.
+   */
+  const { data: current } = await supabase
+    .from("products")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if ((current as { status?: string } | null)?.status === "published") {
+    return {
+      error:
+        "Unpublish this product before deleting it. That takes it off the site straight away and is undoable — deleting is not.",
+    };
+  }
 
   // Offers cascade; guide entries and recommendations cascade too, so removing
   // a product removes it from every list it appeared on rather than leaving a

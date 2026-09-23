@@ -54,7 +54,7 @@ export default async function ProductEditorPage({
   // Server Actions must be bound here; the button below is inside a form.
   async function remove() {
     "use server";
-    await deleteProduct(id);
+    return deleteProduct(id);
   }
 
   return (

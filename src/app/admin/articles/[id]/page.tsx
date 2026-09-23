@@ -51,7 +51,7 @@ export default async function ArticleEditorPage({
 
   async function remove() {
     "use server";
-    await deleteArticle(id);
+    return deleteArticle(id);
   }
 
   return (
