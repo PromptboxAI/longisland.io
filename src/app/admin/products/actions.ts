@@ -175,6 +175,84 @@ export async function createBlankProduct(formData?: FormData): Promise<void> {
   }
 }
 
+/**
+ * Deletes several draft products together.
+ *
+ * Guards the single-product delete never had: that one will remove a PUBLISHED
+ * product without asking, which is a sharper edge than it looks when the
+ * product is sitting in Top Picks on the homepage. Bulk deletion refuses
+ * anything live, and refuses the whole batch rather than part of it.
+ *
+ * Click history is deliberately NOT part of what goes. `affiliate_clicks`
+ * holds product_id with `on delete set null` and keeps its own copy of the
+ * product name and merchant, so what a deleted product earned stays readable
+ * after the record is gone. Deleting a product must never quietly delete the
+ * evidence of what it did.
+ */
+export async function deleteProducts(
+  ids: string[],
+): Promise<{ ok?: boolean; error?: string; deleted?: number }> {
+  const { supabase } = await requireAdmin();
+
+  const wanted = [...new Set(ids)].filter(Boolean);
+  if (wanted.length === 0) return { error: "Nothing was selected." };
+
+  const { data } = await supabase
+    .from("products")
+    .select("id, name, status")
+    .in("id", wanted);
+
+  const rows = (data ?? []) as { id: string; name: string; status: string }[];
+  if (rows.length !== wanted.length) {
+    return {
+      error:
+        "That selection is out of date — something in it no longer exists. Reload and try again.",
+    };
+  }
+
+  const live = rows.filter((row) => row.status === "published");
+  if (live.length > 0) {
+    return {
+      error: `Unpublish ${live
+        .map((row) => `"${row.name}"`)
+        .join(", ")} before deleting.`,
+    };
+  }
+
+  /*
+   * Still on a page somewhere.
+   *
+   * A product can sit in Top Picks or inside a buying guide while still being a
+   * draft, and deleting it from under either leaves a slot pointing at nothing.
+   */
+  const [placed, guided] = await Promise.all([
+    supabase.from("editorial_section_items").select("product_id").in("product_id", wanted),
+    supabase.from("product_ranking_entries").select("product_id").in("product_id", wanted),
+  ]);
+
+  const used = new Set([
+    ...((placed.data ?? []) as { product_id: string }[]).map((r) => r.product_id),
+    ...((guided.data ?? []) as { product_id: string }[]).map((r) => r.product_id),
+  ]);
+  if (used.size > 0) {
+    const names = rows
+      .filter((row) => used.has(row.id))
+      .map((row) => `"${row.name}"`)
+      .join(", ");
+    return {
+      error: `${names} is still used on a page or in a buying guide. Take it out of there first.`,
+    };
+  }
+
+  const { error } = await supabase.from("products").delete().in("id", wanted);
+  if (error) return { error: "Could not delete those products." };
+
+  revalidatePath("/admin/products");
+  revalidatePath("/products", "layout");
+  revalidatePath("/");
+  return { ok: true, deleted: rows.length };
+}
+
 export async function deleteProduct(id: string): Promise<void> {
   const { supabase } = await requireAdmin();
 

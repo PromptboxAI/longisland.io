@@ -206,6 +206,75 @@ export async function createBlankArticle(formData?: FormData): Promise<void> {
   }
 }
 
+/**
+ * Deletes several draft articles together.
+ *
+ * Slugs are read before the delete, not after: once the rows are gone there is
+ * no record of the URLs they had, and each of those is a prerendered page that
+ * would keep serving a deleted article for up to an hour. Revalidating the
+ * index only stops it being LINKED to, which is not the same thing.
+ */
+export async function deleteArticles(
+  ids: string[],
+): Promise<{ ok?: boolean; error?: string; deleted?: number }> {
+  const { supabase } = await requireAdmin();
+
+  const wanted = [...new Set(ids)].filter(Boolean);
+  if (wanted.length === 0) return { error: "Nothing was selected." };
+
+  const { data } = await supabase
+    .from("articles")
+    .select("id, title, slug, status")
+    .in("id", wanted);
+
+  const rows = (data ?? []) as {
+    id: string;
+    title: string;
+    slug: string;
+    status: string;
+  }[];
+  if (rows.length !== wanted.length) {
+    return {
+      error:
+        "That selection is out of date — something in it no longer exists. Reload and try again.",
+    };
+  }
+
+  const live = rows.filter((row) => row.status === "published");
+  if (live.length > 0) {
+    return {
+      error: `Unpublish ${live
+        .map((row) => `"${row.title}"`)
+        .join(", ")} before deleting.`,
+    };
+  }
+
+  const { data: placed } = await supabase
+    .from("editorial_section_items")
+    .select("article_id")
+    .in("article_id", wanted);
+
+  const used = new Set(
+    ((placed ?? []) as { article_id: string }[]).map((r) => r.article_id),
+  );
+  if (used.size > 0) {
+    const names = rows
+      .filter((row) => used.has(row.id))
+      .map((row) => `"${row.title}"`)
+      .join(", ");
+    return { error: `${names} is still placed on the site. Remove it from that placement first.` };
+  }
+
+  const { error } = await supabase.from("articles").delete().in("id", wanted);
+  if (error) return { error: "Could not delete those articles." };
+
+  revalidatePath("/admin/articles");
+  revalidatePath("/articles");
+  revalidatePath("/");
+  for (const row of rows) revalidatePath(`/articles/${row.slug}`);
+  return { ok: true, deleted: rows.length };
+}
+
 export async function deleteArticle(id: string): Promise<void> {
   const { supabase } = await requireAdmin();
 

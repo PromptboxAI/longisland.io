@@ -1,9 +1,8 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 
-import { createBlankProduct, deleteProduct } from "@/app/admin/products/actions";
-import { DeleteRowButton } from "@/components/admin/DeleteRowButton";
-import { StatusPill } from "@/components/admin/StatusPill";
+import { createBlankProduct } from "@/app/admin/products/actions";
+import { ProductBulkList } from "@/components/admin/ProductBulkList";
 import { listAdminProducts } from "@/lib/data/admin-product-queries";
 import { getClickCountsByProduct } from "@/lib/data/click-queries";
 
@@ -99,108 +98,18 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
           </form>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-card border border-line bg-white">
-          <table className="w-full min-w-3xl text-sm">
-            <thead className="border-b border-line bg-sand-50 text-left">
-              <tr>
-                <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
-                  Product
-                </th>
-                <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
-                  Brand
-                </th>
-                <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
-                  Category
-                </th>
-                {/*
-                  "Offers" was read as a metric sitting at zero. It is a count
-                  of the merchant links attached to the product — configuration,
-                  not traffic — and nothing on this page measures clicks.
-                */}
-                <th
-                  scope="col"
-                  className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400"
-                  title="How many merchant buy-links are attached. Not a click count."
-                >
-                  Buy links
-                </th>
-                {/*
-                  Clicks, never sales. Nothing on this page can see a purchase
-                  — affiliate programmes report those only in their own
-                  dashboards — so the header says what the number is.
-                */}
-                <th
-                  scope="col"
-                  className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400"
-                  title="Outbound buy-link clicks in the last 30 days. Not sales."
-                >
-                  Clicks 30d
-                </th>
-                <th scope="col" className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400">
-                  Status
-                </th>
-                <th scope="col" className="px-5 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {products.map((product) => (
-                <tr key={product.id} className="hover:bg-sand-50">
-                  <td className="px-5 py-3">
-                    <Link
-                      href={`/admin/products/${product.id}`}
-                      className="font-semibold text-navy-900 hover:text-brand-600 hover:underline"
-                    >
-                      {product.name}
-                    </Link>
-                    <span className="mt-0.5 block font-mono text-xs text-ink-400">
-                      {product.slug}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-ink-700">{product.brand ?? "—"}</td>
-                  <td className="px-5 py-3 text-ink-700">
-                    {product.category?.name ?? "—"}
-                  </td>
-                  <td className="px-5 py-3 tabular-nums">
-                    {product.offer_count === 0 ? (
-                      <span
-                        className="font-semibold text-amber-700"
-                        title="No merchant link yet, so this product will not render in a commerce row"
-                      >
-                        None
-                      </span>
-                    ) : (
-                      <span className="text-ink-700">{product.offer_count}</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3 tabular-nums">
-                    {(clicks.get(product.id) ?? 0) > 0 ? (
-                      <span className="font-semibold text-navy-900">
-                        {(clicks.get(product.id) ?? 0).toLocaleString()}
-                      </span>
-                    ) : (
-                      <span className="text-ink-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3">
-                    <StatusPill status={product.status} />
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <DeleteRowButton
-                      name={product.name}
-                      consequence="It is removed from every guide and recommendation too."
-                      onDelete={async () => {
-                        "use server";
-                        await deleteProduct(product.id);
-                      }}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ProductBulkList
+          products={products.map((product) => ({
+            id: product.id,
+            name: product.name,
+            slug: product.slug,
+            brand: product.brand,
+            categoryName: product.category?.name ?? null,
+            offer_count: product.offer_count,
+            clicks: clicks.get(product.id) ?? 0,
+            status: product.status,
+          }))}
+        />
       )}
     </div>
   );

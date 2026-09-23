@@ -187,3 +187,123 @@ export async function saveBusinessContact(
   revalidatePath(`/admin/businesses/${businessId}`);
   return { ok: true };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Deletion                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Deletes several businesses together.
+ *
+ * There was no way to delete a business at all before this, and the reason to
+ * be careful is the same reason it was left out: a business is a SHARED record.
+ * Rankings point at it, and deleting one that appears on a list would punch a
+ * hole straight through that list — including a published one.
+ *
+ * So the first guard is not the business's own status, it is whether anything
+ * uses it. A business on a ranking is refused with the ranking named, because
+ * "still used somewhere" sends an editor hunting and "on 10 Best Pizza Places
+ * near Stony Brook" does not.
+ *
+ * This is the inverse of the rule on the other side: deleting a RANKING never
+ * deletes the businesses on it, and deleting a business is never allowed to
+ * damage a ranking. The shared record survives its lists; the lists survive it.
+ */
+export async function deleteBusinesses(
+  ids: string[],
+): Promise<{ ok?: boolean; error?: string; deleted?: number }> {
+  const { supabase } = await requireAdmin();
+
+  const wanted = [...new Set(ids)].filter(Boolean);
+  if (wanted.length === 0) return { error: "Nothing was selected." };
+
+  const { data } = await supabase
+    .from("businesses")
+    .select("id, name, slug, status")
+    .in("id", wanted);
+
+  const rows = (data ?? []) as {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+  }[];
+  if (rows.length !== wanted.length) {
+    return {
+      error:
+        "That selection is out of date — something in it no longer exists. Reload and try again.",
+    };
+  }
+
+  /*
+   * Named with the list it is on, not just flagged as in use.
+   *
+   * The embed reaches through the entry to the ranking's title so the message
+   * can say where to go. An editor who is told "still on a ranking" has to open
+   * every list to find out which.
+   */
+  const { data: entries } = await supabase
+    .from("ranking_entries")
+    .select("business_id, ranking:rankings(title)")
+    .in("business_id", wanted);
+
+  const onLists = new Map<string, Set<string>>();
+  for (const row of (entries ?? []) as unknown as {
+    business_id: string;
+    ranking: { title: string } | null;
+  }[]) {
+    const titles = onLists.get(row.business_id) ?? new Set<string>();
+    if (row.ranking?.title) titles.add(row.ranking.title);
+    onLists.set(row.business_id, titles);
+  }
+
+  if (onLists.size > 0) {
+    const detail = rows
+      .filter((row) => onLists.has(row.id))
+      .map((row) => {
+        const titles = [...(onLists.get(row.id) ?? [])];
+        return titles.length > 0
+          ? `"${row.name}" is on ${titles.map((t) => `"${t}"`).join(", ")}`
+          : `"${row.name}" is on a ranking`;
+      })
+      .join("; ");
+    return {
+      error: `${detail}. Remove it from there first — deleting it would leave a gap in that list.`,
+    };
+  }
+
+  const { data: placed } = await supabase
+    .from("editorial_section_items")
+    .select("business_id")
+    .in("business_id", wanted);
+
+  const used = new Set(
+    ((placed ?? []) as { business_id: string }[]).map((r) => r.business_id),
+  );
+  if (used.size > 0) {
+    const names = rows
+      .filter((row) => used.has(row.id))
+      .map((row) => `"${row.name}"`)
+      .join(", ");
+    return { error: `${names} is placed on the site. Remove it from that placement first.` };
+  }
+
+  const live = rows.filter((row) => row.status === "published");
+  if (live.length > 0) {
+    return {
+      error: `Unpublish ${live
+        .map((row) => `"${row.name}"`)
+        .join(", ")} before deleting. That takes it off the site straight away and is undoable; deleting is not.`,
+    };
+  }
+
+  const { error } = await supabase.from("businesses").delete().in("id", wanted);
+  if (error) return { error: "Could not delete those businesses." };
+
+  revalidatePath("/admin/businesses");
+  for (const row of rows) revalidatePath(`/business/${row.slug}`);
+  revalidatePath("/category/[slug]", "page");
+  revalidatePath("/place/[slug]", "page");
+  revalidatePath("/");
+  return { ok: true, deleted: rows.length };
+}

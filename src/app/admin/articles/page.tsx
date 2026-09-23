@@ -1,8 +1,7 @@
 import { Plus } from "lucide-react";
-import Link from "next/link";
 
 import { createBlankArticle } from "@/app/admin/articles/actions";
-import { StatusPill } from "@/components/admin/StatusPill";
+import { ArticleBulkList } from "@/components/admin/ArticleBulkList";
 import { listAdminArticles } from "@/lib/data/admin-queries";
 import { articleKindLabel } from "@/types/articles";
 
@@ -48,46 +47,16 @@ export default async function ArticlesPage({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-card border border-line bg-white">
-          <table className="w-full text-sm">
-            <thead className="border-b border-line bg-sand-50 text-left">
-              <tr>
-                <th className="px-5 py-3 font-semibold text-navy-900">Headline</th>
-                <th className="px-5 py-3 font-semibold text-navy-900">Kind</th>
-                <th className="px-5 py-3 font-semibold text-navy-900">Published</th>
-                <th className="px-5 py-3 font-semibold text-navy-900">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {articles.map((article) => (
-                <tr key={article.id} className="hover:bg-sand-50">
-                  <td className="px-5 py-3">
-                    <Link
-                      href={`/admin/articles/${article.id}`}
-                      className="font-semibold text-navy-900 hover:text-brand-600 hover:underline"
-                    >
-                      {article.title}
-                    </Link>
-                    <span className="mt-0.5 block font-mono text-xs text-ink-400">
-                      /articles/{article.slug}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-ink-700">
-                    {articleKindLabel(article.kind)}
-                  </td>
-                  <td className="px-5 py-3 text-ink-500">
-                    {article.published_at
-                      ? new Date(article.published_at).toLocaleDateString("en-US")
-                      : "—"}
-                  </td>
-                  <td className="px-5 py-3">
-                    <StatusPill status={article.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ArticleBulkList
+          articles={articles.map((article) => ({
+            id: article.id,
+            title: article.title,
+            slug: article.slug,
+            kindLabel: articleKindLabel(article.kind),
+            published_at: article.published_at,
+            status: article.status,
+          }))}
+        />
       )}
     </div>
   );

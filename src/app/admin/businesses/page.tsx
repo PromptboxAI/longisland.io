@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 
 import { createBlankBusiness } from "@/app/admin/businesses/actions";
-import { StatusPill } from "@/components/admin/StatusPill";
+import { BusinessBulkList } from "@/components/admin/BusinessBulkList";
 import { listAdminBusinesses, listAdminCategories } from "@/lib/data/admin-queries";
 
 export const dynamic = "force-dynamic";
@@ -158,70 +158,21 @@ export default async function AdminBusinessesPage({ searchParams }: PageProps) {
           </Link>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-card border border-line bg-white">
-          <table className="w-full min-w-3xl text-sm">
-            <thead className="border-b border-line bg-sand-50 text-left">
-              <tr>
-                {["Name", "Town", "Category", "Flags", "Status"].map((heading) => (
-                  <th
-                    key={heading}
-                    scope="col"
-                    className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-400"
-                  >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {businesses.map((business) => (
-                <tr key={business.id} className="hover:bg-sand-50">
-                  <td className="px-5 py-3">
-                    <Link
-                      href={`/admin/businesses/${business.id}`}
-                      className="font-semibold text-navy-900 hover:text-brand-600 hover:underline"
-                    >
-                      {business.name}
-                    </Link>
-                    <span className="mt-0.5 block font-mono text-xs text-ink-400">
-                      /{business.slug}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-ink-700">
-                    {business.city ?? "—"}
-                    {business.county ? (
-                      <span className="block text-xs text-ink-400">
-                        {business.county}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="px-5 py-3 text-ink-700">
-                    {business.category_id
-                      ? (categoryName.get(business.category_id) ?? "—")
-                      : "—"}
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className="flex flex-wrap gap-1.5">
-                      {business.featured ? (
-                        <span className="rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-800">
-                          Featured
-                        </span>
-                      ) : null}
-                      {business.claimed ? (
-                        <span className="rounded-full border border-line bg-sand-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-ink-700">
-                          Claimed
-                        </span>
-                      ) : null}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <StatusPill status={business.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <BusinessBulkList
+          businesses={businesses.map((business) => ({
+            id: business.id,
+            name: business.name,
+            slug: business.slug,
+            city: business.city,
+            county: business.county,
+            categoryName: business.category_id
+              ? (categoryName.get(business.category_id) ?? null)
+              : null,
+            featured: Boolean(business.featured),
+            claimed: Boolean(business.claimed),
+            status: business.status,
+          }))}
+        />
       )}
     </div>
   );
